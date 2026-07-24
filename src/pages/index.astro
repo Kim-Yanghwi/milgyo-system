@@ -642,6 +642,12 @@ import GovLayout from '../layouts/GovLayout.astro';
   </script>
 
   <style>
+    /* hidden 속성을 가진 요소는 아래의 display 규칙들보다 항상 우선해서 안 보여야 합니다.
+       이 규칙이 없으면 로그인 화면·모달창들이 hidden 상태여도 계속 화면에 나타납니다. */
+    [hidden] {
+      display: none !important;
+    }
+
     .login-screen {
       min-height: 100vh;
       display: flex;
