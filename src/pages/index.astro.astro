@@ -1,0 +1,797 @@
+---
+import GovLayout from '../layouts/GovLayout.astro';
+---
+<GovLayout>
+  <!-- 로그인 -->
+  <div class="login-screen" data-login-screen>
+    <div class="login-card">
+      <p class="login-card__kicker">사단법인 대한불교밀교종</p>
+      <h1>종단관리시스템</h1>
+      <p class="login-card__desc">문서등록대장 · 전자결재 · 접수발송대장</p>
+      <form data-login-form>
+        <label for="gov-token">관리자 인증값(ADMIN_TOKEN)</label>
+        <input id="gov-token" type="password" autocomplete="current-password" required />
+        <button type="submit" class="btn btn-primary btn-block">로그인</button>
+      </form>
+      <p class="login-card__help">브라우저를 닫으면 인증값은 사라집니다.</p>
+    </div>
+  </div>
+
+  <!-- 앱 셸 -->
+  <div class="app-shell" data-app-shell hidden>
+    <header class="app-topbar">
+      <div class="app-topbar__brand">
+        <span class="app-topbar__badge">문서</span>
+        종단관리시스템
+      </div>
+      <nav class="app-topbar__menu">
+        <span>홈</span><span class="active">결재</span><span>문서대장</span><span>접수·발송</span>
+      </nav>
+      <div class="app-topbar__right">
+        <button type="button" class="btn btn-ghost" data-logout>로그아웃</button>
+      </div>
+    </header>
+
+    <div class="app-body">
+      <aside class="app-sidebar">
+        <button type="button" class="btn btn-primary btn-block sidebar-compose" data-open-compose>+ 문서작성</button>
+
+        <div class="sidebar-group">
+          <p class="sidebar-group__title">전자문서</p>
+          <button type="button" class="sidebar-link active" data-view="결재대기">
+            결재대기함 <span class="sidebar-link__count" data-count="결재대기">0</span>
+          </button>
+          <button type="button" class="sidebar-link" data-view="발송대기">
+            발송대기함 <span class="sidebar-link__count" data-count="발송대기">0</span>
+          </button>
+          <button type="button" class="sidebar-link" data-view="전체">문서등록대장</button>
+        </div>
+
+        <div class="sidebar-group">
+          <p class="sidebar-group__title">처리한문서</p>
+          <button type="button" class="sidebar-link" data-view="완료">완료문서함</button>
+          <button type="button" class="sidebar-link" data-view="반려">반려문서함</button>
+        </div>
+
+        <div class="sidebar-group">
+          <p class="sidebar-group__title">접수·외부발송(문서24 등)</p>
+          <button type="button" class="sidebar-link" data-received-view="전체">접수·발송대장</button>
+          <button type="button" class="btn btn-outline btn-block" data-open-received>+ 접수·발송 등록</button>
+        </div>
+      </aside>
+
+      <main class="app-main">
+        <!-- 문서 목록 화면 -->
+        <section data-panel="documents">
+          <div class="panel-header">
+            <h2 data-panel-title>결재대기함</h2>
+            <div class="panel-header__tools">
+              <input type="search" data-query placeholder="문서번호, 제목, 기안자 검색" />
+              <button type="button" class="btn btn-outline" data-refresh>조회</button>
+            </div>
+          </div>
+          <div class="panel-status" data-status aria-live="polite"></div>
+          <div class="doc-table" data-doc-table></div>
+        </section>
+
+        <!-- 접수·발송대장 화면 -->
+        <section data-panel="received" hidden>
+          <div class="panel-header">
+            <h2>접수·발송대장</h2>
+            <div class="panel-header__tools">
+              <select data-received-filter>
+                <option value="전체">전체</option>
+                <option value="접수">접수</option>
+                <option value="외부발송">외부발송</option>
+              </select>
+              <input type="search" data-received-query placeholder="제목, 상대방 검색" />
+              <button type="button" class="btn btn-outline" data-received-refresh>조회</button>
+            </div>
+          </div>
+          <div class="panel-status" data-received-status aria-live="polite"></div>
+          <div class="doc-table" data-received-table></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- 문서작성(기안/발송) — 좌: 입력폼 / 우: 공문서 실시간 미리보기 -->
+  <div class="modal-overlay" data-compose-modal hidden>
+    <div class="modal modal--wide">
+      <div class="modal__header">
+        <h2>문서작성</h2>
+        <button type="button" class="modal__close" data-close-compose aria-label="닫기">×</button>
+      </div>
+      <div class="compose-layout">
+        <form class="compose-form" data-compose-form>
+          <label>문서구분</label>
+          <div class="radio-row">
+            <label><input type="radio" name="docType" value="기안" checked /> 기안(내부)</label>
+            <label><input type="radio" name="docType" value="발송" /> 발송(대외)</label>
+          </div>
+
+          <label for="c-category">문서 분류 (제13조③)</label>
+          <select id="c-category" name="category"></select>
+          <p class="hint" data-track-hint></p>
+          <div class="radio-row" data-track-choice hidden>
+            <label><input type="radio" name="approvalTrackChoice" value="이사장결재" checked /> 이사장 결재</label>
+            <label><input type="radio" name="approvalTrackChoice" value="이사회의결" /> 이사회 의결</label>
+          </div>
+
+          <div data-recipient-field hidden>
+            <label for="c-recipient">수신</label>
+            <input id="c-recipient" name="recipient" type="text" maxlength="100" placeholder="예: OO시청 / OOO 귀하" />
+          </div>
+
+          <label for="c-title">제목</label>
+          <input id="c-title" name="title" type="text" maxlength="200" required />
+
+          <label for="c-body">본문</label>
+          <textarea id="c-body" name="body" rows="8" required></textarea>
+
+          <label for="c-attachments">붙임(선택)</label>
+          <input id="c-attachments" name="attachmentsNote" type="text" maxlength="400" placeholder="예: 사업계획서 1부." />
+
+          <label for="c-drafter">기안자</label>
+          <input id="c-drafter" name="drafter" type="text" maxlength="40" required />
+
+          <label for="c-department">담당부서(선택)</label>
+          <input id="c-department" name="department" type="text" maxlength="60" />
+
+          <div class="compose-form__actions">
+            <button type="button" class="btn btn-outline" data-close-compose>취소</button>
+            <button type="submit" class="btn btn-primary">등록</button>
+          </div>
+        </form>
+
+        <div class="compose-preview">
+          <div class="official-doc">
+            <p class="official-doc__org">사단법인 대한불교밀교종</p>
+            <p class="official-doc__number" data-preview-number>문서번호 · 밀교종-2026-000</p>
+            <div class="official-doc__field"><span>수신</span><strong data-preview-recipient>(내부결재)</strong></div>
+            <div class="official-doc__field"><span>제목</span><strong data-preview-title>제목을 입력해 주세요</strong></div>
+            <div class="official-doc__body" data-preview-body>본문을 입력해 주세요.</div>
+            <div class="official-doc__field"><span>붙임</span><strong data-preview-attachments>—</strong></div>
+            <div class="official-doc__sign">
+              <p data-preview-track>결재: 전결</p>
+              <div class="official-doc__stamp">
+                <span data-preview-drafter>기안자</span>
+                <span class="stamp-mark">印</span>
+              </div>
+            </div>
+            <p class="official-doc__footer">사단법인 대한불교밀교종 · milgyo.org</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 접수·발송 등록 모달 -->
+  <div class="modal-overlay" data-received-modal hidden>
+    <div class="modal">
+      <div class="modal__header">
+        <h2>접수·발송 등록</h2>
+        <button type="button" class="modal__close" data-close-received aria-label="닫기">×</button>
+      </div>
+      <form class="compose-form" data-received-form>
+        <label>구분</label>
+        <div class="radio-row">
+          <label><input type="radio" name="direction" value="접수" checked /> 접수(들어온 문서)</label>
+          <label><input type="radio" name="direction" value="외부발송" /> 외부발송(문서24 등으로 내보낸 문서)</label>
+        </div>
+        <label for="r-title">제목</label>
+        <input id="r-title" name="title" type="text" maxlength="200" required />
+        <label for="r-counterparty" data-counterparty-label>발신자</label>
+        <input id="r-counterparty" name="counterparty" type="text" maxlength="100" required />
+        <label for="r-source">전달 경로</label>
+        <input id="r-source" name="sourceSystem" type="text" maxlength="40" placeholder="문서24 / 우편 / 이메일 / 방문 등" />
+        <label for="r-external-number">상대기관 문서번호(선택)</label>
+        <input id="r-external-number" name="externalDocNumber" type="text" maxlength="100" />
+        <label for="r-date">접수·발송 일자</label>
+        <input id="r-date" name="receivedAt" type="date" required />
+        <label for="r-handled-by">등록 담당자</label>
+        <input id="r-handled-by" name="handledBy" type="text" maxlength="40" required />
+        <label for="r-memo">메모(선택)</label>
+        <textarea id="r-memo" name="memo" rows="3" maxlength="2000"></textarea>
+        <div class="compose-form__actions">
+          <button type="button" class="btn btn-outline" data-close-received>취소</button>
+          <button type="submit" class="btn btn-primary">등록</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 문서 상세 / 결재 처리 -->
+  <div class="modal-overlay" data-detail-modal hidden>
+    <div class="modal modal--wide">
+      <div class="modal__header">
+        <h2 data-detail-title>제목</h2>
+        <button type="button" class="modal__close" data-close-detail aria-label="닫기">×</button>
+      </div>
+      <div class="compose-layout">
+        <div>
+          <p class="detail-meta" data-detail-meta></p>
+          <div class="doc-approval-history" data-detail-history></div>
+
+          <form class="compose-form" data-decide-form hidden>
+            <p class="hint">규정 제13조②: 결재권자는 이사장·사무총장·재정국장·총무원장·교육·포교원장 또는 이사회가 지정한 자로 할 수 있습니다.</p>
+            <label for="d-role">결재자 직책</label>
+            <select id="d-role" name="approverRole">
+              <option value="이사장">이사장</option>
+              <option value="사무총장">사무총장</option>
+              <option value="재정국장">재정국장</option>
+              <option value="총무원장">총무원장</option>
+              <option value="교육·포교원장">교육·포교원장</option>
+              <option value="이사회지정자">이사회지정자</option>
+            </select>
+            <label for="d-name">결재자 성명</label>
+            <input id="d-name" name="approverName" type="text" maxlength="40" />
+            <label for="d-memo">결재 의견(선택)</label>
+            <textarea id="d-memo" name="memo" rows="3" maxlength="2000"></textarea>
+            <div class="compose-form__actions">
+              <button type="submit" class="btn btn-outline" data-action="반려">반려</button>
+              <button type="submit" class="btn btn-primary" data-action="승인">승인</button>
+            </div>
+          </form>
+
+          <form class="compose-form" data-send-form hidden>
+            <p class="hint">규정 제16조: 발송문서는 발송방법을 기록해 보관합니다.</p>
+            <label for="s-method">발송방법</label>
+            <input id="s-method" name="sentMethod" type="text" maxlength="40" placeholder="우편 / 전자우편 / 방문제출 등" />
+            <label for="s-handled-by">처리자</label>
+            <input id="s-handled-by" name="handledBy" type="text" maxlength="40" />
+            <div class="compose-form__actions">
+              <button type="submit" class="btn btn-primary">발송완료 처리</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="compose-preview">
+          <div class="official-doc" data-detail-preview>
+            <p class="official-doc__org">사단법인 대한불교밀교종</p>
+            <p class="official-doc__number" data-detail-preview-number></p>
+            <div class="official-doc__field"><span>수신</span><strong data-detail-preview-recipient></strong></div>
+            <div class="official-doc__field"><span>제목</span><strong data-detail-preview-title></strong></div>
+            <div class="official-doc__body" data-detail-preview-body></div>
+            <div class="official-doc__field"><span>붙임</span><strong data-detail-preview-attachments></strong></div>
+            <div class="official-doc__sign">
+              <p data-detail-preview-track></p>
+              <div class="official-doc__stamp">
+                <span data-detail-preview-drafter></span>
+                <span class="stamp-mark">印</span>
+              </div>
+            </div>
+            <p class="official-doc__footer">사단법인 대한불교밀교종 · milgyo.org</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script is:inline define:vars={{
+    importantCategories: [
+      '주무관청 제출자료',
+      '법인 설립·변경·등기·허가·신고 관련 문서',
+      '정관·내부규정 제·개정 자료',
+      '총회·이사회 안건 및 의사록',
+      '예산·결산·사업계획·사업실적 관련 문서',
+      '계약서·협약서·양해각서 및 재산 관련 문서',
+      '인사·보수·위촉·해촉·징계 관련 문서',
+      '후원금·보시금·목적지정 기부금 관련 중요 문서',
+      '법인의 공식 입장 또는 대외 발표자료',
+      '그 밖에 법인의 권리·의무에 중요한 영향을 미치는 문서',
+    ],
+    routineCategory: '일반(경미한 내부보고·단순사무 — 전결대상)',
+  }}>
+    (function () {
+      const STORAGE_KEY = 'milgyo-system-token';
+      const allCategories = importantCategories.concat([routineCategory]);
+
+      const loginScreen = document.querySelector('[data-login-screen]');
+      const appShell = document.querySelector('[data-app-shell]');
+      const loginForm = document.querySelector('[data-login-form]');
+      const tokenInput = document.getElementById('gov-token');
+      const logoutBtn = document.querySelector('[data-logout]');
+
+      const panelDocuments = document.querySelector('[data-panel="documents"]');
+      const panelReceived = document.querySelector('[data-panel="received"]');
+      const panelTitle = document.querySelector('[data-panel-title]');
+      const docTable = document.querySelector('[data-doc-table]');
+      const statusEl = document.querySelector('[data-status]');
+      const queryInput = document.querySelector('[data-query]');
+      const refreshBtn = document.querySelector('[data-refresh]');
+
+      const receivedTable = document.querySelector('[data-received-table]');
+      const receivedStatus = document.querySelector('[data-received-status]');
+      const receivedFilter = document.querySelector('[data-received-filter]');
+      const receivedQuery = document.querySelector('[data-received-query]');
+      const receivedRefreshBtn = document.querySelector('[data-received-refresh]');
+
+      const sidebarLinks = document.querySelectorAll('[data-view]');
+      const receivedSidebarLink = document.querySelector('[data-received-view]');
+
+      let currentView = '결재대기';
+
+      const getToken = () => sessionStorage.getItem(STORAGE_KEY) || '';
+
+      const callApi = async (path, body) => {
+        const response = await fetch(path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await response.json().catch(() => ({ ok: false, message: '응답 처리 중 오류가 발생했습니다.' }));
+        if (response.status === 401) {
+          sessionStorage.removeItem(STORAGE_KEY);
+          showLogin();
+        }
+        return data;
+      };
+
+      const showLogin = () => {
+        loginScreen.hidden = false;
+        appShell.hidden = true;
+      };
+      const showApp = () => {
+        loginScreen.hidden = true;
+        appShell.hidden = false;
+      };
+
+      const showDocumentsPanel = () => {
+        panelDocuments.hidden = false;
+        panelReceived.hidden = true;
+      };
+      const showReceivedPanel = () => {
+        panelDocuments.hidden = true;
+        panelReceived.hidden = false;
+      };
+
+      // ---------- 문서 목록 ----------
+      const viewLabels = {
+        결재대기: '결재대기함',
+        발송대기: '발송대기함',
+        전체: '문서등록대장',
+        완료: '완료문서함',
+        반려: '반려문서함',
+      };
+
+      const renderDocRows = (rows) => {
+        if (!rows.length) {
+          docTable.innerHTML = '<p class="empty">조건에 맞는 문서가 없습니다.</p>';
+          return;
+        }
+        docTable.innerHTML = `
+          <div class="doc-table__head">
+            <span>문서번호</span><span>제목</span><span>구분/분류</span><span>기안자</span><span>상태</span>
+          </div>
+        ` + rows.map((row) => `
+          <button type="button" class="doc-table__row" data-doc-id="${row.id}">
+            <span class="mono">${row.id}</span>
+            <span class="doc-table__title">${row.title}</span>
+            <span class="muted">${row.doc_type} · ${row.approval_track}</span>
+            <span>${row.drafter}</span>
+            <span class="badge badge--${row.status}">${row.status}</span>
+          </button>
+        `).join('');
+
+        docTable.querySelectorAll('[data-doc-id]').forEach((btn) => {
+          btn.addEventListener('click', () => openDetail(btn.getAttribute('data-doc-id')));
+        });
+      };
+
+      const refreshDocuments = async () => {
+        const token = getToken();
+        if (!token) return;
+        statusEl.textContent = '조회 중입니다...';
+        const data = await callApi('/api/documents/list', {
+          token, view: currentView, query: queryInput.value.trim(),
+        });
+        if (!data.ok) { statusEl.textContent = data.message || '조회에 실패했습니다.'; return; }
+        statusEl.textContent = `총 ${data.rows.length}건`;
+        renderDocRows(data.rows);
+        refreshSidebarCounts();
+      };
+
+      const refreshSidebarCounts = async () => {
+        const token = getToken();
+        if (!token) return;
+        for (const view of ['결재대기', '발송대기']) {
+          const data = await callApi('/api/documents/list', { token, view });
+          const el = document.querySelector(`[data-count="${view}"]`);
+          if (el && data.ok) el.textContent = String(data.rows.length);
+        }
+      };
+
+      sidebarLinks.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          sidebarLinks.forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentView = btn.getAttribute('data-view');
+          panelTitle.textContent = viewLabels[currentView] || '문서목록';
+          showDocumentsPanel();
+          refreshDocuments();
+        });
+      });
+
+      receivedSidebarLink.addEventListener('click', () => {
+        sidebarLinks.forEach((b) => b.classList.remove('active'));
+        showReceivedPanel();
+        refreshReceived();
+      });
+
+      refreshBtn.addEventListener('click', refreshDocuments);
+
+      // ---------- 접수·발송대장 ----------
+      const renderReceivedRows = (rows) => {
+        if (!rows.length) {
+          receivedTable.innerHTML = '<p class="empty">등록된 기록이 없습니다.</p>';
+          return;
+        }
+        receivedTable.innerHTML = `
+          <div class="doc-table__head">
+            <span>번호</span><span>제목</span><span>상대방</span><span>경로</span><span>일자</span>
+          </div>
+        ` + rows.map((row) => `
+          <div class="doc-table__row doc-table__row--static">
+            <span class="mono">${row.id}</span>
+            <span class="doc-table__title">${row.title}</span>
+            <span>${row.counterparty}</span>
+            <span class="muted">${row.source_system || '-'}</span>
+            <span>${row.received_at}</span>
+          </div>
+        `).join('');
+      };
+
+      const refreshReceived = async () => {
+        const token = getToken();
+        if (!token) return;
+        receivedStatus.textContent = '조회 중입니다...';
+        const data = await callApi('/api/received/list', {
+          token, direction: receivedFilter.value, query: receivedQuery.value.trim(),
+        });
+        if (!data.ok) { receivedStatus.textContent = data.message || '조회에 실패했습니다.'; return; }
+        receivedStatus.textContent = `총 ${data.rows.length}건`;
+        renderReceivedRows(data.rows);
+      };
+
+      receivedRefreshBtn.addEventListener('click', refreshReceived);
+
+      // ---------- 문서작성(기안/발송) ----------
+      const composeModal = document.querySelector('[data-compose-modal]');
+      const openComposeBtn = document.querySelector('[data-open-compose]');
+      const composeForm = document.querySelector('[data-compose-form]');
+      const categorySelect = document.getElementById('c-category');
+      const trackHint = document.querySelector('[data-track-hint]');
+      const trackChoice = document.querySelector('[data-track-choice]');
+      const recipientField = document.querySelector('[data-recipient-field]');
+
+      categorySelect.innerHTML = allCategories.map((c) => `<option value="${c}">${c}</option>`).join('');
+
+      document.querySelectorAll('[data-close-compose]').forEach((btn) =>
+        btn.addEventListener('click', () => { composeModal.hidden = true; }));
+      openComposeBtn.addEventListener('click', () => { composeModal.hidden = false; updatePreview(); });
+
+      const updateTrackHint = () => {
+        const category = categorySelect.value;
+        const isImportant = importantCategories.includes(category);
+        trackChoice.hidden = !isImportant;
+        trackHint.textContent = isImportant
+          ? '중요문서 — 제13조③에 따라 이사장결재 또는 이사회의결이 필요합니다.'
+          : '경미한 문서 — 제13조④에 따라 등록과 동시에 담당자 전결로 처리됩니다.';
+      };
+      categorySelect.addEventListener('change', () => { updateTrackHint(); updatePreview(); });
+
+      const docTypeRadios = composeForm.querySelectorAll('input[name="docType"]');
+      docTypeRadios.forEach((r) => r.addEventListener('change', () => {
+        recipientField.hidden = r.form.docType.value !== '발송';
+        updatePreview();
+      }));
+
+      const updatePreview = () => {
+        const formData = new FormData(composeForm);
+        const category = formData.get('category');
+        const isImportant = importantCategories.includes(category);
+        const track = !isImportant ? '전결' : (formData.get('approvalTrackChoice') || '이사장결재');
+
+        document.querySelector('[data-preview-recipient]').textContent =
+          formData.get('docType') === '발송' ? (formData.get('recipient') || '(수신처 미입력)') : '(내부결재)';
+        document.querySelector('[data-preview-title]').textContent = formData.get('title') || '제목을 입력해 주세요';
+        document.querySelector('[data-preview-body]').textContent = formData.get('body') || '본문을 입력해 주세요.';
+        document.querySelector('[data-preview-attachments]').textContent = formData.get('attachmentsNote') || '—';
+        document.querySelector('[data-preview-track]').textContent = `결재: ${track}`;
+        document.querySelector('[data-preview-drafter]').textContent = formData.get('drafter') || '기안자';
+      };
+      composeForm.addEventListener('input', updatePreview);
+      updateTrackHint();
+
+      composeForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const token = getToken();
+        const formData = new FormData(composeForm);
+        const payload = Object.fromEntries(formData.entries());
+        payload.token = token;
+        const data = await callApi('/api/documents/create', payload);
+        if (!data.ok) { statusEl.textContent = data.message || '등록에 실패했습니다.'; return; }
+        composeModal.hidden = true;
+        composeForm.reset();
+        updateTrackHint();
+        recipientField.hidden = true;
+        statusEl.textContent = `${data.id} 문서가 등록되었습니다(${data.status}).`;
+        refreshDocuments();
+      });
+
+      // ---------- 접수·발송 등록 ----------
+      const receivedModal = document.querySelector('[data-received-modal]');
+      const openReceivedBtn = document.querySelector('[data-open-received]');
+      const receivedForm = document.querySelector('[data-received-form]');
+      const counterpartyLabel = document.querySelector('[data-counterparty-label]');
+
+      openReceivedBtn.addEventListener('click', () => { receivedModal.hidden = false; });
+      document.querySelectorAll('[data-close-received]').forEach((btn) =>
+        btn.addEventListener('click', () => { receivedModal.hidden = true; }));
+
+      receivedForm.querySelectorAll('input[name="direction"]').forEach((r) => r.addEventListener('change', () => {
+        counterpartyLabel.textContent = r.form.direction.value === '접수' ? '발신자' : '수신자';
+      }));
+
+      receivedForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const token = getToken();
+        const formData = new FormData(receivedForm);
+        const payload = Object.fromEntries(formData.entries());
+        payload.token = token;
+        const data = await callApi('/api/received/create', payload);
+        if (!data.ok) { receivedStatus.textContent = data.message || '등록에 실패했습니다.'; return; }
+        receivedModal.hidden = true;
+        receivedForm.reset();
+        receivedStatus.textContent = `${data.id} 등록되었습니다.`;
+        refreshReceived();
+      });
+
+      // ---------- 문서 상세 / 결재 ----------
+      const detailModal = document.querySelector('[data-detail-modal]');
+      const decideForm = document.querySelector('[data-decide-form]');
+      const sendForm = document.querySelector('[data-send-form]');
+      let currentDetailId = null;
+
+      document.querySelectorAll('[data-close-detail]').forEach((btn) =>
+        btn.addEventListener('click', () => { detailModal.hidden = true; currentDetailId = null; }));
+
+      const openDetail = async (id) => {
+        const token = getToken();
+        const data = await callApi('/api/documents/detail', { token, id });
+        if (!data.ok) { statusEl.textContent = data.message || '문서를 불러오지 못했습니다.'; return; }
+        currentDetailId = id;
+        const doc = data.document;
+
+        document.querySelector('[data-detail-title]').textContent = doc.title;
+        document.querySelector('[data-detail-meta]').textContent =
+          `${doc.id} · ${doc.doc_type} · ${doc.category} · ${doc.approval_track} · 기안자 ${doc.drafter} · 현재 상태: ${doc.status}`;
+
+        const history = data.approvals.map((a) =>
+          `<div class="doc-approval-history__item">${a.created_at} · ${a.approver_role || ''} ${a.approver_name} · ${a.action}${a.memo ? ' · ' + a.memo : ''}</div>`
+        ).join('') || '<p class="muted">결재 이력이 없습니다.</p>';
+        document.querySelector('[data-detail-history]').innerHTML = history;
+
+        document.querySelector('[data-detail-preview-number]').textContent = `문서번호 · ${doc.id}`;
+        document.querySelector('[data-detail-preview-recipient]').textContent = doc.recipient || '(내부결재)';
+        document.querySelector('[data-detail-preview-title]').textContent = doc.title;
+        document.querySelector('[data-detail-preview-body]').textContent = doc.body;
+        document.querySelector('[data-detail-preview-attachments]').textContent = doc.attachments_note || '—';
+        document.querySelector('[data-detail-preview-track]').textContent = `결재: ${doc.approval_track}`;
+        document.querySelector('[data-detail-preview-drafter]').textContent = doc.drafter;
+
+        decideForm.hidden = !(doc.approval_track !== '전결' && doc.status === '결재대기');
+        sendForm.hidden = !(doc.doc_type === '발송' && doc.status === '승인');
+
+        detailModal.hidden = false;
+      };
+
+      decideForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const action = event.submitter ? event.submitter.getAttribute('data-action') : '승인';
+        const token = getToken();
+        const formData = new FormData(decideForm);
+        const payload = Object.fromEntries(formData.entries());
+        payload.token = token;
+        payload.id = currentDetailId;
+        payload.action = action;
+        const data = await callApi('/api/documents/decide', payload);
+        if (!data.ok) { statusEl.textContent = data.message || '결재 처리에 실패했습니다.'; return; }
+        detailModal.hidden = true;
+        statusEl.textContent = data.message;
+        refreshDocuments();
+      });
+
+      sendForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const token = getToken();
+        const formData = new FormData(sendForm);
+        const payload = Object.fromEntries(formData.entries());
+        payload.token = token;
+        payload.id = currentDetailId;
+        const data = await callApi('/api/documents/mark-sent', payload);
+        if (!data.ok) { statusEl.textContent = data.message || '발송 처리에 실패했습니다.'; return; }
+        detailModal.hidden = true;
+        statusEl.textContent = data.message;
+        refreshDocuments();
+      });
+
+      // ---------- 로그인/로그아웃 ----------
+      loginForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        sessionStorage.setItem(STORAGE_KEY, tokenInput.value.trim());
+        showApp();
+        showDocumentsPanel();
+        refreshDocuments();
+      });
+
+      logoutBtn.addEventListener('click', () => {
+        sessionStorage.removeItem(STORAGE_KEY);
+        showLogin();
+      });
+
+      if (getToken()) {
+        showApp();
+        showDocumentsPanel();
+        refreshDocuments();
+      } else {
+        showLogin();
+      }
+    })();
+  </script>
+
+  <style>
+    /* hidden 속성을 가진 요소는 아래의 display 규칙들보다 항상 우선해서 안 보여야 합니다.
+       이 규칙이 없으면 로그인 화면·모달창들이 hidden 상태여도 계속 화면에 나타납니다. */
+    [hidden] {
+      display: none !important;
+    }
+
+    .login-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(160deg, var(--gov-navy) 0%, var(--gov-navy-dark) 60%);
+    }
+    .login-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 2.4rem 2.2rem;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      text-align: center;
+    }
+    .login-card__kicker { color: var(--gov-gold); font-weight: 700; margin: 0 0 0.2rem; font-size: 0.85rem; }
+    .login-card h1 { margin: 0 0 0.3rem; font-size: 1.5rem; }
+    .login-card__desc { color: var(--gov-muted); margin: 0 0 1.4rem; font-size: 0.9rem; }
+    .login-card form { display: flex; flex-direction: column; gap: 0.5rem; text-align: left; }
+    .login-card label { font-size: 0.85rem; font-weight: 600; }
+    .login-card input {
+      border: 1px solid var(--gov-border); border-radius: 8px; padding: 0.6rem 0.8rem; font-size: 1rem;
+    }
+    .login-card__help { color: var(--gov-muted); font-size: 0.78rem; margin-top: 1rem; }
+
+    .btn {
+      border: 1px solid transparent; border-radius: 8px; padding: 0.55rem 1rem; font-size: 0.92rem; font-weight: 600;
+      transition: background 0.15s;
+    }
+    .btn-primary { background: var(--gov-accent); color: #fff; }
+    .btn-primary:hover { background: #2559c4; }
+    .btn-outline { background: #fff; border-color: var(--gov-border); color: var(--gov-text); }
+    .btn-outline:hover { background: #f5f6f8; }
+    .btn-ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,0.4); }
+    .btn-block { width: 100%; }
+
+    .app-topbar {
+      height: 56px; background: var(--gov-navy); color: #fff;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 1.2rem;
+    }
+    .app-topbar__brand { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.05rem; }
+    .app-topbar__badge {
+      background: var(--gov-gold); color: #1a1a1a; font-size: 0.7rem; font-weight: 700;
+      padding: 0.15rem 0.4rem; border-radius: 4px;
+    }
+    .app-topbar__menu { display: flex; gap: 1.4rem; font-size: 0.88rem; color: rgba(255,255,255,0.75); }
+    .app-topbar__menu .active { color: #fff; font-weight: 700; }
+
+    .app-body { display: flex; min-height: calc(100vh - 56px); }
+    .app-sidebar {
+      width: 240px; background: #fff; border-right: 1px solid var(--gov-border);
+      padding: 1rem 0.8rem; display: flex; flex-direction: column; gap: 1rem;
+    }
+    .sidebar-compose { margin-bottom: 0.4rem; }
+    .sidebar-group__title { font-size: 0.78rem; color: var(--gov-muted); font-weight: 700; margin: 0 0 0.3rem 0.2rem; }
+    .sidebar-link {
+      display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left;
+      background: transparent; border: none; border-radius: 8px; padding: 0.5rem 0.6rem; font-size: 0.9rem; color: var(--gov-text);
+    }
+    .sidebar-link:hover { background: #f2f4f7; }
+    .sidebar-link.active { background: #e8effe; color: var(--gov-accent); font-weight: 700; }
+    .sidebar-link__count {
+      background: var(--gov-border); color: var(--gov-muted); border-radius: 999px; font-size: 0.72rem; padding: 0.05rem 0.5rem;
+    }
+    .sidebar-link.active .sidebar-link__count { background: var(--gov-accent); color: #fff; }
+
+    .app-main { flex: 1; padding: 1.4rem 1.6rem; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap; gap: 0.6rem; }
+    .panel-header h2 { margin: 0; font-size: 1.15rem; }
+    .panel-header__tools { display: flex; gap: 0.5rem; }
+    .panel-header__tools input, .panel-header__tools select {
+      border: 1px solid var(--gov-border); border-radius: 8px; padding: 0.5rem 0.7rem; font-size: 0.88rem;
+    }
+    .panel-status { color: var(--gov-muted); font-size: 0.85rem; margin-bottom: 0.6rem; }
+
+    .doc-table__head, .doc-table__row {
+      display: grid; grid-template-columns: 140px 1fr 200px 100px 100px; gap: 0.8rem; align-items: center;
+      padding: 0.65rem 0.9rem;
+    }
+    .doc-table__head { color: var(--gov-muted); font-size: 0.78rem; font-weight: 700; }
+    .doc-table__row {
+      width: 100%; text-align: left; background: #fff; border: 1px solid var(--gov-border); border-radius: 10px;
+      margin-bottom: 0.45rem; font-size: 0.88rem;
+    }
+    .doc-table__row--static { cursor: default; }
+    .mono { font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.82rem; color: var(--gov-muted); }
+    .doc-table__title { font-weight: 600; }
+    .muted { color: var(--gov-muted); font-size: 0.82rem; }
+    .badge {
+      justify-self: start; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.78rem; background: #eee;
+    }
+    .badge--승인 { background: #e3f4e3; color: #1e6f2b; }
+    .badge--반려 { background: #fbe4e4; color: #a12626; }
+    .badge--결재대기 { background: #fff3d6; color: #8a5a00; }
+    .badge--발송완료 { background: #e3ecff; color: #2a4fb0; }
+    .empty { color: var(--gov-muted); padding: 2rem; text-align: center; }
+
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(20,24,32,0.45); display: flex; align-items: center; justify-content: center;
+      z-index: 100; padding: 1rem;
+    }
+    .modal { background: #fff; border-radius: 14px; max-width: 480px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 1.4rem; }
+    .modal--wide { max-width: 920px; }
+    .modal__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; }
+    .modal__header h2 { margin: 0; font-size: 1.1rem; }
+    .modal__close { background: none; border: none; font-size: 1.3rem; color: var(--gov-muted); }
+
+    .compose-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem; }
+    @media (max-width: 760px) { .compose-layout { grid-template-columns: 1fr; } }
+
+    .compose-form { display: flex; flex-direction: column; gap: 0.35rem; }
+    .compose-form label { font-weight: 600; font-size: 0.86rem; margin-top: 0.5rem; }
+    .compose-form input, .compose-form select, .compose-form textarea {
+      border: 1px solid var(--gov-border); border-radius: 8px; padding: 0.55rem 0.7rem; font-size: 0.92rem;
+    }
+    .radio-row { display: flex; gap: 1rem; font-size: 0.88rem; font-weight: 400; }
+    .hint { font-size: 0.8rem; color: var(--gov-muted); margin: 0.2rem 0; }
+    .compose-form__actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem; }
+
+    .compose-preview { background: #f7f8fa; border-radius: 10px; padding: 1rem; }
+    .official-doc {
+      background: #fff; border: 1px solid #d8d2c4; border-radius: 4px; padding: 2rem 1.8rem;
+      font-family: "Batang", "Nanum Myeongjo", serif; min-height: 460px;
+    }
+    .official-doc__org { text-align: center; font-size: 1.15rem; font-weight: 700; margin: 0 0 0.3rem; letter-spacing: 0.05em; }
+    .official-doc__number { text-align: center; font-size: 0.78rem; color: #7a7568; margin: 0 0 1.4rem; }
+    .official-doc__field { display: flex; gap: 0.6rem; border-top: 1px solid #e4dfd1; padding: 0.5rem 0; font-size: 0.92rem; }
+    .official-doc__field span { width: 3.4rem; color: #7a7568; flex-shrink: 0; }
+    .official-doc__body {
+      border-top: 1px solid #e4dfd1; padding: 1rem 0; min-height: 140px; white-space: pre-wrap; font-size: 0.92rem; line-height: 1.7;
+    }
+    .official-doc__sign { display: flex; justify-content: space-between; align-items: center; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid #e4dfd1; }
+    .official-doc__sign p { margin: 0; font-size: 0.82rem; color: #7a7568; }
+    .official-doc__stamp { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; }
+    .stamp-mark {
+      display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px;
+      border: 2px solid #b0362f; color: #b0362f; border-radius: 4px; font-size: 0.85rem; transform: rotate(-6deg);
+    }
+    .official-doc__footer { text-align: center; font-size: 0.72rem; color: #a39d8d; margin-top: 1.6rem; }
+
+    .doc-approval-history { margin: 0.6rem 0 1rem; }
+    .doc-approval-history__item { font-size: 0.84rem; color: var(--gov-muted); padding: 0.2rem 0; }
+    .detail-meta { font-size: 0.86rem; color: var(--gov-muted); }
+  </style>
+</GovLayout>
