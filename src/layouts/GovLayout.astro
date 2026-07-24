@@ -1,0 +1,40 @@
+---
+export interface Props {
+  title?: string;
+}
+const { title = '종단관리시스템 | 대한불교밀교종' } = Astro.props;
+---
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>{title}</title>
+</head>
+<body>
+  <slot />
+  <style is:global>
+    :root {
+      --gov-navy: #1c3f6e;
+      --gov-navy-dark: #16325a;
+      --gov-accent: #2f6fed;
+      --gov-bg: #f2f4f7;
+      --gov-border: #dfe3ea;
+      --gov-text: #23262b;
+      --gov-muted: #6a7180;
+      --gov-gold: #b08d3f;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--gov-bg);
+      color: var(--gov-text);
+      font-family: "Pretendard", "Malgun Gothic", -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    button { font-family: inherit; cursor: pointer; }
+    input, select, textarea { font-family: inherit; }
+  </style>
+</body>
+</html>

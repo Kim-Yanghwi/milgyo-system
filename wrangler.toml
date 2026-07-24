@@ -1,0 +1,12 @@
+name = "milgyo-system"
+compatibility_date = "2026-07-01"
+pages_build_output_dir = "dist"
+
+# 공식 홈페이지(milgyo-official-site)와 완전히 분리된 전용 D1입니다.
+# Cloudflare 대시보드에서 D1 데이터베이스를 새로 만든 뒤(예: milgyo-system-db),
+# 아래 database_id를 실제 값으로 채워 넣거나 Pages 프로젝트 설정 화면에서
+# "DB"라는 이름으로 바인딩하세요(코드의 Env.DB와 이름이 일치해야 합니다).
+[[d1_databases]]
+binding = "DB"
+database_name = "milgyo-system-db"
+database_id = "REPLACE_WITH_ACTUAL_D1_DATABASE_ID"
