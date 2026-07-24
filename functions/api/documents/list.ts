@@ -67,11 +67,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     await ensureTables(env.DB);
     const statement = env.DB.prepare(`
-      SELECT id, doc_type, category, title, drafter, department, recipient, approval_track,
-             status, sent_method, sent_at, created_at, updated_at
-      FROM documents
+      SELECT d.id, d.doc_type, d.category, d.title, d.drafter, d.department, d.recipient, d.approval_track,
+             d.status, d.sent_method, d.sent_at, d.created_at, d.updated_at,
+             (SELECT approver_name FROM document_approvals a
+               WHERE a.document_id = d.id ORDER BY a.created_at DESC LIMIT 1) AS reviewer_name,
+             (SELECT approver_role FROM document_approvals a
+               WHERE a.document_id = d.id ORDER BY a.created_at DESC LIMIT 1) AS reviewer_role
+      FROM documents d
       ${where}
-      ORDER BY created_at DESC
+      ORDER BY d.created_at DESC
       LIMIT 300
     `);
     const result = bindings.length ? await statement.bind(...bindings).all() : await statement.all();

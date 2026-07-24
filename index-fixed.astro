@@ -71,14 +71,6 @@ import GovLayout from '../layouts/GovLayout.astro';
             </div>
           </div>
           <div class="panel-status" data-status aria-live="polite"></div>
-          <div class="list-toolbar" data-list-toolbar hidden>
-            <label class="list-toolbar__select-all">
-              <input type="checkbox" data-select-all />
-              전체선택
-            </label>
-            <span class="list-toolbar__count"><span data-selected-count>0</span>건 선택됨</span>
-            <button type="button" class="btn btn-primary" data-open-batch-approve>일괄결재</button>
-          </div>
           <div class="doc-table" data-doc-table></div>
         </section>
 
@@ -137,18 +129,14 @@ import GovLayout from '../layouts/GovLayout.astro';
           <label for="c-body">본문</label>
           <textarea id="c-body" name="body" rows="8" required></textarea>
 
-          <label for="c-attachments-note">붙임 설명(선택)</label>
-          <input id="c-attachments-note" name="attachmentsNote" type="text" maxlength="400" placeholder="예: 사업계획서 1부." />
-
-          <label for="c-attachments-file">붙임파일(선택, 파일당 4MB 이하)</label>
-          <input id="c-attachments-file" name="attachmentsFile" type="file" multiple />
-          <ul class="attachment-pending-list" data-attachment-pending-list></ul>
+          <label for="c-attachments">붙임(선택)</label>
+          <input id="c-attachments" name="attachmentsNote" type="text" maxlength="400" placeholder="예: 사업계획서 1부." />
 
           <label for="c-drafter">기안자</label>
           <input id="c-drafter" name="drafter" type="text" maxlength="40" required />
 
           <label for="c-department">담당부서(선택)</label>
-          <select id="c-department" name="department" data-department-select></select>
+          <input id="c-department" name="department" type="text" maxlength="60" />
 
           <div class="compose-form__actions">
             <button type="button" class="btn btn-outline" data-close-compose>취소</button>
@@ -213,37 +201,6 @@ import GovLayout from '../layouts/GovLayout.astro';
     </div>
   </div>
 
-  <!-- 일괄결재 모달 -->
-  <div class="modal-overlay" data-batch-modal hidden>
-    <div class="modal">
-      <div class="modal__header">
-        <h2>일괄결재</h2>
-        <button type="button" class="modal__close" data-close-batch aria-label="닫기">×</button>
-      </div>
-      <form class="compose-form" data-batch-form>
-        <p class="hint" data-batch-hint>선택한 문서를 일괄 처리합니다.</p>
-        <p class="hint">규정 제13조②: 결재권자는 이사장·사무총장·재정국장·총무원장·교육·포교원장 또는 이사회가 지정한 자로 할 수 있습니다. 전결대상·이미 처리된 문서는 자동으로 제외됩니다.</p>
-        <label for="b-role">결재자 직책</label>
-        <select id="b-role" name="approverRole">
-          <option value="이사장">이사장</option>
-          <option value="사무총장">사무총장</option>
-          <option value="재정국장">재정국장</option>
-          <option value="총무원장">총무원장</option>
-          <option value="교육·포교원장">교육·포교원장</option>
-          <option value="이사회지정자">이사회지정자</option>
-        </select>
-        <label for="b-name">결재자 성명</label>
-        <input id="b-name" name="approverName" type="text" maxlength="40" required />
-        <label for="b-memo">결재 의견(선택)</label>
-        <textarea id="b-memo" name="memo" rows="3" maxlength="2000"></textarea>
-        <div class="compose-form__actions">
-          <button type="submit" class="btn btn-outline" data-batch-action="반려">일괄 반려</button>
-          <button type="submit" class="btn btn-primary" data-batch-action="승인">일괄 승인</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
   <!-- 문서 상세 / 결재 처리 -->
   <div class="modal-overlay" data-detail-modal hidden>
     <div class="modal modal--wide">
@@ -254,9 +211,6 @@ import GovLayout from '../layouts/GovLayout.astro';
       <div class="compose-layout">
         <div>
           <p class="detail-meta" data-detail-meta></p>
-          <p class="detail-section-title">첨부파일</p>
-          <ul class="attachment-list" data-detail-attachments></ul>
-          <p class="detail-section-title">결재 이력</p>
           <div class="doc-approval-history" data-detail-history></div>
 
           <form class="compose-form" data-decide-form hidden>
@@ -333,34 +287,6 @@ import GovLayout from '../layouts/GovLayout.astro';
       const STORAGE_KEY = 'milgyo-system-token';
       const allCategories = importantCategories.concat([routineCategory]);
 
-      // 네이버웍스 조직도를 그대로 반영한 담당부서 트리 (사무국/소속기관·교구/위원회·신도단체만 하위 조직 보유)
-      const departmentTree = [
-        { name: '이사장' },
-        { name: '이사회' },
-        { name: '감사' },
-        { name: '종정' },
-        { name: '사무국', children: ['재정·회계', '준법·윤리', '대외협력·사회공헌', '문화·홍보'] },
-        { name: '총무원' },
-        { name: '교육·포교원' },
-        {
-          name: '소속기관·교구',
-          children: [
-            '람림불교교육원', '서울·인천·경기교구', '강원교구', '대전·세종·충남교구',
-            '충북교구', '전남광주·전북교구', '대구·경북교구', '부산·울산·경남교구', '제주교구',
-          ],
-        },
-        { name: '위원회·신도단체', children: ['신도회', '사찰운영위원회'] },
-      ];
-
-      const renderDepartmentOptions = () => '<option value="">담당부서 선택(선택)</option>' + departmentTree.map((dep) => {
-        if (!dep.children) return `<option value="${dep.name}">${dep.name}</option>`;
-        const parentOption = `<option value="${dep.name}">${dep.name}(전체)</option>`;
-        const childOptions = dep.children
-          .map((child) => `<option value="${dep.name} - ${child}">　ㄴ ${child}</option>`)
-          .join('');
-        return `<optgroup label="${dep.name}">${parentOption}${childOptions}</optgroup>`;
-      }).join('');
-
       const loginScreen = document.querySelector('[data-login-screen]');
       const appShell = document.querySelector('[data-app-shell]');
       const loginForm = document.querySelector('[data-login-form]');
@@ -429,110 +355,28 @@ import GovLayout from '../layouts/GovLayout.astro';
         반려: '반려문서함',
       };
 
-      // 결재대기/발송대기/완료/반려 함(체크박스 + 일괄결재) — 온나라 스타일
-      const QUEUE_VIEWS = ['결재대기', '발송대기', '완료', '반려'];
-      const listToolbar = document.querySelector('[data-list-toolbar]');
-      const selectAllCheckbox = document.querySelector('[data-select-all]');
-      const selectedCountEl = document.querySelector('[data-selected-count]');
-      const openBatchApproveBtn = document.querySelector('[data-open-batch-approve]');
-      let selectedIds = new Set();
-
-      const formatDate = (isoLike) => (isoLike ? String(isoLike).slice(0, 10) : '-');
-
-      const updateSelectionUi = () => {
-        selectedCountEl.textContent = String(selectedIds.size);
-        const boxes = docTable.querySelectorAll('[data-row-select]');
-        const allChecked = boxes.length > 0 && Array.from(boxes).every((box) => box.checked);
-        selectAllCheckbox.checked = allChecked;
-      };
-
-      const renderQueueTable = (rows) => {
-        listToolbar.hidden = false;
-        selectedIds = new Set();
-        selectAllCheckbox.checked = false;
-
-        const bodyRows = rows.map((row) => `
-          <tr class="doc-table__row" data-doc-id="${row.id}">
-            <td class="doc-table__select" data-no-open>
-              <input type="checkbox" data-row-select value="${row.id}" ${row.status === '결재대기' && row.approval_track !== '전결' ? '' : 'disabled'} />
-            </td>
-            <td>${row.doc_type}</td>
-            <td>${formatDate(row.created_at)}</td>
-            <td class="doc-table__title">${row.title}</td>
-            <td>${row.department || '-'}</td>
-            <td>${row.drafter}</td>
-            <td>${row.recipient || '-'}</td>
-            <td><span class="badge badge--${row.status}">${row.status}</span></td>
-          </tr>
-        `).join('');
-
-        docTable.innerHTML = `
-          <table class="doc-table__frame">
-            <thead>
-              <tr>
-                <th class="doc-table__select"></th>
-                <th>구분</th><th>보고일자</th><th>제목</th><th>부서</th><th>보고자</th><th>보낸기관</th><th>상태</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${bodyRows || `<tr class="doc-table__empty-row"><td colspan="8" class="empty">조건에 맞는 문서가 없습니다.</td></tr>`}
-            </tbody>
-          </table>
-        `;
-
-        docTable.querySelectorAll('tr[data-doc-id]').forEach((tr) => {
-          tr.addEventListener('click', (event) => {
-            if (event.target.closest('[data-no-open]')) return;
-            openDetail(tr.getAttribute('data-doc-id'));
-          });
-        });
-        docTable.querySelectorAll('[data-row-select]').forEach((box) => {
-          box.addEventListener('change', () => {
-            if (box.checked) selectedIds.add(box.value); else selectedIds.delete(box.value);
-            updateSelectionUi();
-          });
-        });
-        updateSelectionUi();
-      };
-
-      // 문서등록대장(전체) — 번호/보고일자/제목/수(발)신자/보고자/검토자/검토자직위/상태
-      const renderRegistryTable = (rows) => {
-        listToolbar.hidden = true;
-
-        const bodyRows = rows.map((row) => `
-          <tr class="doc-table__row" data-doc-id="${row.id}">
-            <td class="mono">${row.id}</td>
-            <td>${formatDate(row.created_at)}</td>
-            <td class="doc-table__title">${row.title}</td>
-            <td>${row.recipient || row.department || '-'}</td>
-            <td>${row.drafter}</td>
-            <td>${row.reviewer_name || '-'}</td>
-            <td>${row.reviewer_role || '-'}</td>
-            <td><span class="badge badge--${row.status}">${row.status}</span></td>
-          </tr>
-        `).join('');
-
-        docTable.innerHTML = `
-          <table class="doc-table__frame">
-            <thead>
-              <tr>
-                <th>번호</th><th>보고일자</th><th>제목</th><th>수(발)신자</th><th>보고자</th><th>검토자</th><th>검토자직위</th><th>상태</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${bodyRows || `<tr class="doc-table__empty-row"><td colspan="8" class="empty">등록된 문서가 없습니다.</td></tr>`}
-            </tbody>
-          </table>
-        `;
-
-        docTable.querySelectorAll('tr[data-doc-id]').forEach((tr) => {
-          tr.addEventListener('click', () => openDetail(tr.getAttribute('data-doc-id')));
-        });
-      };
-
       const renderDocRows = (rows) => {
-        if (currentView === '전체') renderRegistryTable(rows);
-        else renderQueueTable(rows);
+        if (!rows.length) {
+          docTable.innerHTML = '<p class="empty">조건에 맞는 문서가 없습니다.</p>';
+          return;
+        }
+        docTable.innerHTML = `
+          <div class="doc-table__head">
+            <span>문서번호</span><span>제목</span><span>구분/분류</span><span>기안자</span><span>상태</span>
+          </div>
+        ` + rows.map((row) => `
+          <button type="button" class="doc-table__row" data-doc-id="${row.id}">
+            <span class="mono">${row.id}</span>
+            <span class="doc-table__title">${row.title}</span>
+            <span class="muted">${row.doc_type} · ${row.approval_track}</span>
+            <span>${row.drafter}</span>
+            <span class="badge badge--${row.status}">${row.status}</span>
+          </button>
+        `).join('');
+
+        docTable.querySelectorAll('[data-doc-id]').forEach((btn) => {
+          btn.addEventListener('click', () => openDetail(btn.getAttribute('data-doc-id')));
+        });
       };
 
       const refreshDocuments = async () => {
@@ -558,22 +402,12 @@ import GovLayout from '../layouts/GovLayout.astro';
         }
       };
 
-      selectAllCheckbox.addEventListener('change', () => {
-        const boxes = docTable.querySelectorAll('[data-row-select]:not(:disabled)');
-        boxes.forEach((box) => {
-          box.checked = selectAllCheckbox.checked;
-          if (box.checked) selectedIds.add(box.value); else selectedIds.delete(box.value);
-        });
-        updateSelectionUi();
-      });
-
       sidebarLinks.forEach((btn) => {
         btn.addEventListener('click', () => {
           sidebarLinks.forEach((b) => b.classList.remove('active'));
           btn.classList.add('active');
           currentView = btn.getAttribute('data-view');
           panelTitle.textContent = viewLabels[currentView] || '문서목록';
-          listToolbar.hidden = currentView === '전체' || !QUEUE_VIEWS.includes(currentView);
           showDocumentsPanel();
           refreshDocuments();
         });
@@ -632,8 +466,6 @@ import GovLayout from '../layouts/GovLayout.astro';
       const recipientField = document.querySelector('[data-recipient-field]');
 
       categorySelect.innerHTML = allCategories.map((c) => `<option value="${c}">${c}</option>`).join('');
-      const departmentSelect = document.querySelector('[data-department-select]');
-      departmentSelect.innerHTML = renderDepartmentOptions();
 
       document.querySelectorAll('[data-close-compose]').forEach((btn) =>
         btn.addEventListener('click', () => { composeModal.hidden = true; }));
@@ -672,91 +504,18 @@ import GovLayout from '../layouts/GovLayout.astro';
       composeForm.addEventListener('input', updatePreview);
       updateTrackHint();
 
-      // ---------- 붙임파일(실제 업로드) ----------
-      let pendingAttachmentFiles = [];
-      const attachmentFileInput = document.getElementById('c-attachments-file');
-      const attachmentPendingList = document.querySelector('[data-attachment-pending-list]');
-      const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
-
-      const renderPendingAttachments = () => {
-        if (!pendingAttachmentFiles.length) {
-          attachmentPendingList.innerHTML = '';
-          return;
-        }
-        attachmentPendingList.innerHTML = pendingAttachmentFiles.map((file, index) => `
-          <li class="attachment-pending-list__item">
-            <span>${file.name} <span class="muted">(${Math.max(1, Math.round(file.size / 1024))}KB)</span></span>
-            <button type="button" data-remove-pending="${index}" aria-label="삭제">×</button>
-          </li>
-        `).join('');
-        attachmentPendingList.querySelectorAll('[data-remove-pending]').forEach((btn) => {
-          btn.addEventListener('click', () => {
-            pendingAttachmentFiles.splice(Number(btn.getAttribute('data-remove-pending')), 1);
-            renderPendingAttachments();
-          });
-        });
-      };
-
-      attachmentFileInput.addEventListener('change', () => {
-        const incoming = Array.from(attachmentFileInput.files || []);
-        const oversized = incoming.filter((file) => file.size > MAX_ATTACHMENT_BYTES);
-        const accepted = incoming.filter((file) => file.size <= MAX_ATTACHMENT_BYTES);
-        accepted.forEach((file) => {
-          const exists = pendingAttachmentFiles.some((existing) =>
-            existing.name === file.name && existing.size === file.size && existing.lastModified === file.lastModified);
-          if (!exists) pendingAttachmentFiles.push(file);
-        });
-        attachmentFileInput.value = '';
-        if (oversized.length) {
-          statusEl.textContent = `${oversized.map((file) => file.name).join(', ')} 파일은 4MB를 초과해 제외되었습니다.`;
-        }
-        renderPendingAttachments();
-      });
-
-      const readFileAsBase64 = (file) => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = String(reader.result || '');
-          const commaIndex = result.indexOf(',');
-          resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
-        };
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
-      });
-
-      const uploadPendingAttachments = async (documentId) => {
-        const token = getToken();
-        for (const file of pendingAttachmentFiles) {
-          try {
-            const dataBase64 = await readFileAsBase64(file);
-            await callApi('/api/documents/upload-attachment', {
-              token, documentId, fileName: file.name, mimeType: file.type || 'application/octet-stream', dataBase64,
-            });
-          } catch (error) {
-            statusEl.textContent = `${file.name} 첨부파일 업로드에 실패했습니다.`;
-          }
-        }
-      };
-
       composeForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         const token = getToken();
         const formData = new FormData(composeForm);
         const payload = Object.fromEntries(formData.entries());
-        delete payload.attachmentsFile;
         payload.token = token;
         const data = await callApi('/api/documents/create', payload);
         if (!data.ok) { statusEl.textContent = data.message || '등록에 실패했습니다.'; return; }
-        if (pendingAttachmentFiles.length) {
-          statusEl.textContent = `${data.id} 문서를 등록했습니다. 첨부파일 업로드 중...`;
-          await uploadPendingAttachments(data.id);
-        }
         composeModal.hidden = true;
         composeForm.reset();
         updateTrackHint();
         recipientField.hidden = true;
-        pendingAttachmentFiles = [];
-        renderPendingAttachments();
         statusEl.textContent = `${data.id} 문서가 등록되었습니다(${data.status}).`;
         refreshDocuments();
       });
@@ -814,20 +573,6 @@ import GovLayout from '../layouts/GovLayout.astro';
         ).join('') || '<p class="muted">결재 이력이 없습니다.</p>';
         document.querySelector('[data-detail-history]').innerHTML = history;
 
-        const attachmentsEl = document.querySelector('[data-detail-attachments]');
-        const attachments = data.attachments || [];
-        attachmentsEl.innerHTML = attachments.length
-          ? attachments.map((att) => `
-              <li class="attachment-list__item">
-                <span>${att.file_name} <span class="muted">(${Math.max(1, Math.round((att.size_bytes || 0) / 1024))}KB)</span></span>
-                <button type="button" class="btn btn-outline" data-download-attachment="${att.id}">다운로드</button>
-              </li>
-            `).join('')
-          : '<li class="muted">등록된 첨부파일이 없습니다.</li>';
-        attachmentsEl.querySelectorAll('[data-download-attachment]').forEach((btn) => {
-          btn.addEventListener('click', () => downloadAttachment(btn.getAttribute('data-download-attachment')));
-        });
-
         document.querySelector('[data-detail-preview-number]').textContent = `문서번호 · ${doc.id}`;
         document.querySelector('[data-detail-preview-recipient]').textContent = doc.recipient || '(내부결재)';
         document.querySelector('[data-detail-preview-title]').textContent = doc.title;
@@ -840,28 +585,6 @@ import GovLayout from '../layouts/GovLayout.astro';
         sendForm.hidden = !(doc.doc_type === '발송' && doc.status === '승인');
 
         detailModal.hidden = false;
-      };
-
-      const downloadAttachment = async (attachmentId) => {
-        const token = getToken();
-        const data = await callApi('/api/documents/attachment-data', { token, attachmentId });
-        if (!data.ok) { statusEl.textContent = data.message || '첨부파일을 불러오지 못했습니다.'; return; }
-        try {
-          const binary = atob(data.dataBase64);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-          const blob = new Blob([bytes], { type: data.mimeType || 'application/octet-stream' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = data.fileName || 'attachment';
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          setTimeout(() => URL.revokeObjectURL(url), 5000);
-        } catch (error) {
-          statusEl.textContent = '첨부파일 다운로드 중 오류가 발생했습니다.';
-        }
       };
 
       decideForm.addEventListener('submit', async (event) => {
@@ -890,36 +613,6 @@ import GovLayout from '../layouts/GovLayout.astro';
         const data = await callApi('/api/documents/mark-sent', payload);
         if (!data.ok) { statusEl.textContent = data.message || '발송 처리에 실패했습니다.'; return; }
         detailModal.hidden = true;
-        statusEl.textContent = data.message;
-        refreshDocuments();
-      });
-
-      // ---------- 일괄결재 ----------
-      const batchModal = document.querySelector('[data-batch-modal]');
-      const batchForm = document.querySelector('[data-batch-form]');
-      const batchHint = document.querySelector('[data-batch-hint]');
-
-      openBatchApproveBtn.addEventListener('click', () => {
-        if (!selectedIds.size) { statusEl.textContent = '일괄결재할 문서를 먼저 선택해 주세요.'; return; }
-        batchHint.textContent = `선택한 ${selectedIds.size}건을 일괄 처리합니다(전결·이미 처리된 문서는 자동 제외).`;
-        batchModal.hidden = false;
-      });
-      document.querySelectorAll('[data-close-batch]').forEach((btn) =>
-        btn.addEventListener('click', () => { batchModal.hidden = true; }));
-
-      batchForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const action = event.submitter ? event.submitter.getAttribute('data-batch-action') : '승인';
-        const token = getToken();
-        const formData = new FormData(batchForm);
-        const payload = Object.fromEntries(formData.entries());
-        payload.token = token;
-        payload.action = action;
-        payload.ids = Array.from(selectedIds);
-        const data = await callApi('/api/documents/decide-batch', payload);
-        if (!data.ok) { statusEl.textContent = data.message || '일괄 결재 처리에 실패했습니다.'; return; }
-        batchModal.hidden = true;
-        batchForm.reset();
         statusEl.textContent = data.message;
         refreshDocuments();
       });
@@ -1053,39 +746,6 @@ import GovLayout from '../layouts/GovLayout.astro';
     .badge--결재대기 { background: #fff3d6; color: #8a5a00; }
     .badge--발송완료 { background: #e3ecff; color: #2a4fb0; }
     .empty { color: var(--gov-muted); padding: 2rem; text-align: center; }
-
-    /* 결재대기함 등 목록 상단 도구모음(전체선택/일괄결재) — 온나라 스타일 */
-    .list-toolbar {
-      display: flex; align-items: center; gap: 1rem; background: #f7f8fa; border: 1px solid var(--gov-border);
-      border-radius: 8px; padding: 0.55rem 0.9rem; margin-bottom: 0.7rem; font-size: 0.86rem;
-    }
-    .list-toolbar__select-all { display: flex; align-items: center; gap: 0.4rem; font-weight: 600; }
-    .list-toolbar__count { color: var(--gov-muted); }
-    .list-toolbar [data-open-batch-approve] { margin-left: auto; }
-
-    /* 온나라 예시와 같이 문서가 없어도 표 틀(헤더)이 항상 보이도록 <table> 기반으로 구성 */
-    .doc-table__frame { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--gov-border); border-radius: 10px; overflow: hidden; font-size: 0.88rem; }
-    .doc-table__frame thead { background: #f2f4f7; }
-    .doc-table__frame th {
-      text-align: left; color: var(--gov-muted); font-size: 0.78rem; font-weight: 700; padding: 0.65rem 0.8rem;
-      border-bottom: 1px solid var(--gov-border);
-    }
-    .doc-table__frame td { padding: 0.65rem 0.8rem; border-bottom: 1px solid var(--gov-border); vertical-align: middle; }
-    .doc-table__frame tbody tr[data-doc-id] { cursor: pointer; }
-    .doc-table__frame tbody tr[data-doc-id]:hover { background: #f8fafd; }
-    .doc-table__frame tbody tr:last-child td { border-bottom: none; }
-    .doc-table__select { width: 40px; text-align: center; }
-    .doc-table__empty-row td { padding: 2.4rem; }
-
-    .attachment-pending-list, .attachment-list { list-style: none; margin: 0.3rem 0 0.2rem; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
-    .attachment-pending-list__item, .attachment-list__item {
-      display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
-      background: #f7f8fa; border: 1px solid var(--gov-border); border-radius: 8px; padding: 0.35rem 0.6rem; font-size: 0.84rem;
-    }
-    .attachment-pending-list__item button {
-      background: none; border: none; color: var(--gov-muted); font-size: 1rem; cursor: pointer; line-height: 1;
-    }
-    .detail-section-title { font-weight: 700; font-size: 0.86rem; margin: 1rem 0 0.3rem; }
 
     .modal-overlay {
       position: fixed; inset: 0; background: rgba(20,24,32,0.45); display: flex; align-items: center; justify-content: center;

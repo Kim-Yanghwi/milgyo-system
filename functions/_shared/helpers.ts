@@ -94,10 +94,20 @@ export const ensureTables = async (db: D1Database) => {
       received_at TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS document_attachments (
+      id TEXT PRIMARY KEY,
+      document_id TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+      size_bytes INTEGER NOT NULL DEFAULT 0,
+      data_base64 TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_status ON documents (status)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_created ON documents (created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_document_approvals_doc ON document_approvals (document_id, created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_received_documents_created ON received_documents (created_at)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_document_attachments_doc ON document_attachments (document_id, created_at)`),
     db.prepare(`CREATE TABLE IF NOT EXISTS admin_rate_limits (
       id TEXT PRIMARY KEY,
       rate_key TEXT NOT NULL,

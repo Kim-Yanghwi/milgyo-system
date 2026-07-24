@@ -45,10 +45,22 @@ CREATE TABLE IF NOT EXISTS received_documents (
   created_at TEXT NOT NULL
 );
 
+-- 문서 첨부파일(소규모 종단 사용량에 맞춰 R2 없이 D1에 base64로 직접 저장합니다. 파일당 4MB 이하 권장)
+CREATE TABLE IF NOT EXISTS document_attachments (
+  id TEXT PRIMARY KEY,
+  document_id TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+  size_bytes INTEGER NOT NULL DEFAULT 0,
+  data_base64 TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_documents_status ON documents (status);
 CREATE INDEX IF NOT EXISTS idx_documents_created ON documents (created_at);
 CREATE INDEX IF NOT EXISTS idx_document_approvals_doc ON document_approvals (document_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_received_documents_created ON received_documents (created_at);
+CREATE INDEX IF NOT EXISTS idx_document_attachments_doc ON document_attachments (document_id, created_at);
 
 CREATE TABLE IF NOT EXISTS admin_rate_limits (
   id TEXT PRIMARY KEY,

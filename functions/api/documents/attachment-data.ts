@@ -13,13 +13,18 @@ interface Env {
   ADMIN_TOKEN: string;
 }
 
-type DetailPayload = { token?: string; id?: string };
+type AttachmentDataPayload = {
+  token?: string;
+  attachmentId?: string;
+};
 
+// 다운로드는 GET 링크 대신 POST + Blob(URL.createObjectURL) 방식으로 처리합니다.
+// (관리자 토큰이 URL 쿼리스트링에 노출되는 것을 피하기 위함입니다.)
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
   if (!env.ADMIN_TOKEN) return json({ ok: false, message: 'ADMIN_TOKEN이 설정되지 않았습니다.' }, 500);
 
-  let payload: DetailPayload;
+  let payload: AttachmentDataPayload;
   try {
     payload = await request.json();
   } catch (error) {
@@ -36,30 +41,28 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
   await clearAdminAuthFailures(env.DB, authRateLimit.rateKey);
 
-  const id = clean(payload.id, 60);
-  if (!id) return json({ ok: false, message: '문서번호가 필요합니다.' }, 400);
+  const attachmentId = clean(payload.attachmentId, 60);
+  if (!attachmentId) return json({ ok: false, message: '첨부파일 정보가 필요합니다.' }, 400);
 
   try {
     await ensureTables(env.DB);
-    const document = await env.DB.prepare(`SELECT * FROM documents WHERE id = ?`).bind(id).first();
-    if (!document) return json({ ok: false, message: '해당 문서를 찾을 수 없습니다.' }, 404);
+    const attachment = await env.DB.prepare(
+      `SELECT id, document_id, file_name, mime_type, size_bytes, data_base64 FROM document_attachments WHERE id = ?`,
+    ).bind(attachmentId).first<{
+      id: string; document_id: string; file_name: string; mime_type: string; size_bytes: number; data_base64: string;
+    }>();
 
-    const approvals = await env.DB.prepare(
-      `SELECT * FROM document_approvals WHERE document_id = ? ORDER BY created_at ASC`,
-    ).bind(id).all();
-
-    const attachments = await env.DB.prepare(
-      `SELECT id, file_name, mime_type, size_bytes, created_at FROM document_attachments WHERE document_id = ? ORDER BY created_at ASC`,
-    ).bind(id).all();
+    if (!attachment) return json({ ok: false, message: '첨부파일을 찾을 수 없습니다.' }, 404);
 
     return json({
       ok: true,
-      document,
-      approvals: approvals.results ?? [],
-      attachments: attachments.results ?? [],
+      fileName: attachment.file_name,
+      mimeType: attachment.mime_type,
+      sizeBytes: attachment.size_bytes,
+      dataBase64: attachment.data_base64,
     });
   } catch (error) {
-    return json({ ok: false, message: '문서 조회 중 오류가 발생했습니다.' }, 500);
+    return json({ ok: false, message: '첨부파일을 불러오는 중 오류가 발생했습니다.' }, 500);
   }
 };
 
