@@ -212,6 +212,7 @@ let tablesEnsured = false;
 let tablesEnsurePromise: Promise<void> | null = null;
 let lastRateLimitCleanupAt = 0;
 const MAINTENANCE_COOLDOWN_MS = 10 * 60 * 1000;
+const SCHEMA_VERSION = '2026-07-25.4';
 
 const ensureColumn = async (db: D1Database, table: string, columnDef: string) => {
   try {
@@ -291,6 +292,7 @@ const runSchemaMigration = async (db: D1Database) => {
     db.prepare(`CREATE TABLE IF NOT EXISTS document_sequences (seq_key TEXT PRIMARY KEY, last_seq INTEGER NOT NULL DEFAULT 0)`),
     db.prepare(`CREATE TABLE IF NOT EXISTS admin_rate_limits (id TEXT PRIMARY KEY, rate_key TEXT NOT NULL, created_at TEXT NOT NULL)`),
     db.prepare(`CREATE TABLE IF NOT EXISTS org_settings (id TEXT PRIMARY KEY, seal_image TEXT, logo_image TEXT, updated_at TEXT NOT NULL)`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS system_meta (meta_key TEXT PRIMARY KEY, meta_value TEXT NOT NULL, updated_at TEXT NOT NULL)`),
   ]);
 
   // 2단계: 운영 중인 구버전 DB에 필요한 컬럼을 순차적으로 추가합니다.
@@ -333,18 +335,35 @@ const runSchemaMigration = async (db: D1Database) => {
   ]);
 
   await seedTemplates(db);
+  await db.prepare(`
+    INSERT INTO system_meta (meta_key, meta_value, updated_at)
+    VALUES ('schema_version', ?, ?)
+    ON CONFLICT(meta_key) DO UPDATE SET meta_value=excluded.meta_value, updated_at=excluded.updated_at
+  `).bind(SCHEMA_VERSION, new Date().toISOString()).run();
+};
+
+const hasCurrentSchema = async (db: D1Database) => {
+  try {
+    const row = await db.prepare(`SELECT meta_value FROM system_meta WHERE meta_key = 'schema_version'`)
+      .first<{ meta_value: string }>();
+    return row?.meta_value === SCHEMA_VERSION;
+  } catch {
+    return false;
+  }
 };
 
 export const ensureTables = async (db: D1Database) => {
   if (tablesEnsured) return;
   if (!tablesEnsurePromise) {
-    tablesEnsurePromise = runSchemaMigration(db)
-      .then(() => { tablesEnsured = true; })
-      .catch((error) => {
-        tablesEnsurePromise = null;
-        console.error('D1 schema migration failed', error);
-        throw error;
-      });
+    tablesEnsurePromise = (async () => {
+      // 대부분의 요청에서는 버전 1회 조회만 수행해 로그인·목록 조회 지연을 줄입니다.
+      if (!(await hasCurrentSchema(db))) await runSchemaMigration(db);
+      tablesEnsured = true;
+    })().catch((error) => {
+      tablesEnsurePromise = null;
+      console.error('D1 schema migration failed', error);
+      throw error;
+    });
   }
   await tablesEnsurePromise;
 };

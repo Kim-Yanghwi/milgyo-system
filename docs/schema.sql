@@ -155,3 +155,13 @@ CREATE INDEX IF NOT EXISTS idx_document_attachments_doc ON document_attachments 
 CREATE INDEX IF NOT EXISTS idx_received_attachments_doc ON received_attachments (received_document_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_system_sessions_user ON system_sessions (user_id);
 CREATE INDEX IF NOT EXISTS idx_admin_rate_limits_key_created ON admin_rate_limits (rate_key, created_at);
+
+CREATE TABLE IF NOT EXISTS system_meta (
+  meta_key TEXT PRIMARY KEY,
+  meta_value TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+INSERT INTO system_meta (meta_key, meta_value, updated_at)
+VALUES ('schema_version', '2026-07-25.4', CURRENT_TIMESTAMP)
+ON CONFLICT(meta_key) DO UPDATE SET meta_value=excluded.meta_value, updated_at=excluded.updated_at;
