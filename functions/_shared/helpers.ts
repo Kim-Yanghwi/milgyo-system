@@ -63,17 +63,25 @@ const base64ToBytes = (value: string) => {
 };
 
 // 새 비밀번호는 PBKDF2로 저장합니다. 기존 salt:sha256 형식도 계속 검증해 자동 호환합니다.
-const PBKDF2_ITERATIONS = 120_000;
+const PBKDF2_ITERATIONS = 30_000;
 export const hashPassword = async (password: string) => {
   const salt = new Uint8Array(16);
   crypto.getRandomValues(salt);
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', hash: 'SHA-256', salt, iterations: PBKDF2_ITERATIONS },
-    key,
-    256,
-  );
-  return `pbkdf2$${PBKDF2_ITERATIONS}$${bytesToBase64(salt)}$${bytesToBase64(new Uint8Array(bits))}`;
+  try {
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', hash: 'SHA-256', salt, iterations: PBKDF2_ITERATIONS },
+      key,
+      256,
+    );
+    return `pbkdf2$${PBKDF2_ITERATIONS}$${bytesToBase64(salt)}$${bytesToBase64(new Uint8Array(bits))}`;
+  } catch (error) {
+    // 일부 오래된 Pages Functions 런타임에서 PBKDF2가 제한되는 경우에도 계정 생성을 막지 않습니다.
+    // 로그인 검증기는 이 salt:sha256 형식을 계속 지원합니다.
+    console.warn('PBKDF2 unavailable; using compatible salted SHA-256 password hash', error);
+    const saltText = toHex(salt.buffer);
+    return `${saltText}:${await sha256(`${saltText}:${password}`)}`;
+  }
 };
 
 export const verifyPassword = async (password: string, stored: string) => {
@@ -222,9 +230,9 @@ let tablesEnsured = false;
 let tablesEnsurePromise: Promise<void> | null = null;
 let lastRateLimitCleanupAt = 0;
 const MAINTENANCE_COOLDOWN_MS = 10 * 60 * 1000;
-const SCHEMA_VERSION = '2026-07-25.6';
+const SCHEMA_VERSION = '2026-07-25.7';
 
-type TableColumnInfo = { name: string; type: string; notnull: number; pk: number };
+type TableColumnInfo = { name: string; type: string; notnull: number; dflt_value?: unknown; pk: number };
 
 const getTableColumns = async (db: D1Database, table: string) => {
   const rows = await db.prepare(`PRAGMA table_info(${table})`).all<TableColumnInfo>();
@@ -305,6 +313,9 @@ const runSchemaMigration = async (db: D1Database) => {
       source_system TEXT, external_doc_number TEXT, memo TEXT, department TEXT, related_document_id TEXT,
       handled_by TEXT NOT NULL, handled_by_user_id TEXT, received_at TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS document_dispatch_links (
+      document_id TEXT PRIMARY KEY, registry_id TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL
+    )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS document_attachments (
       id TEXT PRIMARY KEY, document_id TEXT NOT NULL, file_name TEXT NOT NULL,
       mime_type TEXT NOT NULL DEFAULT 'application/octet-stream', size_bytes INTEGER NOT NULL DEFAULT 0,
@@ -347,7 +358,20 @@ const runSchemaMigration = async (db: D1Database) => {
     ['document_attachments', `storage_type TEXT NOT NULL DEFAULT 'd1'`], ['document_attachments', 'r2_key TEXT'],
     ['received_attachments', `storage_type TEXT NOT NULL DEFAULT 'd1'`], ['received_attachments', 'r2_key TEXT'],
   ];
-  for (const [table, column] of columns) await ensureColumn(db, table, column);
+  // 이미 존재하는 컬럼마다 ALTER TABLE 오류를 발생시키면 D1 요청 수와 실행시간이 크게 늘어납니다.
+  // 테이블별 컬럼 목록을 한 번만 조회하고, 실제로 누락된 컬럼만 순차 추가합니다.
+  const knownColumnsByTable = new Map<string, Set<string>>();
+  for (const [table, columnDef] of columns) {
+    let knownColumns = knownColumnsByTable.get(table);
+    if (!knownColumns) {
+      knownColumns = new Set((await getTableColumns(db, table)).map((column) => column.name));
+      knownColumnsByTable.set(table, knownColumns);
+    }
+    const columnName = columnDef.trim().split(/\s+/, 1)[0];
+    if (knownColumns.has(columnName)) continue;
+    await ensureColumn(db, table, columnDef);
+    knownColumns.add(columnName);
+  }
 
   const now = new Date().toISOString();
   await db.prepare(`
@@ -360,6 +384,26 @@ const runSchemaMigration = async (db: D1Database) => {
   `).bind(now).run();
   await db.prepare(`UPDATE received_documents SET updated_at = COALESCE(updated_at, created_at, ?) WHERE updated_at IS NULL`)
     .bind(now).run();
+  await db.prepare(`
+    INSERT OR IGNORE INTO document_dispatch_links (document_id, registry_id, created_at)
+    SELECT related_document_id, id, COALESCE(created_at, ?)
+    FROM received_documents
+    WHERE direction = '외부발송' AND related_document_id IS NOT NULL AND related_document_id <> ''
+    ORDER BY created_at ASC
+  `).bind(now).run();
+
+  // 과거 중복 클릭 등으로 client_request_id가 중복 저장된 경우에는 최초 문서만 유지합니다.
+  // 이 정리 없이 고유 인덱스를 만들면 전체 스키마 보완이 실패해 계정 생성 등 무관한 기능까지 막힐 수 있습니다.
+  await db.prepare(`
+    UPDATE documents
+    SET client_request_id = NULL
+    WHERE client_request_id IS NOT NULL
+      AND rowid NOT IN (
+        SELECT MIN(rowid) FROM documents
+        WHERE client_request_id IS NOT NULL
+        GROUP BY client_request_id
+      )
+  `).run();
 
   // 3단계: 새 컬럼이 준비된 후에만 해당 컬럼을 사용하는 인덱스를 만듭니다.
   await db.batch([
@@ -370,6 +414,8 @@ const runSchemaMigration = async (db: D1Database) => {
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_document_approval_lines_pending ON document_approval_lines (user_id, status, document_id)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_received_documents_created ON received_documents (created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_received_documents_handler ON received_documents (handled_by_user_id, created_at)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_received_documents_related ON received_documents (related_document_id, direction)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_dispatch_links_registry ON document_dispatch_links (registry_id)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_document_attachments_doc ON document_attachments (document_id, created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_received_attachments_doc ON received_attachments (received_document_id, created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_system_sessions_user ON system_sessions (user_id)`),
@@ -399,6 +445,7 @@ const hasCurrentSchema = async (db: D1Database) => {
       hasColumns(db, 'system_users', ['id', 'name', 'username', 'password_hash', 'position', 'grade', 'department', 'role', 'can_approve', 'active', 'created_at']),
       hasColumns(db, 'documents', ['id', 'approval_mode', 'status', 'client_request_id']),
       hasColumns(db, 'document_approval_lines', ['id', 'document_id', 'line_order', 'line_type', 'user_id', 'status']),
+      hasColumns(db, 'document_dispatch_links', ['document_id', 'registry_id', 'created_at']),
     ]);
     return checks.every(Boolean);
   } catch {
@@ -484,36 +531,94 @@ export type NewSystemUser = {
   createdAt?: string;
 };
 
-// 오래된 운영 DB가 INTEGER PRIMARY KEY를 사용하더라도 계정 생성이 실패하지 않도록 실제 id 형식을 확인합니다.
+// 운영 DB가 TEXT 또는 INTEGER 식별자를 사용하더라도 실제 스키마에 맞춰 계정을 삽입합니다.
+// D1의 INSERT ... RETURNING 지원 여부에 의존하지 않고, 삽입 후 아이디를 다시 조회합니다.
 export const insertSystemUser = async (db: D1Database, input: NewSystemUser) => {
   const columns = await getTableColumns(db, 'system_users');
   const idColumn = columns.find((column) => column.name === 'id');
   if (!idColumn) throw new Error('system_users.id column is missing');
 
-  const createdAt = input.createdAt || new Date().toISOString();
-  const values = [
-    input.name, input.username, input.passwordHash, input.position || null, input.grade || null,
-    input.department || null, input.role, input.canApprove ? 1 : 0, input.active === false ? 0 : 1, createdAt,
-  ];
-
-  if (/INT/i.test(idColumn.type || '') && Number(idColumn.pk) > 0) {
-    const row = await db.prepare(`
-      INSERT INTO system_users
-        (name, username, password_hash, position, grade, department, role, can_approve, active, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      RETURNING CAST(id AS TEXT) AS id
-    `).bind(...values).first<{ id: string | number }>();
-    if (!row?.id) throw new Error('계정 식별번호를 생성하지 못했습니다.');
-    return String(row.id);
+  const knownColumns = new Set(columns.map((column) => column.name));
+  for (const required of ['name', 'username', 'password_hash']) {
+    if (!knownColumns.has(required)) throw new Error(`system_users.${required} column is missing`);
   }
 
-  const id = `USR-${randomHex(20)}`;
-  await db.prepare(`
-    INSERT INTO system_users
-      (id, name, username, password_hash, position, grade, department, role, can_approve, active, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(id, ...values).run();
-  return id;
+  const sample = await db.prepare(`SELECT typeof(id) AS storage_type FROM system_users WHERE id IS NOT NULL LIMIT 1`)
+    .first<{ storage_type: string }>();
+  const usesIntegerId = /INT/i.test(idColumn.type || '') || sample?.storage_type === 'integer';
+  // SQLite에서 행번호 자동 부여가 보장되는 형식은 정확히 INTEGER PRIMARY KEY인 경우뿐입니다.
+  // BIGINT/INT PRIMARY KEY 등을 자동증가로 오인하면 NULL 식별자가 삽입될 수 있으므로 직접 번호를 생성합니다.
+  const autoIntegerId = /^INTEGER$/i.test((idColumn.type || '').trim()) && Number(idColumn.pk) > 0;
+
+  const now = input.createdAt || new Date().toISOString();
+  const valueMap: Record<string, unknown> = {
+    name: input.name,
+    username: input.username,
+    password_hash: input.passwordHash,
+    position: input.position || null,
+    grade: input.grade || null,
+    department: input.department || null,
+    role: input.role,
+    can_approve: input.canApprove ? 1 : 0,
+    active: input.active === false ? 0 : 1,
+    created_at: now,
+    updated_at: now,
+    is_admin: input.role === 'admin' ? 1 : 0,
+    is_active: input.active === false ? 0 : 1,
+    approval_enabled: input.canApprove ? 1 : 0,
+  };
+
+  let generatedId: string | number | null = null;
+  if (!autoIntegerId) {
+    if (usesIntegerId) {
+      const row = await db.prepare(`SELECT COALESCE(MAX(CAST(id AS INTEGER)), 0) + 1 AS next_id FROM system_users`)
+        .first<{ next_id: number }>();
+      generatedId = Number(row?.next_id || 1);
+    } else {
+      generatedId = `USR-${randomHex(20)}`;
+    }
+    valueMap.id = generatedId;
+  }
+
+  const preferredColumns = [
+    'id', 'name', 'username', 'password_hash', 'position', 'grade', 'department', 'role',
+    'can_approve', 'active', 'created_at', 'updated_at', 'is_admin', 'is_active', 'approval_enabled',
+  ];
+  const insertColumns = preferredColumns
+    .filter((column) => knownColumns.has(column) && !(column === 'id' && autoIntegerId));
+
+  // 운영 DB에 과거 버전에서 추가된 NOT NULL 보조 컬럼이 있어도 계정 생성을 중단하지 않습니다.
+  // 기본값이 없는 필수 컬럼은 이름과 자료형에 맞는 안전한 초기값을 함께 삽입합니다.
+  const requiredLegacyColumns = columns.filter((column) =>
+    !insertColumns.includes(column.name)
+    && column.name !== 'id'
+    && Number(column.pk) === 0
+    && Number(column.notnull) === 1
+    && (column.dflt_value === null || column.dflt_value === undefined),
+  );
+  for (const column of requiredLegacyColumns) {
+    const name = column.name.toLowerCase();
+    const type = (column.type || '').toUpperCase();
+    let value: unknown;
+    if (name.includes('created_at') || name.includes('updated_at') || name.includes('date') || name.includes('time')) value = now;
+    else if (name.includes('created_by') || name.includes('updated_by') || name.includes('login_id')) value = input.username;
+    else if (name.includes('email')) value = '';
+    else if (/INT|REAL|NUM|DEC|DOUBLE|FLOAT|BOOL/.test(type)) value = 0;
+    else if (/BLOB/.test(type)) value = new Uint8Array(0);
+    else value = '';
+    valueMap[column.name] = value;
+    insertColumns.push(column.name);
+  }
+  const placeholders = insertColumns.map(() => '?').join(', ');
+  const values = insertColumns.map((column) => valueMap[column]);
+  await db.prepare(`INSERT INTO system_users (${insertColumns.join(', ')}) VALUES (${placeholders})`)
+    .bind(...values).run();
+
+  if (generatedId !== null) return String(generatedId);
+  const inserted = await db.prepare(`SELECT CAST(id AS TEXT) AS id FROM system_users WHERE username = ? COLLATE NOCASE LIMIT 1`)
+    .bind(input.username).first<{ id: string | number }>();
+  if (!inserted?.id) throw new Error('계정 식별번호를 생성하지 못했습니다.');
+  return String(inserted.id);
 };
 
 export type SessionUser = {
@@ -551,9 +656,9 @@ export const authenticateSession = async (
 export const canReadDocument = (user: SessionUser, document: Record<string, unknown>) => {
   if (user.role === 'admin') return true;
   // 임시저장 문서는 열람범위와 관계없이 작성자만 볼 수 있어야 합니다.
-  if (document.status === '임시저장') return document.drafter_user_id === user.id;
+  if (document.status === '임시저장') return String(document.drafter_user_id || '') === user.id;
   if (document.access_scope !== '관련자') return true;
-  return [document.drafter_user_id, document.reviewer_user_id, document.approver_user_id].includes(user.id);
+  return [document.drafter_user_id, document.reviewer_user_id, document.approver_user_id].some((id) => String(id || '') === user.id);
 };
 
 const nextSequence = async (db: D1Database, seqKey: string, initialValue = 0) => {

@@ -39,7 +39,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const doc = await env.DB.prepare('SELECT * FROM documents WHERE id=?').bind(documentId).first<Record<string, unknown>>();
   if (!doc) return json({ ok: false, message: '해당 문서를 찾을 수 없습니다.' }, 404);
   if (!canReadDocument(auth.user, doc)) return json({ ok: false, message: '첨부 권한이 없습니다.' }, 403);
-  if (auth.user.role !== 'admin' && doc.drafter_user_id !== auth.user.id) return json({ ok: false, message: '기안자 또는 관리자만 첨부파일을 추가할 수 있습니다.' }, 403);
+  if (auth.user.role !== 'admin' && String(doc.drafter_user_id || '') !== auth.user.id) return json({ ok: false, message: '기안자 또는 관리자만 첨부파일을 추가할 수 있습니다.' }, 403);
 
   const count = await env.DB.prepare('SELECT COUNT(*) AS count FROM document_attachments WHERE document_id=?').bind(documentId).first<{ count: number }>();
   if (Number(count?.count || 0) >= 10) return json({ ok: false, message: '문서당 첨부파일은 최대 10개까지 등록할 수 있습니다.' }, 400);

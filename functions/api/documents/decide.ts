@@ -28,14 +28,6 @@ const completedActionForLine = (lineType: ApprovalLine['line_type']) => {
   return '승인';
 };
 
-const isAllowedActionForLine = (lineType: ApprovalLine['line_type'], action: string) => {
-  if (action === '반려') return true;
-  if (lineType === '검토') return action === '승인' || action === '검토완료';
-  if (lineType === '협조') return action === '승인' || action === '협조완료';
-  if (lineType === '전결') return action === '승인' || action === '전결';
-  return action === '승인';
-};
-
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
   let payload: DecidePayload;
@@ -52,7 +44,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     const document = await env.DB.prepare(`
-      SELECT id, status, approval_track, approval_mode, reviewer_user_id, approver_user_id FROM documents WHERE id = ?
+      SELECT id, status, approval_track, approval_mode, CAST(reviewer_user_id AS TEXT) AS reviewer_user_id, CAST(approver_user_id AS TEXT) AS approver_user_id FROM documents WHERE id = ?
     `).bind(id).first<{
       id: string;
       status: string;
@@ -64,7 +56,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!document) return json({ ok: false, message: '해당 문서를 찾을 수 없습니다.' }, 404);
 
     const currentLine = await env.DB.prepare(`
-      SELECT id, document_id, line_order, line_type, user_id, user_name, user_position, status
+      SELECT id, document_id, line_order, line_type, CAST(user_id AS TEXT) AS user_id, user_name, user_position, status
       FROM document_approval_lines
       WHERE document_id = ? AND status = '대기'
       ORDER BY line_order ASC LIMIT 1
@@ -73,9 +65,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (currentLine) {
       if (me.role !== 'admin' && currentLine.user_id !== me.id) {
         return json({ ok: false, message: `지정된 ${currentLine.line_type}자만 처리할 수 있습니다.` }, 403);
-      }
-      if (!isAllowedActionForLine(currentLine.line_type, action)) {
-        return json({ ok: false, message: `${currentLine.line_type} 단계에서 사용할 수 없는 처리 구분입니다.` }, 400);
       }
       if (action === '반려') {
         const now = new Date().toISOString();

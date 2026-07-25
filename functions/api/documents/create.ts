@@ -142,7 +142,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     existing = await env.DB.prepare(`SELECT * FROM documents WHERE id = ?`).bind(documentId).first();
     if (!existing) return json({ ok: false, message: '수정할 임시저장 문서를 찾을 수 없습니다.' }, 404);
     if (existing.status !== '임시저장') return json({ ok: false, message: '임시저장 상태의 문서만 수정·상신할 수 있습니다.' }, 400);
-    if (me.role !== 'admin' && existing.drafter_user_id !== me.id) return json({ ok: false, message: '본인이 작성한 임시문서만 수정할 수 있습니다.' }, 403);
+    if (me.role !== 'admin' && String(existing.drafter_user_id || '') !== me.id) return json({ ok: false, message: '본인이 작성한 임시문서만 수정할 수 있습니다.' }, 403);
   }
 
   if (clientRequestId && !documentId) {
@@ -171,7 +171,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const userMap = new Map<string, UserRow>();
   if (allSelectedIds.length) {
     const placeholders = allSelectedIds.map(() => '?').join(',');
-    const users = await env.DB.prepare(`SELECT CAST(id AS TEXT) AS id, name, position, can_approve, active FROM system_users WHERE id IN (${placeholders})`)
+    const users = await env.DB.prepare(`SELECT CAST(id AS TEXT) AS id, name, position, can_approve, active FROM system_users WHERE CAST(id AS TEXT) IN (${placeholders})`)
       .bind(...allSelectedIds).all<UserRow>();
     for (const user of users.results ?? []) userMap.set(user.id, user);
     const missing = allSelectedIds.filter((id) => !userMap.get(id)?.active);

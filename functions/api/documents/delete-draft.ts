@@ -11,7 +11,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const doc = await env.DB.prepare(`SELECT status, drafter_user_id FROM documents WHERE id=?`).bind(id).first<{ status: string; drafter_user_id: string | null }>();
   if (!doc) return json({ ok: false, message: '문서를 찾을 수 없습니다.' }, 404);
   if (doc.status !== '임시저장') return json({ ok: false, message: '임시저장 문서만 삭제할 수 있습니다.' }, 400);
-  if (auth.user.role !== 'admin' && doc.drafter_user_id !== auth.user.id) return json({ ok: false, message: '본인이 작성한 임시문서만 삭제할 수 있습니다.' }, 403);
+  if (auth.user.role !== 'admin' && String(doc.drafter_user_id || '') !== auth.user.id) return json({ ok: false, message: '본인이 작성한 임시문서만 삭제할 수 있습니다.' }, 403);
   const keys = await env.DB.prepare(`SELECT r2_key FROM document_attachments WHERE document_id=? AND storage_type='r2' AND r2_key IS NOT NULL`).bind(id).all<{ r2_key: string }>();
   await env.DB.batch([
     env.DB.prepare(`DELETE FROM document_attachments WHERE document_id=?`).bind(id),

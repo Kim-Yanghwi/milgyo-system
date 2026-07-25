@@ -32,7 +32,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     const placeholders = ids.map(() => '?').join(',');
     const documents = await env.DB.prepare(`
-      SELECT id, status, reviewer_user_id, approver_user_id, approval_track, approval_mode
+      SELECT id, status, CAST(reviewer_user_id AS TEXT) AS reviewer_user_id, CAST(approver_user_id AS TEXT) AS approver_user_id, approval_track, approval_mode
       FROM documents WHERE id IN (${placeholders})
     `).bind(...ids).all<{
       id: string;
@@ -43,7 +43,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       approval_mode: string;
     }>();
     const lines = await env.DB.prepare(`
-      SELECT id, document_id, line_order, line_type, user_id, status
+      SELECT id, document_id, line_order, line_type, CAST(user_id AS TEXT) AS user_id, status
       FROM document_approval_lines
       WHERE document_id IN (${placeholders}) AND status IN ('대기','예정')
       ORDER BY document_id, line_order

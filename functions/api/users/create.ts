@@ -86,15 +86,37 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const passwordHash = await hashPassword(password);
     const input = { name, username, passwordHash, position, grade, department, role, canApprove };
 
-    let id: string;
-    try {
-      id = await createAccount(env.DB, input);
-    } catch (error) {
-      if (!isSchemaError(error)) throw error;
-      console.warn('system_users schema mismatch detected; retrying after repair', error);
-      await repairTables(env.DB);
-      id = await createAccount(env.DB, input);
+    const findCreatedAccount = async () => env.DB.prepare(`
+      SELECT CAST(id AS TEXT) AS id, name FROM system_users WHERE username = ? COLLATE NOCASE LIMIT 1
+    `).bind(username).first<{ id: string; name: string }>();
+
+    let id = '';
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < 2 && !id; attempt += 1) {
+      try {
+        id = await createAccount(env.DB, input);
+      } catch (error) {
+        lastError = error;
+        // 쓰기는 성공했지만 응답만 실패한 경우나 중복 클릭은 기존 행을 확인해 성공으로 복구합니다.
+        const created = await findCreatedAccount().catch(() => null);
+        if (created?.id && created.name === name) {
+          id = String(created.id);
+          break;
+        }
+        if (attempt === 0 && isSchemaError(error)) {
+          console.warn('system_users schema mismatch detected; retrying after repair', error);
+          await repairTables(env.DB);
+          continue;
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        if (attempt === 0 && /database is locked|database is busy|temporar|D1_ERROR|internal error|storage/i.test(message)) {
+          await new Promise((resolve) => setTimeout(resolve, 120));
+          continue;
+        }
+        throw error;
+      }
     }
+    if (!id) throw lastError || new Error('계정 생성 결과를 확인하지 못했습니다.');
 
     return json({ ok: true, id, message: '계정이 생성되었습니다.' });
   } catch (error) {

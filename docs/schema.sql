@@ -99,6 +99,12 @@ CREATE TABLE IF NOT EXISTS received_documents (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS document_dispatch_links (
+  document_id TEXT PRIMARY KEY,
+  registry_id TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS document_attachments (
   id TEXT PRIMARY KEY,
   document_id TEXT NOT NULL,
@@ -168,9 +174,10 @@ CREATE INDEX IF NOT EXISTS idx_document_approval_lines_doc ON document_approval_
 CREATE INDEX IF NOT EXISTS idx_document_approval_lines_pending ON document_approval_lines (user_id, status, document_id);
 CREATE INDEX IF NOT EXISTS idx_received_documents_created ON received_documents (created_at);
 CREATE INDEX IF NOT EXISTS idx_received_documents_handler ON received_documents (handled_by_user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_received_documents_related ON received_documents (related_document_id, direction);
+CREATE INDEX IF NOT EXISTS idx_dispatch_links_registry ON document_dispatch_links (registry_id);
 CREATE INDEX IF NOT EXISTS idx_document_attachments_doc ON document_attachments (document_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_received_attachments_doc ON received_attachments (received_document_id, created_at);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_system_users_username ON system_users (username COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS idx_system_sessions_user ON system_sessions (user_id);
 CREATE INDEX IF NOT EXISTS idx_admin_rate_limits_key_created ON admin_rate_limits (rate_key, created_at);
 
@@ -181,5 +188,5 @@ CREATE TABLE IF NOT EXISTS system_meta (
 );
 
 INSERT INTO system_meta (meta_key, meta_value, updated_at)
-VALUES ('schema_version', '2026-07-25.6', CURRENT_TIMESTAMP)
+VALUES ('schema_version', '2026-07-25.7', CURRENT_TIMESTAMP)
 ON CONFLICT(meta_key) DO UPDATE SET meta_value=excluded.meta_value, updated_at=excluded.updated_at;
