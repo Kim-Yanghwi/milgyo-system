@@ -25,17 +25,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400);
   }
 
-  const authRateLimit = await checkAuthRateLimit(env.DB, request, 'login');
-  if (!authRateLimit.ok) return json({ ok: false, message: authRateLimit.message }, 429);
-
-  const username = clean(payload.username, 60);
-  const password = typeof payload.password === 'string' ? payload.password.slice(0, 200) : '';
-
-  if (!username || !password) {
-    return json({ ok: false, message: '아이디와 비밀번호를 입력해 주세요.' }, 400);
-  }
-
   try {
+    const authRateLimit = await checkAuthRateLimit(env.DB, request, 'login');
+    if (!authRateLimit.ok) return json({ ok: false, message: authRateLimit.message }, 429);
+
+    const username = clean(payload.username, 60);
+    const password = typeof payload.password === 'string' ? payload.password.slice(0, 200) : '';
+
+    if (!username || !password) {
+      return json({ ok: false, message: '아이디와 비밀번호를 입력해 주세요.' }, 400);
+    }
+
     await ensureTables(env.DB);
     const user = await env.DB.prepare(`
       SELECT id, name, username, password_hash, position, grade, department, role, can_approve, active
@@ -62,7 +62,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       },
     });
   } catch (error) {
-    return json({ ok: false, message: '로그인 처리 중 오류가 발생했습니다.' }, 500);
+    console.error('login failed', error);
+    return json({ ok: false, message: '로그인 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' }, 500);
   }
 };
 

@@ -36,26 +36,26 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400);
   }
 
-  const authRateLimit = await checkAuthRateLimit(env.DB, request, 'bootstrap');
-  if (!authRateLimit.ok) return json({ ok: false, message: authRateLimit.message }, 429);
-
-  const adminToken = clean(payload.adminToken, 300);
-  if (!(await verifyAdminToken(adminToken, env.ADMIN_TOKEN))) {
-    await recordAuthFailure(env.DB, authRateLimit.rateKey);
-    return json({ ok: false, message: '마스터 인증값(ADMIN_TOKEN)이 올바르지 않습니다.' }, 401);
-  }
-  await clearAuthFailures(env.DB, authRateLimit.rateKey);
-
-  const name = clean(payload.name, 40);
-  const username = clean(payload.username, 60);
-  const password = typeof payload.password === 'string' ? payload.password.slice(0, 200) : '';
-  const position = clean(payload.position, 40);
-
-  if (!name) return json({ ok: false, message: '성명을 입력해 주세요.' }, 400);
-  if (!username || username.length < 3) return json({ ok: false, message: '아이디를 3자 이상 입력해 주세요.' }, 400);
-  if (!password || password.length < 8) return json({ ok: false, message: '비밀번호를 8자 이상 입력해 주세요.' }, 400);
-
   try {
+    const authRateLimit = await checkAuthRateLimit(env.DB, request, 'bootstrap');
+    if (!authRateLimit.ok) return json({ ok: false, message: authRateLimit.message }, 429);
+
+    const adminToken = clean(payload.adminToken, 300);
+    if (!(await verifyAdminToken(adminToken, env.ADMIN_TOKEN))) {
+      await recordAuthFailure(env.DB, authRateLimit.rateKey);
+      return json({ ok: false, message: '마스터 인증값(ADMIN_TOKEN)이 올바르지 않습니다.' }, 401);
+    }
+    await clearAuthFailures(env.DB, authRateLimit.rateKey);
+
+    const name = clean(payload.name, 40);
+    const username = clean(payload.username, 60);
+    const password = typeof payload.password === 'string' ? payload.password.slice(0, 200) : '';
+    const position = clean(payload.position, 40);
+
+    if (!name) return json({ ok: false, message: '성명을 입력해 주세요.' }, 400);
+    if (!username || username.length < 3) return json({ ok: false, message: '아이디를 3자 이상 입력해 주세요.' }, 400);
+    if (!password || password.length < 8) return json({ ok: false, message: '비밀번호를 8자 이상 입력해 주세요.' }, 400);
+
     await ensureTables(env.DB);
     const existing = await env.DB.prepare(`SELECT id FROM system_users WHERE username = ?`).bind(username).first();
     if (existing) return json({ ok: false, message: '이미 사용 중인 아이디입니다.' }, 400);
@@ -70,7 +70,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     return json({ ok: true, id, message: '관리자 계정이 생성되었습니다. 이제 이 아이디로 로그인해 주세요.' });
   } catch (error) {
-    return json({ ok: false, message: '관리자 계정 생성 중 오류가 발생했습니다.' }, 500);
+    console.error('bootstrap failed', error);
+    return json({ ok: false, message: '관리자 계정 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' }, 500);
   }
 };
 

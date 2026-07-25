@@ -611,12 +611,26 @@ import GovLayout from '../layouts/GovLayout.astro';
 
       const callApi = async (path, body) => {
         try {
-          const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-          const data = await response.json().catch(() => ({ ok: false, message: '서버 응답을 처리하지 못했습니다.' }));
+          const response = await fetch(path, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          const raw = await response.text();
+          let data;
+          try {
+            data = raw ? JSON.parse(raw) : { ok: response.ok };
+          } catch {
+            data = { ok: false, message: `서버 응답 형식이 올바르지 않습니다. (HTTP ${response.status})` };
+          }
+          if (!response.ok && data.ok !== false) {
+            data = { ok: false, message: data.message || `서버 요청에 실패했습니다. (HTTP ${response.status})` };
+          }
           if (response.status === 401) { clearSession(); showLogin(); }
           return data;
-        } catch {
-          return { ok: false, message: '네트워크 연결을 확인해 주세요.' };
+        } catch (error) {
+          console.error('API request failed', path, error);
+          return { ok: false, message: '네트워크 연결 또는 서버 상태를 확인해 주세요.' };
         }
       };
 

@@ -209,11 +209,18 @@ const BUILT_IN_TEMPLATES = [
 ] as const;
 
 let tablesEnsured = false;
+let tablesEnsurePromise: Promise<void> | null = null;
 let lastRateLimitCleanupAt = 0;
 const MAINTENANCE_COOLDOWN_MS = 10 * 60 * 1000;
 
 const ensureColumn = async (db: D1Database, table: string, columnDef: string) => {
-  try { await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`).run(); } catch (error) { /* already exists */ }
+  try {
+    await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`).run();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // 기존 컬럼이 이미 있는 경우만 정상으로 간주합니다. 다른 마이그레이션 오류는 숨기지 않습니다.
+    if (!/duplicate column name|already exists/i.test(message)) throw error;
+  }
 };
 
 const seedTemplates = async (db: D1Database) => {
@@ -233,8 +240,8 @@ const seedTemplates = async (db: D1Database) => {
   )));
 };
 
-export const ensureTables = async (db: D1Database) => {
-  if (tablesEnsured) return;
+const runSchemaMigration = async (db: D1Database) => {
+  // 1단계: 기존 컬럼 유무와 무관한 기본 테이블만 먼저 준비합니다.
   await db.batch([
     db.prepare(`CREATE TABLE IF NOT EXISTS system_users (
       id TEXT PRIMARY KEY, name TEXT NOT NULL, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
@@ -268,12 +275,12 @@ export const ensureTables = async (db: D1Database) => {
     db.prepare(`CREATE TABLE IF NOT EXISTS document_attachments (
       id TEXT PRIMARY KEY, document_id TEXT NOT NULL, file_name TEXT NOT NULL,
       mime_type TEXT NOT NULL DEFAULT 'application/octet-stream', size_bytes INTEGER NOT NULL DEFAULT 0,
-      data_base64 TEXT NOT NULL, storage_type TEXT NOT NULL DEFAULT 'd1', r2_key TEXT, created_at TEXT NOT NULL
+      data_base64 TEXT NOT NULL DEFAULT '', storage_type TEXT NOT NULL DEFAULT 'd1', r2_key TEXT, created_at TEXT NOT NULL
     )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS received_attachments (
       id TEXT PRIMARY KEY, received_document_id TEXT NOT NULL, file_name TEXT NOT NULL,
       mime_type TEXT NOT NULL DEFAULT 'application/octet-stream', size_bytes INTEGER NOT NULL DEFAULT 0,
-      data_base64 TEXT NOT NULL, storage_type TEXT NOT NULL DEFAULT 'd1', r2_key TEXT, created_at TEXT NOT NULL
+      data_base64 TEXT NOT NULL DEFAULT '', storage_type TEXT NOT NULL DEFAULT 'd1', r2_key TEXT, created_at TEXT NOT NULL
     )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS document_templates (
       id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', doc_type TEXT NOT NULL DEFAULT '기안',
@@ -284,6 +291,32 @@ export const ensureTables = async (db: D1Database) => {
     db.prepare(`CREATE TABLE IF NOT EXISTS document_sequences (seq_key TEXT PRIMARY KEY, last_seq INTEGER NOT NULL DEFAULT 0)`),
     db.prepare(`CREATE TABLE IF NOT EXISTS admin_rate_limits (id TEXT PRIMARY KEY, rate_key TEXT NOT NULL, created_at TEXT NOT NULL)`),
     db.prepare(`CREATE TABLE IF NOT EXISTS org_settings (id TEXT PRIMARY KEY, seal_image TEXT, logo_image TEXT, updated_at TEXT NOT NULL)`),
+  ]);
+
+  // 2단계: 운영 중인 구버전 DB에 필요한 컬럼을 순차적으로 추가합니다.
+  // Promise.all로 ALTER TABLE을 동시에 실행하면 D1에서 스키마 잠금 충돌이 날 수 있으므로 반드시 순차 실행합니다.
+  const columns: Array<[string, string]> = [
+    ['documents', `summary TEXT NOT NULL DEFAULT ''`],
+    ['documents', 'drafter_user_id TEXT'], ['documents', 'drafter_position TEXT'],
+    ['documents', 'reviewer_user_id TEXT'], ['documents', 'reviewer_name TEXT'], ['documents', 'reviewer_position TEXT'],
+    ['documents', 'approver_user_id TEXT'], ['documents', 'approver_name TEXT'], ['documents', 'approver_position TEXT'],
+    ['documents', 'via TEXT'], ['documents', 'template_id TEXT'], ['documents', 'template_name TEXT'],
+    ['documents', `form_data_json TEXT NOT NULL DEFAULT '{}'`], ['documents', `access_scope TEXT NOT NULL DEFAULT '전체'`],
+    ['documents', 'client_request_id TEXT'], ['documents', 'submitted_at TEXT'], ['documents', 'completed_at TEXT'],
+    ['system_users', 'department TEXT'],
+    ['received_documents', 'department TEXT'], ['received_documents', 'related_document_id TEXT'],
+    ['received_documents', 'handled_by_user_id TEXT'], ['received_documents', 'updated_at TEXT'],
+    ['document_attachments', `storage_type TEXT NOT NULL DEFAULT 'd1'`], ['document_attachments', 'r2_key TEXT'],
+    ['received_attachments', `storage_type TEXT NOT NULL DEFAULT 'd1'`], ['received_attachments', 'r2_key TEXT'],
+  ];
+  for (const [table, column] of columns) await ensureColumn(db, table, column);
+
+  const now = new Date().toISOString();
+  await db.prepare(`UPDATE received_documents SET updated_at = COALESCE(updated_at, created_at, ?) WHERE updated_at IS NULL`)
+    .bind(now).run();
+
+  // 3단계: 새 컬럼이 준비된 후에만 해당 컬럼을 사용하는 인덱스를 만듭니다.
+  await db.batch([
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_status ON documents (status)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_created ON documents (created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_document_approvals_doc ON document_approvals (document_id, created_at)`),
@@ -293,35 +326,27 @@ export const ensureTables = async (db: D1Database) => {
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_received_attachments_doc ON received_attachments (received_document_id, created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_system_sessions_user ON system_sessions (user_id)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_admin_rate_limits_key_created ON admin_rate_limits (rate_key, created_at)`),
-  ]);
-
-  await Promise.all([
-    ensureColumn(db, 'documents', `summary TEXT NOT NULL DEFAULT ''`),
-    ensureColumn(db, 'documents', 'drafter_user_id TEXT'), ensureColumn(db, 'documents', 'drafter_position TEXT'),
-    ensureColumn(db, 'documents', 'reviewer_user_id TEXT'), ensureColumn(db, 'documents', 'reviewer_name TEXT'),
-    ensureColumn(db, 'documents', 'reviewer_position TEXT'), ensureColumn(db, 'documents', 'approver_user_id TEXT'),
-    ensureColumn(db, 'documents', 'approver_name TEXT'), ensureColumn(db, 'documents', 'approver_position TEXT'),
-    ensureColumn(db, 'documents', 'via TEXT'), ensureColumn(db, 'documents', 'template_id TEXT'),
-    ensureColumn(db, 'documents', 'template_name TEXT'), ensureColumn(db, 'documents', `form_data_json TEXT NOT NULL DEFAULT '{}'`),
-    ensureColumn(db, 'documents', `access_scope TEXT NOT NULL DEFAULT '전체'`), ensureColumn(db, 'documents', 'client_request_id TEXT'),
-    ensureColumn(db, 'documents', 'submitted_at TEXT'), ensureColumn(db, 'documents', 'completed_at TEXT'),
-    ensureColumn(db, 'system_users', 'department TEXT'), ensureColumn(db, 'received_documents', 'department TEXT'),
-    ensureColumn(db, 'received_documents', 'related_document_id TEXT'),
-    ensureColumn(db, 'received_documents', 'handled_by_user_id TEXT'),
-    ensureColumn(db, 'received_documents', 'updated_at TEXT'),
-    ensureColumn(db, 'document_attachments', `storage_type TEXT NOT NULL DEFAULT 'd1'`),
-    ensureColumn(db, 'document_attachments', 'r2_key TEXT'),
-    ensureColumn(db, 'received_attachments', `storage_type TEXT NOT NULL DEFAULT 'd1'`),
-    ensureColumn(db, 'received_attachments', 'r2_key TEXT'),
-  ]);
-  await db.batch([
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_approver ON documents (approver_user_id, status)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_reviewer ON documents (reviewer_user_id, status)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_drafter ON documents (drafter_user_id, status)`),
     db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_documents_request_id ON documents (client_request_id) WHERE client_request_id IS NOT NULL`),
   ]);
+
   await seedTemplates(db);
-  tablesEnsured = true;
+};
+
+export const ensureTables = async (db: D1Database) => {
+  if (tablesEnsured) return;
+  if (!tablesEnsurePromise) {
+    tablesEnsurePromise = runSchemaMigration(db)
+      .then(() => { tablesEnsured = true; })
+      .catch((error) => {
+        tablesEnsurePromise = null;
+        console.error('D1 schema migration failed', error);
+        throw error;
+      });
+  }
+  await tablesEnsurePromise;
 };
 
 const getAuthRateKey = async (request: Request, scope: string) => sha256(`gov-auth-failure:${scope}:ip:${getClientIp(request)}`);
