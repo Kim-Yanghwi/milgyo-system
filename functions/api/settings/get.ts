@@ -1,15 +1,21 @@
-import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
+// 관인(도장)·로고 이미지 등, 문서서식에 고정으로 쓰이는 종단 설정값을 조회합니다.
+import {
+  authenticateSession,
+  clean,
+  ensureTables,
+  json,
+} from '../../_shared/helpers';
 
 interface Env {
   DB: D1Database;
 }
 
-type ListPayload = { token?: string; includeInactive?: boolean };
+type GetPayload = { token?: string };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
 
-  let payload: ListPayload;
+  let payload: GetPayload;
   try {
     payload = await request.json();
   } catch (error) {
@@ -20,18 +26,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const auth = await authenticateSession(env.DB, clean(payload.token, 200));
   if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
 
-  const includeInactive = !!payload.includeInactive && auth.user.role === 'admin';
-
   try {
-    const rows = await env.DB.prepare(`
-      SELECT id, name, username, position, grade, department, role, can_approve, active, created_at
-      FROM system_users
-      ${includeInactive ? '' : 'WHERE active = 1'}
-      ORDER BY created_at ASC
-    `).all();
-    return json({ ok: true, rows: rows.results ?? [] });
+    const row = await env.DB.prepare(
+      `SELECT seal_image, logo_image FROM org_settings WHERE id = 'org'`,
+    ).first<{ seal_image: string | null; logo_image: string | null }>();
+
+    return json({
+      ok: true,
+      sealImage: row?.seal_image || '',
+      logoImage: row?.logo_image || '',
+    });
   } catch (error) {
-    return json({ ok: false, message: '계정 목록 조회 중 오류가 발생했습니다.' }, 500);
+    return json({ ok: false, message: '설정을 불러오는 중 오류가 발생했습니다.' }, 500);
   }
 };
 

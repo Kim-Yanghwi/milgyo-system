@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS system_users (
   password_hash TEXT NOT NULL,            -- "salt:sha256(salt:password)"
   position TEXT,                          -- 직책(예: 사무국장, 재정국장)
   grade TEXT,                             -- 직급(예: 3급)
+  department TEXT,                        -- 담당부서(조직도 표시용, 문서작성 담당부서 목록과 동일한 값)
   role TEXT NOT NULL DEFAULT 'user',      -- 'admin' | 'user'
   can_approve INTEGER NOT NULL DEFAULT 0, -- 결재자로 지정 가능 여부(1/0)
   active INTEGER NOT NULL DEFAULT 1,
@@ -107,3 +108,11 @@ CREATE TABLE IF NOT EXISTS admin_rate_limits (
 
 CREATE INDEX IF NOT EXISTS idx_admin_rate_limits_key_created
 ON admin_rate_limits (rate_key, created_at);
+
+-- 관인(직인)·로고 이미지(공문서 서식에 고정으로 재사용) — 단일 행(id='org')만 사용
+CREATE TABLE IF NOT EXISTS org_settings (
+  id TEXT PRIMARY KEY,
+  seal_image TEXT,
+  logo_image TEXT,
+  updated_at TEXT NOT NULL
+);

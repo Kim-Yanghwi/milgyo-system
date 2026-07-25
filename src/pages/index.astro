@@ -54,6 +54,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       <div class="app-topbar__right">
         <span class="app-topbar__me" data-me-label></span>
         <button type="button" class="btn btn-ghost" data-open-users hidden>계정관리</button>
+        <button type="button" class="btn btn-ghost" data-open-orgchart>조직도</button>
         <button type="button" class="btn btn-ghost" data-logout>로그아웃</button>
       </div>
     </header>
@@ -138,54 +139,66 @@ import GovLayout from '../layouts/GovLayout.astro';
       </div>
       <div class="compose-layout">
         <form class="compose-form" data-compose-form>
-          <label>문서구분</label>
-          <div class="radio-row">
-            <label><input type="radio" name="docType" value="기안" checked /> 기안(내부)</label>
-            <label><input type="radio" name="docType" value="발송" /> 발송(대외)</label>
-          </div>
+          <fieldset class="compose-fieldset">
+            <legend>① 문서 종류</legend>
+            <label>문서구분</label>
+            <div class="radio-row">
+              <label><input type="radio" name="docType" value="기안" checked /> 기안(내부)</label>
+              <label><input type="radio" name="docType" value="발송" /> 발송(대외)</label>
+            </div>
 
-          <label for="c-category">문서분류(과제카드명) · 제13조③</label>
-          <select id="c-category" name="category"></select>
-          <p class="hint" data-track-hint></p>
-          <div class="radio-row" data-track-choice hidden>
-            <label><input type="radio" name="approvalTrackChoice" value="이사장결재" checked /> 이사장 결재</label>
-            <label><input type="radio" name="approvalTrackChoice" value="이사회의결" /> 이사회 의결</label>
-          </div>
+            <label for="c-category">문서분류(과제카드명) · 제13조③</label>
+            <select id="c-category" name="category"></select>
+            <p class="hint" data-track-hint></p>
+            <div class="radio-row" data-track-choice hidden>
+              <label><input type="radio" name="approvalTrackChoice" value="이사장결재" checked /> 이사장 결재</label>
+              <label><input type="radio" name="approvalTrackChoice" value="이사회의결" /> 이사회 의결</label>
+            </div>
+          </fieldset>
 
-          <label for="c-summary">문서요지(선택)</label>
-          <input id="c-summary" name="summary" type="text" maxlength="200" placeholder="보고내용을 한 줄로 요약해 주세요." />
+          <fieldset class="compose-fieldset">
+            <legend>② 결재라인 지정</legend>
+            <label for="c-summary">문서요지(선택)</label>
+            <input id="c-summary" name="summary" type="text" maxlength="200" placeholder="보고내용을 한 줄로 요약해 주세요." />
 
-          <div data-reviewer-approver-fields>
-            <label for="c-reviewer">검토자(선택)</label>
-            <select id="c-reviewer" name="reviewerUserId" data-reviewer-select></select>
+            <div data-reviewer-approver-fields>
+              <label for="c-reviewer">검토자(선택)</label>
+              <select id="c-reviewer" name="reviewerUserId" data-reviewer-select></select>
 
-            <label for="c-approver" data-approver-label>결재자 · 제13조②</label>
-            <select id="c-approver" name="approverUserId" data-approver-select></select>
-          </div>
+              <label for="c-approver" data-approver-label>결재자 · 제13조②</label>
+              <select id="c-approver" name="approverUserId" data-approver-select></select>
+            </div>
 
-          <div data-recipient-field hidden>
-            <label for="c-recipient">수신</label>
-            <input id="c-recipient" name="recipient" type="text" maxlength="100" placeholder="예: OO시청 / OOO 귀하" />
-          </div>
+            <label for="c-department">담당부서(선택)</label>
+            <select id="c-department" name="department" data-department-select></select>
+          </fieldset>
 
-          <label for="c-via">경유(선택)</label>
-          <input id="c-via" name="via" type="text" maxlength="100" placeholder="경유기관이 있는 경우에만 입력" />
+          <fieldset class="compose-fieldset">
+            <legend>③ 수신·본문</legend>
+            <div data-recipient-field hidden>
+              <label for="c-recipient">수신</label>
+              <input id="c-recipient" name="recipient" type="text" maxlength="100" placeholder="예: OO시청 / OOO 귀하" />
+            </div>
 
-          <label for="c-title">제목</label>
-          <input id="c-title" name="title" type="text" maxlength="200" required />
+            <label for="c-via">경유(선택)</label>
+            <input id="c-via" name="via" type="text" maxlength="100" placeholder="경유기관이 있는 경우에만 입력" />
 
-          <label for="c-body">본문</label>
-          <textarea id="c-body" name="body" rows="7" required></textarea>
+            <label for="c-title">제목</label>
+            <input id="c-title" name="title" type="text" maxlength="200" required />
 
-          <label for="c-attachments-note">붙임 설명(선택)</label>
-          <input id="c-attachments-note" name="attachmentsNote" type="text" maxlength="400" placeholder="예: 사업계획서 1부." />
+            <label for="c-body">본문</label>
+            <textarea id="c-body" name="body" rows="7" required></textarea>
+          </fieldset>
 
-          <label for="c-attachments-file">붙임파일(선택, 파일당 4MB 이하)</label>
-          <input id="c-attachments-file" name="attachmentsFile" type="file" multiple />
-          <ul class="attachment-pending-list" data-attachment-pending-list></ul>
+          <fieldset class="compose-fieldset">
+            <legend>④ 붙임파일</legend>
+            <label for="c-attachments-note">붙임 설명(선택)</label>
+            <input id="c-attachments-note" name="attachmentsNote" type="text" maxlength="400" placeholder="예: 사업계획서 1부." />
 
-          <label for="c-department">담당부서(선택)</label>
-          <select id="c-department" name="department" data-department-select></select>
+            <label for="c-attachments-file" class="file-drop-label">붙임파일(선택, 파일당 4MB 이하)</label>
+            <input id="c-attachments-file" name="attachmentsFile" type="file" multiple />
+            <ul class="attachment-pending-list" data-attachment-pending-list></ul>
+          </fieldset>
 
           <div class="compose-form__actions">
             <button type="button" class="btn btn-outline" data-close-compose>취소</button>
@@ -194,9 +207,13 @@ import GovLayout from '../layouts/GovLayout.astro';
         </form>
 
         <div class="compose-preview">
+          <div class="compose-preview__toolbar">
+            <span class="compose-preview__label">공문서 미리보기</span>
+            <button type="button" class="btn btn-outline btn-sm" data-open-branding>관인·로고 관리</button>
+          </div>
           <div class="official-doc" data-official-doc="preview">
             <div class="official-doc__masthead">
-              <div class="official-doc__emblem">卍</div>
+              <div class="official-doc__emblem" data-emblem="preview">卍</div>
               <h3 class="official-doc__orgname">사단법인 대한불교밀교종</h3>
             </div>
             <p class="official-doc__number" data-preview-number>문서번호 · 밀교종-2026-000</p>
@@ -222,7 +239,7 @@ import GovLayout from '../layouts/GovLayout.astro';
               <div class="official-doc__issue-name">
                 사단법인 대한불교밀교종
                 <span data-preview-signer>이사장</span>
-                <span class="stamp-mark">밀교종印</span>
+                <span class="stamp-mark" data-stamp="preview">밀교종印</span>
               </div>
             </div>
             <p class="official-doc__footer">사단법인 대한불교밀교종 · milgyo.org</p>
@@ -310,6 +327,8 @@ import GovLayout from '../layouts/GovLayout.astro';
           <input id="u-position" name="position" type="text" maxlength="40" placeholder="예: 사무국장" />
           <label for="u-grade">직급(선택)</label>
           <input id="u-grade" name="grade" type="text" maxlength="20" placeholder="예: 3급" />
+          <label for="u-department">담당부서(선택) · 조직도에 표시됩니다</label>
+          <select id="u-department" name="department" data-user-department-select></select>
           <label for="u-role">역할</label>
           <select id="u-role" name="role">
             <option value="user">일반 계정</option>
@@ -323,6 +342,49 @@ import GovLayout from '../layouts/GovLayout.astro';
           </div>
           <p class="hint" data-user-form-status></p>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 관인·로고 관리 -->
+  <div class="modal-overlay" data-branding-modal hidden>
+    <div class="modal">
+      <div class="modal__header">
+        <h2>관인·로고 관리</h2>
+        <button type="button" class="modal__close" data-close-branding aria-label="닫기">×</button>
+      </div>
+      <p class="hint">한 번 등록하면 이후 모든 공문서 미리보기에 자동으로 표시됩니다. 배경이 투명한 PNG 이미지를 권장합니다(각 1MB 이하).</p>
+      <form class="compose-form" data-branding-form>
+        <label for="brand-logo">로고(상단 문양, 선택)</label>
+        <input id="brand-logo" name="logoFile" type="file" accept="image/*" />
+        <div class="branding-preview" data-branding-logo-preview><span class="muted">등록된 로고 없음</span></div>
+
+        <label for="brand-seal">관인(직인, 선택)</label>
+        <input id="brand-seal" name="sealFile" type="file" accept="image/*" />
+        <div class="branding-preview" data-branding-seal-preview><span class="muted">등록된 관인 없음</span></div>
+
+        <div class="compose-form__actions">
+          <button type="button" class="btn btn-outline" data-close-branding>닫기</button>
+          <button type="submit" class="btn btn-primary" data-branding-submit>저장</button>
+        </div>
+        <p class="hint" data-branding-status></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- 조직도 -->
+  <div class="modal-overlay" data-orgchart-modal hidden>
+    <div class="modal modal--wide">
+      <div class="modal__header">
+        <h2>조직도</h2>
+        <button type="button" class="modal__close" data-close-orgchart aria-label="닫기">×</button>
+      </div>
+      <div class="orgchart-layout">
+        <nav class="orgchart-tree" data-orgchart-tree></nav>
+        <div class="orgchart-members">
+          <p class="detail-section-title" data-orgchart-title>부서를 선택해 주세요</p>
+          <ul class="orgchart-member-list" data-orgchart-members></ul>
+        </div>
       </div>
     </div>
   </div>
@@ -365,7 +427,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         <div class="compose-preview">
           <div class="official-doc" data-official-doc="detail">
             <div class="official-doc__masthead">
-              <div class="official-doc__emblem">卍</div>
+              <div class="official-doc__emblem" data-emblem="detail">卍</div>
               <h3 class="official-doc__orgname">사단법인 대한불교밀교종</h3>
             </div>
             <p class="official-doc__number" data-detail-preview-number></p>
@@ -391,7 +453,7 @@ import GovLayout from '../layouts/GovLayout.astro';
               <div class="official-doc__issue-name">
                 사단법인 대한불교밀교종
                 <span data-detail-preview-signer></span>
-                <span class="stamp-mark" data-detail-preview-stamp>밀교종印</span>
+                <span class="stamp-mark" data-detail-preview-stamp data-stamp="detail">밀교종印</span>
               </div>
             </div>
             <p class="official-doc__footer">사단법인 대한불교밀교종 · milgyo.org</p>
@@ -525,6 +587,8 @@ import GovLayout from '../layouts/GovLayout.astro';
         if (me) {
           meLabel.textContent = `${me.name}${me.position ? ' · ' + me.position : ''}`;
           openUsersBtn.hidden = me.role !== 'admin';
+          const brandBtn = document.querySelector('[data-open-branding]');
+          if (brandBtn) brandBtn.hidden = me.role !== 'admin';
         }
       };
 
@@ -736,23 +800,34 @@ import GovLayout from '../layouts/GovLayout.astro';
 
       // ---------- 접수·발송대장 ----------
       const renderReceivedRows = (rows) => {
-        if (!rows.length) {
-          receivedTable.innerHTML = '<p class="empty">등록된 기록이 없습니다.</p>';
-          return;
-        }
-        receivedTable.innerHTML = `
-          <div class="doc-table__head">
-            <span>번호</span><span>제목</span><span>상대방</span><span>경로</span><span>일자</span>
-          </div>
-        ` + rows.map((row) => `
-          <div class="doc-table__row doc-table__row--static">
-            <span class="mono">${row.id}</span>
-            <span class="doc-table__title">${row.title}</span>
-            <span>${row.counterparty}</span>
-            <span class="muted">${row.source_system || '-'}</span>
-            <span>${row.received_at}</span>
-          </div>
+        const bodyRows = rows.map((row) => `
+          <tr>
+            <td class="mono center">${row.id}</td>
+            <td class="center">${row.direction}</td>
+            <td class="doc-table__title">${row.title}</td>
+            <td class="center">${row.counterparty}</td>
+            <td class="center">${row.source_system || '-'}</td>
+            <td class="center">${row.received_at}</td>
+          </tr>
         `).join('');
+
+        receivedTable.innerHTML = `
+          <table class="doc-table__frame">
+            <colgroup>
+              <col style="width:170px" /><col style="width:90px" /><col />
+              <col style="width:160px" /><col style="width:120px" /><col style="width:110px" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="center">번호</th><th class="center">구분</th><th>제목</th>
+                <th class="center">상대방</th><th class="center">경로</th><th class="center">일자</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${bodyRows || `<tr class="doc-table__empty-row"><td colspan="6" class="empty">등록된 기록이 없습니다.</td></tr>`}
+            </tbody>
+          </table>
+        `;
       };
 
       const refreshReceived = async () => {
@@ -800,6 +875,8 @@ import GovLayout from '../layouts/GovLayout.astro';
       categorySelect.innerHTML = allCategories.map((c) => `<option value="${c}">${c}</option>`).join('');
       const departmentSelect = document.querySelector('[data-department-select]');
       departmentSelect.innerHTML = renderDepartmentOptions();
+      const userDepartmentSelect = document.querySelector('[data-user-department-select]');
+      userDepartmentSelect.innerHTML = renderDepartmentOptions();
 
       document.querySelectorAll('[data-close-compose]').forEach((btn) =>
         btn.addEventListener('click', () => { composeModal.hidden = true; }));
@@ -1175,7 +1252,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         usersTable.innerHTML = `
           <table class="doc-table__frame">
             <thead>
-              <tr><th>성명</th><th>아이디</th><th>직책</th><th>직급</th><th class="center">역할</th><th class="center">결재권</th><th class="center">상태</th><th></th></tr>
+              <tr><th>성명</th><th>아이디</th><th>직책</th><th>직급</th><th>담당부서</th><th class="center">역할</th><th class="center">결재권</th><th class="center">상태</th><th></th></tr>
             </thead>
             <tbody>
               ${rows.map((u) => `
@@ -1184,12 +1261,13 @@ import GovLayout from '../layouts/GovLayout.astro';
                   <td class="mono">${u.username}</td>
                   <td>${u.position || '-'}</td>
                   <td>${u.grade || '-'}</td>
+                  <td>${u.department || '-'}</td>
                   <td class="center">${u.role === 'admin' ? '관리자' : '일반'}</td>
                   <td class="center">${u.can_approve ? 'O' : '-'}</td>
                   <td class="center">${u.active ? '활성' : '비활성'}</td>
                   <td class="center"><button type="button" class="btn btn-outline" data-edit-user="${u.id}">수정</button></td>
                 </tr>
-              `).join('') || '<tr><td colspan="8" class="empty">등록된 계정이 없습니다.</td></tr>'}
+              `).join('') || '<tr><td colspan="9" class="empty">등록된 계정이 없습니다.</td></tr>'}
             </tbody>
           </table>
         `;
@@ -1205,6 +1283,7 @@ import GovLayout from '../layouts/GovLayout.astro';
             userForm.elements.password.required = false;
             userForm.elements.position.value = user.position || '';
             userForm.elements.grade.value = user.grade || '';
+            userForm.elements.department.value = user.department || '';
             userForm.elements.role.value = user.role;
             userForm.elements.canApprove.checked = !!user.can_approve;
             userForm.elements.active.checked = !!user.active;
@@ -1245,6 +1324,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           password: formData.get('password') || undefined,
           position: formData.get('position'),
           grade: formData.get('grade'),
+          department: formData.get('department'),
           role: formData.get('role'),
           canApprove: formData.get('canApprove') === 'on',
         };
@@ -1265,6 +1345,156 @@ import GovLayout from '../layouts/GovLayout.astro';
         refreshUserOptions();
       });
 
+      // ---------- 관인·로고(공문서 서식 고정 이미지) ----------
+      let orgSealImage = '';
+      let orgLogoImage = '';
+
+      const applyBranding = () => {
+        document.querySelectorAll('[data-emblem]').forEach((el) => {
+          el.innerHTML = orgLogoImage
+            ? `<img src="${orgLogoImage}" alt="로고" />`
+            : '卍';
+        });
+        document.querySelectorAll('[data-stamp]').forEach((el) => {
+          el.innerHTML = orgSealImage
+            ? `<img src="${orgSealImage}" alt="관인" />`
+            : '밀교종印';
+          el.classList.toggle('stamp-mark--image', !!orgSealImage);
+        });
+      };
+
+      const loadOrgSettings = async () => {
+        const token = getToken();
+        if (!token) return;
+        const data = await callApi('/api/settings/get', { token });
+        if (!data.ok) return;
+        orgSealImage = data.sealImage || '';
+        orgLogoImage = data.logoImage || '';
+        applyBranding();
+      };
+
+      const brandingModal = document.querySelector('[data-branding-modal]');
+      const openBrandingBtn = document.querySelector('[data-open-branding]');
+      const brandingForm = document.querySelector('[data-branding-form]');
+      const brandingStatus = document.querySelector('[data-branding-status]');
+      const brandingLogoInput = document.getElementById('brand-logo');
+      const brandingSealInput = document.getElementById('brand-seal');
+      const brandingLogoPreview = document.querySelector('[data-branding-logo-preview]');
+      const brandingSealPreview = document.querySelector('[data-branding-seal-preview]');
+      let pendingLogoDataUrl = '';
+      let pendingSealDataUrl = '';
+
+      const readImageAsDataUrl = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+
+      const renderBrandingPreviews = () => {
+        brandingLogoPreview.innerHTML = (pendingLogoDataUrl || orgLogoImage)
+          ? `<img src="${pendingLogoDataUrl || orgLogoImage}" alt="로고 미리보기" />`
+          : '<span class="muted">등록된 로고 없음</span>';
+        brandingSealPreview.innerHTML = (pendingSealDataUrl || orgSealImage)
+          ? `<img src="${pendingSealDataUrl || orgSealImage}" alt="관인 미리보기" />`
+          : '<span class="muted">등록된 관인 없음</span>';
+      };
+
+      openBrandingBtn.addEventListener('click', () => {
+        pendingLogoDataUrl = '';
+        pendingSealDataUrl = '';
+        brandingStatus.textContent = '';
+        renderBrandingPreviews();
+        brandingModal.hidden = false;
+      });
+      document.querySelectorAll('[data-close-branding]').forEach((btn) =>
+        btn.addEventListener('click', () => { brandingModal.hidden = true; }));
+
+      brandingLogoInput.addEventListener('change', async () => {
+        const file = brandingLogoInput.files && brandingLogoInput.files[0];
+        if (!file) return;
+        pendingLogoDataUrl = await readImageAsDataUrl(file);
+        renderBrandingPreviews();
+      });
+      brandingSealInput.addEventListener('change', async () => {
+        const file = brandingSealInput.files && brandingSealInput.files[0];
+        if (!file) return;
+        pendingSealDataUrl = await readImageAsDataUrl(file);
+        renderBrandingPreviews();
+      });
+
+      brandingForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const token = getToken();
+        const data = await callApi('/api/settings/save', {
+          token, logoImage: pendingLogoDataUrl, sealImage: pendingSealDataUrl,
+        });
+        if (!data.ok) { brandingStatus.textContent = data.message || '저장에 실패했습니다.'; return; }
+        brandingStatus.textContent = data.message;
+        await loadOrgSettings();
+        renderBrandingPreviews();
+        updatePreview();
+      });
+
+      // ---------- 조직도 ----------
+      const orgchartModal = document.querySelector('[data-orgchart-modal]');
+      const openOrgchartBtn = document.querySelector('[data-open-orgchart]');
+      const orgchartTree = document.querySelector('[data-orgchart-tree]');
+      const orgchartTitle = document.querySelector('[data-orgchart-title]');
+      const orgchartMembers = document.querySelector('[data-orgchart-members]');
+
+      const membersOfDepartment = (deptValue) => allUsers.filter((u) => {
+        if (!u.department) return false;
+        if (u.department === deptValue) return true;
+        // 상위 부서를 선택한 경우 하위(소속) 부서 인원까지 함께 보여준다.
+        return u.department.startsWith(`${deptValue} - `);
+      });
+
+      const showOrgchartMembers = (label, deptValue) => {
+        orgchartTitle.textContent = `${label} (${membersOfDepartment(deptValue).length}명)`;
+        const members = membersOfDepartment(deptValue);
+        orgchartMembers.innerHTML = members.length
+          ? members.map((u) => `
+              <li class="orgchart-member-list__item">
+                <span class="orgchart-member-list__name">${u.name}</span>
+                <span class="muted">${u.position || ''}${u.grade ? ' · ' + u.grade : ''}</span>
+                <span class="muted">${u.department}</span>
+              </li>
+            `).join('')
+          : '<li class="muted">이 부서에 지정된 인원이 없습니다.</li>';
+      };
+
+      const renderOrgchartTree = () => {
+        const rows = [];
+        departmentTree.forEach((dep) => {
+          const count = membersOfDepartment(dep.name).length;
+          rows.push(`<button type="button" class="orgchart-tree__dept" data-dept="${dep.name}" data-label="${dep.name}">${dep.name} <span class="sidebar-link__count">${count}</span></button>`);
+          (dep.children || []).forEach((child) => {
+            const childValue = `${dep.name} - ${child}`;
+            const childCount = membersOfDepartment(childValue).length;
+            rows.push(`<button type="button" class="orgchart-tree__child" data-dept="${childValue}" data-label="${childValue}">ㄴ ${child} <span class="sidebar-link__count">${childCount}</span></button>`);
+          });
+        });
+        orgchartTree.innerHTML = rows.join('');
+        orgchartTree.querySelectorAll('[data-dept]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            orgchartTree.querySelectorAll('[data-dept]').forEach((b) => b.classList.remove('active'));
+            btn.classList.add('active');
+            showOrgchartMembers(btn.getAttribute('data-label'), btn.getAttribute('data-dept'));
+          });
+        });
+      };
+
+      openOrgchartBtn.addEventListener('click', async () => {
+        await refreshUserOptions();
+        renderOrgchartTree();
+        orgchartTitle.textContent = '부서를 선택해 주세요';
+        orgchartMembers.innerHTML = '';
+        orgchartModal.hidden = false;
+      });
+      document.querySelectorAll('[data-close-orgchart]').forEach((btn) =>
+        btn.addEventListener('click', () => { orgchartModal.hidden = true; }));
+
       // ---------- 로그인/로그아웃/최초 관리자 ----------
       loginForm.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -1281,6 +1511,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         setSession({ token: data.token, user: data.user });
         showApp();
         await refreshUserOptions();
+        await loadOrgSettings();
         activateDocumentsView('결재대기');
       });
 
@@ -1316,6 +1547,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       if (getToken()) {
         showApp();
         refreshUserOptions().then(() => activateDocumentsView('결재대기'));
+        loadOrgSettings();
       } else {
         showLogin();
       }
@@ -1375,6 +1607,7 @@ import GovLayout from '../layouts/GovLayout.astro';
     .btn-outline:hover { background: #f5f6f8; }
     .btn-ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,0.4); }
     .btn-block { width: 100%; }
+    .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.78rem; }
 
     .app-topbar {
       height: 56px; background: var(--gov-navy); color: #fff;
@@ -1469,10 +1702,11 @@ import GovLayout from '../layouts/GovLayout.astro';
       border: 1px solid #c7cedb; white-space: nowrap;
     }
     .doc-table__frame td {
-      padding: 0.7rem 0.9rem; border: 1px solid #dde2ea; vertical-align: middle;
+      padding: 0.7rem 0.9rem; border: 1px solid #dde2ea; vertical-align: middle; text-align: center;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .doc-table__frame td.doc-table__title { white-space: normal; }
+    .doc-table__frame td.doc-table__title { white-space: normal; text-align: center; }
+    .doc-table__frame td.mono { font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.82rem; color: var(--gov-muted); }
     .doc-table__frame tbody tr:nth-child(even) { background: #fafbfd; }
     .doc-table__frame tbody tr[data-doc-id] { cursor: pointer; }
     .doc-table__frame tbody tr[data-doc-id]:hover { background: #eef4ff; }
@@ -1515,49 +1749,96 @@ import GovLayout from '../layouts/GovLayout.astro';
     .hint { font-size: 0.8rem; color: var(--gov-muted); margin: 0.2rem 0; }
     .compose-form__actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem; }
 
-    .compose-preview { background: #f7f8fa; border-radius: 10px; padding: 1rem; }
+    /* 네이버웍스 결재작성 화면처럼 입력 항목을 단계별 카드로 묶어 한눈에 흐름이 보이도록 구성한다. */
+    .compose-fieldset {
+      border: 1px solid var(--gov-border); border-radius: 10px; padding: 0.9rem 1rem 1rem; margin: 0 0 0.9rem;
+      background: #fbfcfe;
+    }
+    .compose-fieldset legend {
+      font-size: 0.82rem; font-weight: 700; color: var(--gov-accent); padding: 0 0.4rem; letter-spacing: 0.01em;
+    }
+    .compose-fieldset label:first-of-type { margin-top: 0.1rem; }
 
-    /* 공문서 서식 — 행정기관 공문 예시(로고+기관명 중앙, 수신/경유/제목, 본문, 결재라인, 발신명의+관인) 기반 */
+    .compose-preview { background: #f7f8fa; border-radius: 10px; padding: 1rem; }
+    .compose-preview__toolbar {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem;
+    }
+    .compose-preview__label { font-size: 0.82rem; font-weight: 700; color: var(--gov-muted); }
+
+    .branding-preview {
+      margin: 0.3rem 0 0.4rem; min-height: 60px; border: 1px dashed var(--gov-border); border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; padding: 0.5rem; background: #fafbfd;
+    }
+    .branding-preview img { max-height: 70px; max-width: 100%; object-fit: contain; }
+
+    /* 조직도 */
+    .orgchart-layout { display: grid; grid-template-columns: 260px 1fr; gap: 1.2rem; min-height: 420px; }
+    @media (max-width: 760px) { .orgchart-layout { grid-template-columns: 1fr; } }
+    .orgchart-tree { display: flex; flex-direction: column; gap: 0.2rem; border-right: 1px solid var(--gov-border); padding-right: 1rem; max-height: 60vh; overflow-y: auto; }
+    .orgchart-tree__dept, .orgchart-tree__child {
+      display: flex; justify-content: space-between; align-items: center; text-align: left;
+      background: transparent; border: none; border-radius: 8px; padding: 0.45rem 0.6rem; font-size: 0.88rem; color: var(--gov-text);
+    }
+    .orgchart-tree__dept { font-weight: 700; }
+    .orgchart-tree__child { margin-left: 0.8rem; font-size: 0.84rem; color: var(--gov-muted); }
+    .orgchart-tree__dept:hover, .orgchart-tree__child:hover { background: #f2f4f7; }
+    .orgchart-tree__dept.active, .orgchart-tree__child.active { background: #e8effe; color: var(--gov-accent); font-weight: 700; }
+    .orgchart-member-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+    .orgchart-member-list__item {
+      display: flex; align-items: center; gap: 0.8rem; border: 1px solid var(--gov-border); border-radius: 8px;
+      padding: 0.6rem 0.8rem; font-size: 0.88rem;
+    }
+    .orgchart-member-list__name { font-weight: 700; min-width: 4.5rem; }
+
+    /* 공문서 서식 — 네이버웍스 공문 미리보기 스타일 참고: 상단에 수신처 정보, 하단에 발신처(관인) 정보를
+       배치하고, 한 페이지 안에 자연스럽게 들어오도록 여백과 글자 크기를 컴팩트하게 조정한다. */
     .official-doc {
-      background: #fff; border: 1px solid #d8d2c4; border-radius: 4px; padding: 2rem 1.8rem;
-      font-family: "Batang", "Nanum Myeongjo", serif; min-height: 460px;
+      background: #fff; border: 1px solid #d8d2c4; border-radius: 6px; padding: 1.4rem 1.5rem;
+      font-family: "Batang", "Nanum Myeongjo", serif; font-size: 0.86rem;
     }
-    .official-doc__masthead { text-align: center; margin-bottom: 0.4rem; }
+    .official-doc__masthead { text-align: center; margin-bottom: 0.3rem; }
     .official-doc__emblem {
-      display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px;
-      border-radius: 50%; background: var(--gov-navy); color: #fff; font-size: 1.1rem; margin-bottom: 0.4rem;
+      display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+      border-radius: 50%; background: var(--gov-navy); color: #fff; font-size: 0.9rem; margin-bottom: 0.3rem;
+      overflow: hidden;
     }
-    .official-doc__orgname { margin: 0; font-size: 1.2rem; font-weight: 700; letter-spacing: 0.15em; }
-    .official-doc__number { text-align: center; font-size: 0.76rem; color: #7a7568; margin: 0.3rem 0 1.2rem; }
-    .official-doc__meta { border-top: 2px solid #23262b; border-bottom: 1px solid #23262b; padding: 0.3rem 0; }
-    .official-doc__meta-row { display: flex; gap: 0.6rem; padding: 0.4rem 0; font-size: 0.92rem; }
-    .official-doc__meta-row span { width: 3.4rem; color: #4a463c; flex-shrink: 0; }
-    .official-doc__attach { border-top: 1px dashed #d8d2c4; margin-top: 0.6rem; padding-top: 0.6rem; }
+    .official-doc__emblem img { width: 100%; height: 100%; object-fit: contain; }
+    .official-doc__orgname { margin: 0; font-size: 1.02rem; font-weight: 700; letter-spacing: 0.12em; }
+    .official-doc__number { text-align: center; font-size: 0.7rem; color: #7a7568; margin: 0.25rem 0 0.8rem; }
+
+    /* 수신처 정보(수신/경유/제목) — 문서 상단 */
+    .official-doc__meta { border-top: 2px solid #23262b; border-bottom: 1px solid #23262b; padding: 0.2rem 0; }
+    .official-doc__meta-row { display: flex; gap: 0.6rem; padding: 0.3rem 0; font-size: 0.82rem; }
+    .official-doc__meta-row span { width: 3rem; color: #4a463c; flex-shrink: 0; }
+    .official-doc__attach { border-top: 1px dashed #d8d2c4; margin-top: 0.4rem; padding-top: 0.4rem; }
     .official-doc__body {
-      padding: 1rem 0; min-height: 130px; white-space: pre-wrap; font-size: 0.92rem; line-height: 1.7;
+      padding: 0.7rem 0; min-height: 90px; white-space: pre-wrap; font-size: 0.82rem; line-height: 1.55;
     }
 
     .official-doc__routing {
-      width: auto; margin: 1rem 0 0 auto; border-collapse: collapse; font-family: inherit; font-size: 0.8rem;
+      width: auto; margin: 0.8rem 0 0 auto; border-collapse: collapse; font-family: inherit; font-size: 0.72rem;
     }
     .official-doc__routing th, .official-doc__routing td {
-      border: 1px solid #b7ac91; padding: 0.35rem 0.7rem; text-align: center; color: #4a463c;
+      border: 1px solid #b7ac91; padding: 0.28rem 0.55rem; text-align: center; color: #4a463c;
     }
     .official-doc__routing th { background: #f4f0e6; font-weight: 700; }
     .official-doc__routing-seal { color: #b0362f; font-weight: 700; }
 
-    .official-doc__issue { margin-top: 1.6rem; padding-top: 1rem; border-top: 1px solid #e4dfd1; text-align: center; }
-    .official-doc__issue-track { margin: 0 0 0.6rem; font-size: 0.82rem; color: #7a7568; }
+    /* 발신처 정보(발신명의+관인) — 문서 하단 */
+    .official-doc__issue { margin-top: 1.1rem; padding-top: 0.8rem; border-top: 1px solid #e4dfd1; text-align: center; }
+    .official-doc__issue-track { margin: 0 0 0.5rem; font-size: 0.74rem; color: #7a7568; }
     .official-doc__issue-name {
-      position: relative; display: inline-flex; align-items: center; gap: 0.6rem; font-size: 1.05rem; font-weight: 700;
-      letter-spacing: 0.08em;
+      position: relative; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.92rem; font-weight: 700;
+      letter-spacing: 0.06em;
     }
     .stamp-mark {
-      display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px;
-      border: 2px solid #b0362f; color: #b0362f; border-radius: 50%; font-size: 0.62rem; font-weight: 700;
-      transform: rotate(-8deg); text-align: center; line-height: 1.1; opacity: 0.9;
+      display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px;
+      border: 2px solid #b0362f; color: #b0362f; border-radius: 50%; font-size: 0.56rem; font-weight: 700;
+      transform: rotate(-8deg); text-align: center; line-height: 1.1; opacity: 0.9; overflow: hidden; flex-shrink: 0;
     }
-    .official-doc__footer { text-align: center; font-size: 0.72rem; color: #a39d8d; margin-top: 1.6rem; }
+    .stamp-mark--image { border: none; transform: none; opacity: 1; }
+    .stamp-mark img { width: 100%; height: 100%; object-fit: contain; }
+    .official-doc__footer { text-align: center; font-size: 0.66rem; color: #a39d8d; margin-top: 1.1rem; }
 
     .doc-approval-history { margin: 0.6rem 0 1rem; }
     .doc-approval-history__item { font-size: 0.84rem; color: var(--gov-muted); padding: 0.2rem 0; }

@@ -18,6 +18,7 @@ type CreatePayload = {
   password?: string;
   position?: string;
   grade?: string;
+  department?: string;
   role?: string;
   canApprove?: boolean;
 };
@@ -42,6 +43,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const password = typeof payload.password === 'string' ? payload.password.slice(0, 200) : '';
   const position = clean(payload.position, 40);
   const grade = clean(payload.grade, 20);
+  const department = clean(payload.department, 60);
   const role = payload.role === 'admin' ? 'admin' : 'user';
   const canApprove = !!payload.canApprove || role === 'admin';
 
@@ -57,9 +59,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const passwordHash = await hashPassword(password);
     const now = new Date().toISOString();
     await env.DB.prepare(`
-      INSERT INTO system_users (id, name, username, password_hash, position, grade, role, can_approve, active, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
-    `).bind(id, name, username, passwordHash, position || null, grade || null, role, canApprove ? 1 : 0, now).run();
+      INSERT INTO system_users (id, name, username, password_hash, position, grade, department, role, can_approve, active, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+    `).bind(id, name, username, passwordHash, position || null, grade || null, department || null, role, canApprove ? 1 : 0, now).run();
 
     return json({ ok: true, id, message: '계정이 생성되었습니다.' });
   } catch (error) {

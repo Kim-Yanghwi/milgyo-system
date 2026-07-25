@@ -16,6 +16,7 @@ type UpdatePayload = {
   name?: string;
   position?: string;
   grade?: string;
+  department?: string;
   role?: string;
   canApprove?: boolean;
   active?: boolean;
@@ -47,6 +48,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const name = clean(payload.name, 40);
     const position = clean(payload.position, 40);
     const grade = clean(payload.grade, 20);
+    const department = clean(payload.department, 60);
     const role = payload.role === 'admin' ? 'admin' : 'user';
     const canApprove = !!payload.canApprove || role === 'admin';
     const active = payload.active === undefined ? true : !!payload.active;
@@ -54,9 +56,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     await env.DB.prepare(`
       UPDATE system_users
       SET name = COALESCE(NULLIF(?, ''), name),
-          position = ?, grade = ?, role = ?, can_approve = ?, active = ?
+          position = ?, grade = ?, department = ?, role = ?, can_approve = ?, active = ?
       WHERE id = ?
-    `).bind(name, position || null, grade || null, role, canApprove ? 1 : 0, active ? 1 : 0, id).run();
+    `).bind(name, position || null, grade || null, department || null, role, canApprove ? 1 : 0, active ? 1 : 0, id).run();
 
     if (payload.newPassword && payload.newPassword.length >= 8) {
       const passwordHash = await hashPassword(payload.newPassword.slice(0, 200));

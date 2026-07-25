@@ -158,6 +158,12 @@ export const ensureTables = async (db: D1Database) => {
     )`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_admin_rate_limits_key_created
       ON admin_rate_limits (rate_key, created_at)`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS org_settings (
+      id TEXT PRIMARY KEY,
+      seal_image TEXT,
+      logo_image TEXT,
+      updated_at TEXT NOT NULL
+    )`),
   ]);
 
   // 기존에 운영 중이던 documents 테이블에 결재라인/기안자 계정 연결용 컬럼을 추가한다(신규 설치 시에는 이미 존재하므로 무시됨).
@@ -172,6 +178,7 @@ export const ensureTables = async (db: D1Database) => {
     ensureColumn(db, 'documents', 'approver_name TEXT'),
     ensureColumn(db, 'documents', 'approver_position TEXT'),
     ensureColumn(db, 'documents', 'via TEXT'),
+    ensureColumn(db, 'system_users', 'department TEXT'),
   ]);
 
   tablesEnsured = true;
