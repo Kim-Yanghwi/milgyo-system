@@ -578,7 +578,7 @@ import GovLayout from '../layouts/GovLayout.astro';
     <div class="modal modal--wide">
       <div class="modal__header"><h2>문서 서식 관리</h2><button type="button" class="modal__close" data-close-templates aria-label="닫기">×</button></div>
       <div class="template-manager-layout">
-        <div><div class="section-heading"><strong>등록 서식</strong><button type="button" class="btn btn-outline btn-sm" data-new-template>새 서식</button></div><div class="template-list" data-template-list></div></div>
+        <div><div class="section-heading"><strong>등록 서식</strong><button type="button" class="btn btn-outline btn-sm" data-new-template>새 서식</button></div><input type="search" class="template-search" data-template-search placeholder="서식명·규정명·설명 검색" aria-label="서식 검색" /><div class="template-list" data-template-list></div></div>
         <form class="compose-form template-editor" data-template-form>
           <input type="hidden" name="id" />
           <div class="form-two-col"><label>서식명<input name="name" maxlength="80" required /></label><label>문서구분<select name="docType"><option value="기안">기안</option><option value="발송">발송</option></select></label></div>
@@ -800,13 +800,38 @@ import GovLayout from '../layouts/GovLayout.astro';
         updateApprovalMode();
       };
 
+      const templateGroupName = (template) => {
+        if (!template?.is_system) return '사용자 서식';
+        const id = String(template.id || '');
+        if (id === 'TPL-GENERAL') return '일반·업무';
+        if (id.startsWith('TPL-EXPENSE-') || id.startsWith('TPL-FIN-')) return '재무·회계';
+        if (id.startsWith('TPL-DONATION-')) return '후원·기부금';
+        if (id.startsWith('TPL-FACILITY-') || id.startsWith('TPL-CONTRACT-')) return '시설·계약';
+        if (id.startsWith('TPL-SAFETY-') || id.startsWith('TPL-INSURANCE-') || id.startsWith('TPL-ACCIDENT-') || id.startsWith('TPL-RECURRENCE-')) return '안전·보험';
+        if (id.startsWith('TPL-EDUCATION-') || id.startsWith('TPL-APPOINTMENT-') || id.startsWith('TPL-DISMISSAL-') || id.startsWith('TPL-LEAVE-')) return '교육·인사';
+        if (id.startsWith('TPL-EVENT-')) return '법회·의례·수행';
+        if (id.startsWith('TPL-SEAL-') || id.startsWith('TPL-DOCUMENT-') || id.startsWith('TPL-HANDOVER')) return '문서·인장';
+        if (id.startsWith('TPL-MEETING-')) return '회의';
+        if (id.startsWith('TPL-ETHICS-') || id.startsWith('TPL-DISCIPLINE-')) return '윤리·징계';
+        return '기타 기본서식';
+      };
+      const templateGroupOrder = ['일반·업무', '재무·회계', '후원·기부금', '시설·계약', '안전·보험', '교육·인사', '법회·의례·수행', '문서·인장', '회의', '윤리·징계', '기타 기본서식', '사용자 서식'];
+      const renderTemplateSelectOptions = (templates) => {
+        const grouped = new Map();
+        for (const template of templates.filter((item) => item.active)) {
+          const group = templateGroupName(template);
+          if (!grouped.has(group)) grouped.set(group, []);
+          grouped.get(group).push(template);
+        }
+        return templateGroupOrder.filter((group) => grouped.has(group)).map((group) => `<optgroup label="${esc(group)}">${grouped.get(group).map((template) => `<option value="${esc(template.id)}">${esc(template.name)}${template.is_system ? ' · 기본' : ''}</option>`).join('')}</optgroup>`).join('');
+      };
       const refreshTemplates = async (includeInactive = false) => {
         const data = await callApi('/api/templates/list', { token: getToken(), includeInactive });
         if (!data.ok) return data;
         allTemplates = data.rows || [];
         const select = $('[data-template-select]');
         const previous = select.value;
-        select.innerHTML = '<option value="">서식 없이 작성</option>' + allTemplates.filter((t) => t.active).map((t) => `<option value="${esc(t.id)}">${esc(t.name)}${t.is_system ? ' · 기본' : ''}</option>`).join('');
+        select.innerHTML = '<option value="">서식 없이 작성</option>' + renderTemplateSelectOptions(allTemplates);
         if (allTemplates.some((t) => t.id === previous && t.active)) select.value = previous;
         renderTemplateList();
         return data;
@@ -1470,10 +1495,10 @@ import GovLayout from '../layouts/GovLayout.astro';
       const resetTemplateForm=()=>{templateForm.reset();templateForm.elements.id.value='';templateForm.elements.active.checked=true;templateBuilder.innerHTML='';addTemplateField();$('[data-delete-template]').hidden=true;$('[data-template-form-status]').textContent='';};
       const addTemplateField=(field={})=>{const row=document.createElement('div');row.className='template-field-row';row.innerHTML=`<input data-tf-id placeholder="항목ID" value="${esc(field.id||'')}" /><input data-tf-label placeholder="표시명" value="${esc(field.label||'')}" /><select data-tf-type><option value="text">한 줄</option><option value="textarea">여러 줄</option><option value="number">숫자</option><option value="date">날짜</option><option value="time">시간</option><option value="select">선택</option><option value="checkbox">체크</option></select><input data-tf-options placeholder="선택값(쉼표 구분)" value="${esc((field.options||[]).join(','))}" /><input data-tf-placeholder placeholder="입력 안내" value="${esc(field.placeholder||'')}" /><input data-tf-default placeholder="기본값" value="${esc(field.defaultValue||'')}" /><label><input type="checkbox" data-tf-required ${field.required?'checked':''}/>필수</label><select data-tf-width><option value="full">전체폭</option><option value="half">반폭</option></select><button type="button" class="btn btn-outline btn-sm danger" data-remove-field>삭제</button>`;row.querySelector('[data-tf-type]').value=field.type||'text';row.querySelector('[data-tf-width]').value=field.width||'full';row.querySelector('[data-remove-field]').addEventListener('click',()=>row.remove());templateBuilder.appendChild(row);};
       const collectTemplateFields=()=>$$('.template-field-row',templateBuilder).map((r)=>({id:$('[data-tf-id]',r).value.trim(),label:$('[data-tf-label]',r).value.trim(),type:$('[data-tf-type]',r).value,options:$('[data-tf-options]',r).value.split(',').map((v)=>v.trim()).filter(Boolean),placeholder:$('[data-tf-placeholder]',r).value.trim(),defaultValue:$('[data-tf-default]',r).value.trim(),required:$('[data-tf-required]',r).checked,width:$('[data-tf-width]',r).value}));
-      const renderTemplateList=()=>{const list=$('[data-template-list]');if(!list)return;list.innerHTML=allTemplates.map((t)=>`<button type="button" class="template-list-item ${t.active?'':'inactive'}" data-template-edit="${esc(t.id)}"><strong>${esc(t.name)}</strong><span>${esc(t.description||'설명 없음')}</span><small>${t.is_system?'기본 서식 · 복사하여 사용':'사용자 서식'}${t.active?'':' · 사용중지'}</small></button>`).join('')||'<p class="muted">등록된 서식이 없습니다.</p>';$$('[data-template-edit]',list).forEach((b)=>b.addEventListener('click',()=>editTemplate(b.dataset.templateEdit)));};
+      const renderTemplateList=()=>{const list=$('[data-template-list]');if(!list)return;const query=String($('[data-template-search]')?.value||'').trim().toLowerCase();const rows=allTemplates.filter((t)=>!query||`${t.name||''} ${t.description||''} ${templateGroupName(t)}`.toLowerCase().includes(query));list.innerHTML=rows.map((t)=>`<button type="button" class="template-list-item ${t.active?'':'inactive'}" data-template-edit="${esc(t.id)}"><strong>${esc(t.name)}</strong><span>${esc(t.description||'설명 없음')}</span><small>${esc(templateGroupName(t))} · ${t.is_system?'기본 서식 · 복사하여 사용':'사용자 서식'}${t.active?'':' · 사용중지'}</small></button>`).join('')||'<p class="muted">검색 조건에 맞는 서식이 없습니다.</p>';$$('[data-template-edit]',list).forEach((b)=>b.addEventListener('click',()=>editTemplate(b.dataset.templateEdit)));};
       const editTemplate=(id)=>{const t=findTemplate(id);if(!t)return;templateForm.reset();const copy=!!t.is_system;templateForm.elements.id.value=copy?'':t.id;templateForm.elements.name.value=copy?`${t.name} 복사본`:t.name;templateForm.elements.description.value=t.description||'';templateForm.elements.docType.value=t.doc_type;templateForm.elements.category.value=t.category;templateForm.elements.titlePrefix.value=t.title_prefix||'';templateForm.elements.bodyTemplate.value=t.body_template||'';templateForm.elements.active.checked=!!t.active;templateBuilder.innerHTML='';(t.fields||[]).forEach(addTemplateField);$('[data-delete-template]').hidden=copy;$('[data-template-form-status]').textContent=copy?'기본 서식을 복사해 새 서식으로 저장합니다.':'';};
       const openTemplateManager=async()=>{await refreshTemplates(true);resetTemplateForm();templatesModal.hidden=false;};
-      openTemplatesBtn.addEventListener('click',openTemplateManager);openTemplatesFromComposeBtn.addEventListener('click',openTemplateManager);$$('[data-close-templates]').forEach((b)=>b.addEventListener('click',()=>templatesModal.hidden=true));$('[data-new-template]').addEventListener('click',resetTemplateForm);$('[data-add-template-field]').addEventListener('click',()=>addTemplateField());
+      openTemplatesBtn.addEventListener('click',openTemplateManager);openTemplatesFromComposeBtn.addEventListener('click',openTemplateManager);$$('[data-close-templates]').forEach((b)=>b.addEventListener('click',()=>templatesModal.hidden=true));$('[data-template-search]').addEventListener('input',renderTemplateList);$('[data-new-template]').addEventListener('click',resetTemplateForm);$('[data-add-template-field]').addEventListener('click',()=>addTemplateField());
       templateForm.addEventListener('submit',async(e)=>{e.preventDefault();const fd=new FormData(templateForm);const result=await callApi('/api/templates/save',{token:getToken(),id:fd.get('id'),name:fd.get('name'),description:fd.get('description'),docType:fd.get('docType'),category:fd.get('category'),titlePrefix:fd.get('titlePrefix'),bodyTemplate:fd.get('bodyTemplate'),active:fd.get('active')==='on',fields:collectTemplateFields()});$('[data-template-form-status]').textContent=result.message||'';if(result.ok){await refreshTemplates(true);editTemplate(result.id);}});
       $('[data-delete-template]').addEventListener('click',async()=>{const id=templateForm.elements.id.value;if(!id||!confirm('이 서식의 사용을 중지하시겠습니까?'))return;const result=await callApi('/api/templates/delete',{token:getToken(),id});$('[data-template-form-status]').textContent=result.message||'';if(result.ok){await refreshTemplates(true);resetTemplateForm();}});
 
@@ -2036,7 +2061,8 @@ import GovLayout from '../layouts/GovLayout.astro';
     .template-data-table th, .template-data-table td { border: 1px solid var(--gov-border); padding: 0.55rem 0.65rem; vertical-align: top; }
     .template-data-table th { width: 160px; background: #f4f6f9; text-align: left; }
     .template-manager-layout { display: grid; grid-template-columns: 360px minmax(0,1fr); gap: 1.2rem; align-items: start; }
-    .template-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 68vh; overflow-y: auto; }
+    .template-search { width: 100%; margin: 0.55rem 0 0.7rem; }
+    .template-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 64vh; overflow-y: auto; }
     .template-list-item { display: flex; flex-direction: column; gap: 0.25rem; text-align: left; border: 1px solid var(--gov-border); background: #fff; border-radius: 9px; padding: 0.75rem; }
     .template-list-item:hover { border-color: #9bb3d8; background: #f7faff; }
     .template-list-item.inactive { opacity: 0.55; }
