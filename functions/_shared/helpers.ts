@@ -1,4 +1,4 @@
-// 종단관리시스템 공용 헬퍼 (documents, received 두 API 그룹이 공유)
+// 종단관리시스템 공용 헬퍼 (documents, received, users, auth API 그룹이 공유)
 
 export const json = (payload: unknown, status = 200) =>
   new Response(JSON.stringify(payload), {
@@ -49,18 +49,60 @@ export const getClientIp = (request: Request) => {
   return 'unknown';
 };
 
+// ---------- 비밀번호 해시(솔트 + SHA-256) ----------
+export const hashPassword = async (password: string) => {
+  const salt = randomHex(32);
+  const hash = await sha256(`${salt}:${password}`);
+  return `${salt}:${hash}`;
+};
+
+export const verifyPassword = async (password: string, stored: string) => {
+  if (!stored || !stored.includes(':')) return false;
+  const [salt, expectedHash] = stored.split(':');
+  const actualHash = await sha256(`${salt}:${password}`);
+  return timingSafeEqual(actualHash, expectedHash);
+};
+
 let tablesEnsured = false;
 let lastRateLimitCleanupAt = 0;
 const MAINTENANCE_COOLDOWN_MS = 10 * 60 * 1000;
 
+// 이미 운영 중인 DB에 새 컬럼을 안전하게 추가한다(이미 있으면 조용히 무시).
+const ensureColumn = async (db: D1Database, table: string, columnDef: string) => {
+  try {
+    await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`).run();
+  } catch (error) {
+    // "duplicate column name" 등 이미 존재하는 경우는 정상 상황이므로 무시한다.
+  }
+};
+
 export const ensureTables = async (db: D1Database) => {
   if (tablesEnsured) return;
   await db.batch([
+    db.prepare(`CREATE TABLE IF NOT EXISTS system_users (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      position TEXT,
+      grade TEXT,
+      role TEXT NOT NULL DEFAULT 'user',
+      can_approve INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS system_sessions (
+      token TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS documents (
       id TEXT PRIMARY KEY,
       doc_type TEXT NOT NULL,
       category TEXT NOT NULL,
       title TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
       body TEXT NOT NULL DEFAULT '',
       attachments_note TEXT NOT NULL DEFAULT '',
       drafter TEXT NOT NULL,
@@ -108,6 +150,7 @@ export const ensureTables = async (db: D1Database) => {
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_document_approvals_doc ON document_approvals (document_id, created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_received_documents_created ON received_documents (created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_document_attachments_doc ON document_attachments (document_id, created_at)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_system_sessions_user ON system_sessions (user_id)`),
     db.prepare(`CREATE TABLE IF NOT EXISTS admin_rate_limits (
       id TEXT PRIMARY KEY,
       rate_key TEXT NOT NULL,
@@ -116,11 +159,26 @@ export const ensureTables = async (db: D1Database) => {
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_admin_rate_limits_key_created
       ON admin_rate_limits (rate_key, created_at)`),
   ]);
+
+  // 기존에 운영 중이던 documents 테이블에 결재라인/기안자 계정 연결용 컬럼을 추가한다(신규 설치 시에는 이미 존재하므로 무시됨).
+  await Promise.all([
+    ensureColumn(db, 'documents', `summary TEXT NOT NULL DEFAULT ''`),
+    ensureColumn(db, 'documents', 'drafter_user_id TEXT'),
+    ensureColumn(db, 'documents', 'drafter_position TEXT'),
+    ensureColumn(db, 'documents', 'reviewer_user_id TEXT'),
+    ensureColumn(db, 'documents', 'reviewer_name TEXT'),
+    ensureColumn(db, 'documents', 'reviewer_position TEXT'),
+    ensureColumn(db, 'documents', 'approver_user_id TEXT'),
+    ensureColumn(db, 'documents', 'approver_name TEXT'),
+    ensureColumn(db, 'documents', 'approver_position TEXT'),
+    ensureColumn(db, 'documents', 'via TEXT'),
+  ]);
+
   tablesEnsured = true;
 };
 
-const getAdminAuthRateKey = async (request: Request) =>
-  sha256(`gov-admin-auth-failure:ip:${getClientIp(request)}`);
+const getAuthRateKey = async (request: Request, scope: string) =>
+  sha256(`gov-auth-failure:${scope}:ip:${getClientIp(request)}`);
 
 const cleanupExpiredRateLimits = async (db: D1Database, now: number) => {
   if (now - lastRateLimitCleanupAt <= MAINTENANCE_COOLDOWN_MS) return;
@@ -130,15 +188,15 @@ const cleanupExpiredRateLimits = async (db: D1Database, now: number) => {
   lastRateLimitCleanupAt = now;
 };
 
-export const checkAdminAuthRateLimit = async (db: D1Database, request: Request) => {
+export const checkAuthRateLimit = async (db: D1Database, request: Request, scope = 'login') => {
   await ensureTables(db);
   const now = Date.now();
   await cleanupExpiredRateLimits(db, now);
 
-  const rateKey = await getAdminAuthRateKey(request);
+  const rateKey = await getAuthRateKey(request, scope);
   const checks = [
-    { windowMs: 10 * 60 * 1000, max: 10, message: '관리자 인증 시도가 반복되었습니다. 잠시 후 다시 시도해 주세요.' },
-    { windowMs: 24 * 60 * 60 * 1000, max: 30, message: '관리자 인증 시도 한도를 초과했습니다. 나중에 다시 시도해 주세요.' },
+    { windowMs: 10 * 60 * 1000, max: 10, message: '인증 시도가 반복되었습니다. 잠시 후 다시 시도해 주세요.' },
+    { windowMs: 24 * 60 * 60 * 1000, max: 40, message: '인증 시도 한도를 초과했습니다. 나중에 다시 시도해 주세요.' },
   ];
 
   const rows = await db.batch(
@@ -158,17 +216,25 @@ export const checkAdminAuthRateLimit = async (db: D1Database, request: Request) 
   return { ok: true as const, rateKey };
 };
 
-export const recordAdminAuthFailure = async (db: D1Database, rateKey: string) => {
+// 기존 이름 유지(호환용 별칭)
+export const checkAdminAuthRateLimit = (db: D1Database, request: Request) =>
+  checkAuthRateLimit(db, request, 'admin');
+
+export const recordAuthFailure = async (db: D1Database, rateKey: string) => {
   await db.prepare(`INSERT INTO admin_rate_limits (id, rate_key, created_at) VALUES (?, ?, ?)`)
     .bind(`RL-${randomHex(24)}`, rateKey, new Date().toISOString())
     .run();
 };
 
-export const clearAdminAuthFailures = async (db: D1Database, rateKey: string) => {
+export const clearAuthFailures = async (db: D1Database, rateKey: string) => {
   await db.prepare(`DELETE FROM admin_rate_limits WHERE rate_key = ?`)
     .bind(rateKey)
     .run();
 };
+
+// 기존 이름 유지(호환용 별칭)
+export const recordAdminAuthFailure = recordAuthFailure;
+export const clearAdminAuthFailures = clearAuthFailures;
 
 export const verifyAdminToken = async (submittedToken: string, expectedToken: string) => {
   if (!submittedToken || !expectedToken) return false;
@@ -177,6 +243,57 @@ export const verifyAdminToken = async (submittedToken: string, expectedToken: st
     sha256(expectedToken),
   ]);
   return timingSafeEqual(submittedDigest, expectedDigest);
+};
+
+// ---------- 계정 세션(로그인) ----------
+export type SessionUser = {
+  id: string;
+  name: string;
+  username: string;
+  position: string | null;
+  grade: string | null;
+  role: string;
+  can_approve: number;
+};
+
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12시간
+
+export const createSession = async (db: D1Database, userId: string) => {
+  const token = randomHex(48);
+  const now = new Date();
+  await db.prepare(`INSERT INTO system_sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`)
+    .bind(token, userId, now.toISOString(), new Date(now.getTime() + SESSION_TTL_MS).toISOString())
+    .run();
+  return token;
+};
+
+export const destroySession = async (db: D1Database, token: string) => {
+  if (!token) return;
+  await db.prepare(`DELETE FROM system_sessions WHERE token = ?`).bind(token).run();
+};
+
+export const authenticateSession = async (
+  db: D1Database,
+  token: string,
+): Promise<{ ok: true; user: SessionUser } | { ok: false; message: string; status: number }> => {
+  if (!token) return { ok: false, message: '로그인이 필요합니다.', status: 401 };
+
+  const row = await db.prepare(`
+    SELECT u.id, u.name, u.username, u.position, u.grade, u.role, u.can_approve, u.active, s.expires_at
+    FROM system_sessions s
+    JOIN system_users u ON u.id = s.user_id
+    WHERE s.token = ?
+  `).bind(token).first<SessionUser & { active: number; expires_at: string }>();
+
+  if (!row) return { ok: false, message: '로그인이 만료되었습니다. 다시 로그인해 주세요.', status: 401 };
+  if (!row.active) return { ok: false, message: '비활성화된 계정입니다. 관리자에게 문의해 주세요.', status: 403 };
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    await destroySession(db, token);
+    return { ok: false, message: '로그인이 만료되었습니다. 다시 로그인해 주세요.', status: 401 };
+  }
+
+  const { id, name, username, position, grade, role, can_approve } = row;
+  return { ok: true, user: { id, name, username, position, grade, role, can_approve } };
 };
 
 // 문서관리및사무관리규정 제13조③ — 이사장 결재(또는 이사회 의결)를 원칙으로 하는 중요문서 10개 항목.

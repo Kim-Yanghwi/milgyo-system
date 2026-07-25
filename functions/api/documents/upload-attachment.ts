@@ -1,17 +1,13 @@
 import {
-  checkAdminAuthRateLimit,
+  authenticateSession,
   clean,
-  clearAdminAuthFailures,
   ensureTables,
   json,
   randomHex,
-  recordAdminAuthFailure,
-  verifyAdminToken,
 } from '../../_shared/helpers';
 
 interface Env {
   DB: D1Database;
-  ADMIN_TOKEN: string;
 }
 
 type UploadPayload = {
@@ -27,7 +23,6 @@ const MAX_FILE_BYTES = 4 * 1024 * 1024;
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
-  if (!env.ADMIN_TOKEN) return json({ ok: false, message: 'ADMIN_TOKEN이 설정되지 않았습니다.' }, 500);
 
   let payload: UploadPayload;
   try {
@@ -36,15 +31,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400);
   }
 
-  const authRateLimit = await checkAdminAuthRateLimit(env.DB, request);
-  if (!authRateLimit.ok) return json({ ok: false, message: authRateLimit.message }, 429);
-
-  const token = clean(payload.token, 300);
-  if (!(await verifyAdminToken(token, env.ADMIN_TOKEN))) {
-    await recordAdminAuthFailure(env.DB, authRateLimit.rateKey);
-    return json({ ok: false, message: '관리자 인증값이 올바르지 않습니다.' }, 401);
-  }
-  await clearAdminAuthFailures(env.DB, authRateLimit.rateKey);
+  await ensureTables(env.DB);
+  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
+  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
 
   const documentId = clean(payload.documentId, 60);
   const fileName = clean(payload.fileName, 200);

@@ -1,16 +1,12 @@
 import {
-  checkAdminAuthRateLimit,
+  authenticateSession,
   clean,
-  clearAdminAuthFailures,
   ensureTables,
   json,
-  recordAdminAuthFailure,
-  verifyAdminToken,
 } from '../../_shared/helpers';
 
 interface Env {
   DB: D1Database;
-  ADMIN_TOKEN: string;
 }
 
 type AttachmentDataPayload = {
@@ -19,10 +15,9 @@ type AttachmentDataPayload = {
 };
 
 // 다운로드는 GET 링크 대신 POST + Blob(URL.createObjectURL) 방식으로 처리합니다.
-// (관리자 토큰이 URL 쿼리스트링에 노출되는 것을 피하기 위함입니다.)
+// (세션 토큰이 URL 쿼리스트링에 노출되는 것을 피하기 위함입니다.)
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
-  if (!env.ADMIN_TOKEN) return json({ ok: false, message: 'ADMIN_TOKEN이 설정되지 않았습니다.' }, 500);
 
   let payload: AttachmentDataPayload;
   try {
@@ -31,15 +26,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400);
   }
 
-  const authRateLimit = await checkAdminAuthRateLimit(env.DB, request);
-  if (!authRateLimit.ok) return json({ ok: false, message: authRateLimit.message }, 429);
-
-  const token = clean(payload.token, 300);
-  if (!(await verifyAdminToken(token, env.ADMIN_TOKEN))) {
-    await recordAdminAuthFailure(env.DB, authRateLimit.rateKey);
-    return json({ ok: false, message: '관리자 인증값이 올바르지 않습니다.' }, 401);
-  }
-  await clearAdminAuthFailures(env.DB, authRateLimit.rateKey);
+  await ensureTables(env.DB);
+  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
+  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
 
   const attachmentId = clean(payload.attachmentId, 60);
   if (!attachmentId) return json({ ok: false, message: '첨부파일 정보가 필요합니다.' }, 400);

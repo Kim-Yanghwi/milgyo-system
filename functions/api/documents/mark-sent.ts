@@ -1,30 +1,24 @@
 // 발송대기함(승인 완료된 발송문서)을 실제로 발송한 뒤 "발송완료"로 표시한다.
 import {
-  checkAdminAuthRateLimit,
+  authenticateSession,
   clean,
-  clearAdminAuthFailures,
   ensureTables,
   json,
   randomHex,
-  recordAdminAuthFailure,
-  verifyAdminToken,
 } from '../../_shared/helpers';
 
 interface Env {
   DB: D1Database;
-  ADMIN_TOKEN: string;
 }
 
 type MarkSentPayload = {
   token?: string;
   id?: string;
   sentMethod?: string;
-  handledBy?: string;
 };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
-  if (!env.ADMIN_TOKEN) return json({ ok: false, message: 'ADMIN_TOKEN이 설정되지 않았습니다.' }, 500);
 
   let payload: MarkSentPayload;
   try {
@@ -33,26 +27,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400);
   }
 
-  const authRateLimit = await checkAdminAuthRateLimit(env.DB, request);
-  if (!authRateLimit.ok) return json({ ok: false, message: authRateLimit.message }, 429);
-
-  const token = clean(payload.token, 300);
-  if (!(await verifyAdminToken(token, env.ADMIN_TOKEN))) {
-    await recordAdminAuthFailure(env.DB, authRateLimit.rateKey);
-    return json({ ok: false, message: '관리자 인증값이 올바르지 않습니다.' }, 401);
-  }
-  await clearAdminAuthFailures(env.DB, authRateLimit.rateKey);
+  await ensureTables(env.DB);
+  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
+  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+  const me = auth.user;
 
   const id = clean(payload.id, 60);
   const sentMethod = clean(payload.sentMethod, 40);
-  const handledBy = clean(payload.handledBy, 40);
 
   if (!id) return json({ ok: false, message: '문서번호가 필요합니다.' }, 400);
   if (!sentMethod) return json({ ok: false, message: '발송방법을 입력해 주세요(제16조).' }, 400);
-  if (!handledBy) return json({ ok: false, message: '발송 처리자를 입력해 주세요.' }, 400);
 
   try {
-    await ensureTables(env.DB);
     const document = await env.DB.prepare(`SELECT id, doc_type, status FROM documents WHERE id = ?`)
       .bind(id)
       .first<{ id: string; doc_type: string; status: string }>();
@@ -71,9 +57,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         .bind(sentMethod, now, now, id),
       env.DB.prepare(`
         INSERT INTO document_approvals (id, document_id, action, approver_name, approver_role, memo, created_at)
-        VALUES (?, ?, '발송완료', ?, '담당자', ?, ?)
+        VALUES (?, ?, '발송완료', ?, ?, ?, ?)
       `)
-        .bind(`AP-${randomHex(20)}`, id, handledBy, `발송방법: ${sentMethod}`, now),
+        .bind(`AP-${randomHex(20)}`, id, me.name, me.position || '담당자', `발송방법: ${sentMethod}`, now),
     ]);
 
     return json({ ok: true, message: '발송완료로 처리되었습니다.' });

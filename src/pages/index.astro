@@ -9,11 +9,32 @@ import GovLayout from '../layouts/GovLayout.astro';
       <h1>종단관리시스템</h1>
       <p class="login-card__desc">문서등록대장 · 전자결재 · 접수발송대장</p>
       <form data-login-form>
-        <label for="gov-token">관리자 인증값(ADMIN_TOKEN)</label>
-        <input id="gov-token" type="password" autocomplete="current-password" required />
+        <label for="login-username">아이디</label>
+        <input id="login-username" name="username" type="text" autocomplete="username" required />
+        <label for="login-password">비밀번호</label>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required />
         <button type="submit" class="btn btn-primary btn-block">로그인</button>
+        <p class="login-card__error" data-login-error hidden></p>
       </form>
-      <p class="login-card__help">브라우저를 닫으면 인증값은 사라집니다.</p>
+      <button type="button" class="login-card__toggle" data-toggle-bootstrap>최초 관리자 계정이 아직 없으신가요?</button>
+
+      <form class="login-card__bootstrap" data-bootstrap-form hidden>
+        <p class="hint">Cloudflare Pages 환경변수에 등록한 ADMIN_TOKEN(마스터 키)을 아는 분만 최초 관리자 계정을 만들 수 있습니다.</p>
+        <label for="bs-admin-token">마스터 키(ADMIN_TOKEN)</label>
+        <input id="bs-admin-token" name="adminToken" type="password" required />
+        <label for="bs-name">성명</label>
+        <input id="bs-name" name="name" type="text" maxlength="40" required />
+        <label for="bs-username">로그인 아이디</label>
+        <input id="bs-username" name="username" type="text" maxlength="60" required />
+        <label for="bs-password">비밀번호(8자 이상)</label>
+        <input id="bs-password" name="password" type="password" minlength="8" required />
+        <label for="bs-position">직책(선택)</label>
+        <input id="bs-position" name="position" type="text" maxlength="40" placeholder="예: 이사장" />
+        <button type="submit" class="btn btn-primary btn-block">관리자 계정 만들기</button>
+        <p class="login-card__error" data-bootstrap-error hidden></p>
+        <p class="login-card__error login-card__error--ok" data-bootstrap-ok hidden></p>
+      </form>
+      <p class="login-card__help">브라우저를 닫으면 로그인 상태는 사라집니다.</p>
     </div>
   </div>
 
@@ -25,9 +46,14 @@ import GovLayout from '../layouts/GovLayout.astro';
         종단관리시스템
       </div>
       <nav class="app-topbar__menu">
-        <span>홈</span><span class="active">결재</span><span>문서대장</span><span>접수·발송</span>
+        <button type="button" class="app-topbar__link active" data-nav="home">홈</button>
+        <button type="button" class="app-topbar__link" data-nav="approval">결재</button>
+        <button type="button" class="app-topbar__link" data-nav="registry">문서대장</button>
+        <button type="button" class="app-topbar__link" data-nav="received">접수·발송</button>
       </nav>
       <div class="app-topbar__right">
+        <span class="app-topbar__me" data-me-label></span>
+        <button type="button" class="btn btn-ghost" data-open-users hidden>계정관리</button>
         <button type="button" class="btn btn-ghost" data-logout>로그아웃</button>
       </div>
     </header>
@@ -118,7 +144,7 @@ import GovLayout from '../layouts/GovLayout.astro';
             <label><input type="radio" name="docType" value="발송" /> 발송(대외)</label>
           </div>
 
-          <label for="c-category">문서 분류 (제13조③)</label>
+          <label for="c-category">문서분류(과제카드명) · 제13조③</label>
           <select id="c-category" name="category"></select>
           <p class="hint" data-track-hint></p>
           <div class="radio-row" data-track-choice hidden>
@@ -126,16 +152,30 @@ import GovLayout from '../layouts/GovLayout.astro';
             <label><input type="radio" name="approvalTrackChoice" value="이사회의결" /> 이사회 의결</label>
           </div>
 
+          <label for="c-summary">문서요지(선택)</label>
+          <input id="c-summary" name="summary" type="text" maxlength="200" placeholder="보고내용을 한 줄로 요약해 주세요." />
+
+          <div data-reviewer-approver-fields>
+            <label for="c-reviewer">검토자(선택)</label>
+            <select id="c-reviewer" name="reviewerUserId" data-reviewer-select></select>
+
+            <label for="c-approver" data-approver-label>결재자 · 제13조②</label>
+            <select id="c-approver" name="approverUserId" data-approver-select></select>
+          </div>
+
           <div data-recipient-field hidden>
             <label for="c-recipient">수신</label>
             <input id="c-recipient" name="recipient" type="text" maxlength="100" placeholder="예: OO시청 / OOO 귀하" />
           </div>
 
+          <label for="c-via">경유(선택)</label>
+          <input id="c-via" name="via" type="text" maxlength="100" placeholder="경유기관이 있는 경우에만 입력" />
+
           <label for="c-title">제목</label>
           <input id="c-title" name="title" type="text" maxlength="200" required />
 
           <label for="c-body">본문</label>
-          <textarea id="c-body" name="body" rows="8" required></textarea>
+          <textarea id="c-body" name="body" rows="7" required></textarea>
 
           <label for="c-attachments-note">붙임 설명(선택)</label>
           <input id="c-attachments-note" name="attachmentsNote" type="text" maxlength="400" placeholder="예: 사업계획서 1부." />
@@ -143,9 +183,6 @@ import GovLayout from '../layouts/GovLayout.astro';
           <label for="c-attachments-file">붙임파일(선택, 파일당 4MB 이하)</label>
           <input id="c-attachments-file" name="attachmentsFile" type="file" multiple />
           <ul class="attachment-pending-list" data-attachment-pending-list></ul>
-
-          <label for="c-drafter">기안자</label>
-          <input id="c-drafter" name="drafter" type="text" maxlength="40" required />
 
           <label for="c-department">담당부서(선택)</label>
           <select id="c-department" name="department" data-department-select></select>
@@ -157,18 +194,35 @@ import GovLayout from '../layouts/GovLayout.astro';
         </form>
 
         <div class="compose-preview">
-          <div class="official-doc">
-            <p class="official-doc__org">사단법인 대한불교밀교종</p>
+          <div class="official-doc" data-official-doc="preview">
+            <div class="official-doc__masthead">
+              <div class="official-doc__emblem">卍</div>
+              <h3 class="official-doc__orgname">사단법인 대한불교밀교종</h3>
+            </div>
             <p class="official-doc__number" data-preview-number>문서번호 · 밀교종-2026-000</p>
-            <div class="official-doc__field"><span>수신</span><strong data-preview-recipient>(내부결재)</strong></div>
-            <div class="official-doc__field"><span>제목</span><strong data-preview-title>제목을 입력해 주세요</strong></div>
+            <div class="official-doc__meta">
+              <div class="official-doc__meta-row"><span>수신</span><strong data-preview-recipient>(내부결재)</strong></div>
+              <div class="official-doc__meta-row" data-preview-via-row hidden><span>(경유)</span><strong data-preview-via>-</strong></div>
+              <div class="official-doc__meta-row"><span>제목</span><strong data-preview-title>제목을 입력해 주세요</strong></div>
+            </div>
             <div class="official-doc__body" data-preview-body>본문을 입력해 주세요.</div>
-            <div class="official-doc__field"><span>붙임</span><strong data-preview-attachments>—</strong></div>
-            <div class="official-doc__sign">
-              <p data-preview-track>결재: 전결</p>
-              <div class="official-doc__stamp">
-                <span data-preview-drafter>기안자</span>
-                <span class="stamp-mark">印</span>
+            <div class="official-doc__meta-row official-doc__attach"><span>붙임</span><strong data-preview-attachments>—</strong></div>
+
+            <table class="official-doc__routing">
+              <thead><tr><th>구분</th><th>직위</th><th>성명</th><th>결재</th></tr></thead>
+              <tbody>
+                <tr><td>기안</td><td data-preview-drafter-position>-</td><td data-preview-drafter-name>-</td><td class="official-doc__routing-seal">〇</td></tr>
+                <tr data-preview-reviewer-row><td>검토</td><td data-preview-reviewer-position>-</td><td data-preview-reviewer-name>-</td><td class="official-doc__routing-seal">　</td></tr>
+                <tr data-preview-approver-row><td>결재</td><td data-preview-approver-position>-</td><td data-preview-approver-name>-</td><td class="official-doc__routing-seal">　</td></tr>
+              </tbody>
+            </table>
+
+            <div class="official-doc__issue">
+              <p data-preview-track class="official-doc__issue-track">결재: 전결</p>
+              <div class="official-doc__issue-name">
+                사단법인 대한불교밀교종
+                <span data-preview-signer>이사장</span>
+                <span class="stamp-mark">밀교종印</span>
               </div>
             </div>
             <p class="official-doc__footer">사단법인 대한불교밀교종 · milgyo.org</p>
@@ -201,8 +255,6 @@ import GovLayout from '../layouts/GovLayout.astro';
         <input id="r-external-number" name="externalDocNumber" type="text" maxlength="100" />
         <label for="r-date">접수·발송 일자</label>
         <input id="r-date" name="receivedAt" type="date" required />
-        <label for="r-handled-by">등록 담당자</label>
-        <input id="r-handled-by" name="handledBy" type="text" maxlength="40" required />
         <label for="r-memo">메모(선택)</label>
         <textarea id="r-memo" name="memo" rows="3" maxlength="2000"></textarea>
         <div class="compose-form__actions">
@@ -222,18 +274,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       </div>
       <form class="compose-form" data-batch-form>
         <p class="hint" data-batch-hint>선택한 문서를 일괄 처리합니다.</p>
-        <p class="hint">규정 제13조②: 결재권자는 이사장·사무총장·재정국장·총무원장·교육·포교원장 또는 이사회가 지정한 자로 할 수 있습니다. 전결대상·이미 처리된 문서는 자동으로 제외됩니다.</p>
-        <label for="b-role">결재자 직책</label>
-        <select id="b-role" name="approverRole">
-          <option value="이사장">이사장</option>
-          <option value="사무총장">사무총장</option>
-          <option value="재정국장">재정국장</option>
-          <option value="총무원장">총무원장</option>
-          <option value="교육·포교원장">교육·포교원장</option>
-          <option value="이사회지정자">이사회지정자</option>
-        </select>
-        <label for="b-name">결재자 성명</label>
-        <input id="b-name" name="approverName" type="text" maxlength="40" required />
+        <p class="hint">본인이 결재자로 지정된 결재대기 문서만 처리됩니다(전결·타인 지정 문서는 자동 제외).</p>
         <label for="b-memo">결재 의견(선택)</label>
         <textarea id="b-memo" name="memo" rows="3" maxlength="2000"></textarea>
         <div class="compose-form__actions">
@@ -241,6 +282,48 @@ import GovLayout from '../layouts/GovLayout.astro';
           <button type="submit" class="btn btn-primary" data-batch-action="승인">일괄 승인</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- 계정관리(관리자 전용) -->
+  <div class="modal-overlay" data-users-modal hidden>
+    <div class="modal modal--wide">
+      <div class="modal__header">
+        <h2>계정관리</h2>
+        <button type="button" class="modal__close" data-close-users aria-label="닫기">×</button>
+      </div>
+      <div class="users-layout">
+        <div>
+          <p class="detail-section-title">계정 목록</p>
+          <div class="doc-table" data-users-table></div>
+        </div>
+        <form class="compose-form" data-user-form>
+          <p class="detail-section-title" data-user-form-title>계정 추가</p>
+          <input type="hidden" name="id" />
+          <label for="u-name">성명</label>
+          <input id="u-name" name="name" type="text" maxlength="40" required />
+          <label for="u-username">아이디</label>
+          <input id="u-username" name="username" type="text" maxlength="60" required />
+          <label for="u-password" data-user-password-label>비밀번호(8자 이상)</label>
+          <input id="u-password" name="password" type="password" minlength="8" />
+          <label for="u-position">직책</label>
+          <input id="u-position" name="position" type="text" maxlength="40" placeholder="예: 사무국장" />
+          <label for="u-grade">직급(선택)</label>
+          <input id="u-grade" name="grade" type="text" maxlength="20" placeholder="예: 3급" />
+          <label for="u-role">역할</label>
+          <select id="u-role" name="role">
+            <option value="user">일반 계정</option>
+            <option value="admin">관리자(계정관리 가능)</option>
+          </select>
+          <label class="checkbox-row"><input type="checkbox" name="canApprove" /> 결재자로 지정 가능(결재권 부여)</label>
+          <label class="checkbox-row" data-user-active-row><input type="checkbox" name="active" checked /> 활성 계정</label>
+          <div class="compose-form__actions">
+            <button type="button" class="btn btn-outline" data-user-form-reset>새 계정 입력으로</button>
+            <button type="submit" class="btn btn-primary" data-user-form-submit>계정 추가</button>
+          </div>
+          <p class="hint" data-user-form-status></p>
+        </form>
+      </div>
     </div>
   </div>
 
@@ -259,19 +342,8 @@ import GovLayout from '../layouts/GovLayout.astro';
           <p class="detail-section-title">결재 이력</p>
           <div class="doc-approval-history" data-detail-history></div>
 
+          <p class="hint" data-decide-blocked hidden></p>
           <form class="compose-form" data-decide-form hidden>
-            <p class="hint">규정 제13조②: 결재권자는 이사장·사무총장·재정국장·총무원장·교육·포교원장 또는 이사회가 지정한 자로 할 수 있습니다.</p>
-            <label for="d-role">결재자 직책</label>
-            <select id="d-role" name="approverRole">
-              <option value="이사장">이사장</option>
-              <option value="사무총장">사무총장</option>
-              <option value="재정국장">재정국장</option>
-              <option value="총무원장">총무원장</option>
-              <option value="교육·포교원장">교육·포교원장</option>
-              <option value="이사회지정자">이사회지정자</option>
-            </select>
-            <label for="d-name">결재자 성명</label>
-            <input id="d-name" name="approverName" type="text" maxlength="40" />
             <label for="d-memo">결재 의견(선택)</label>
             <textarea id="d-memo" name="memo" rows="3" maxlength="2000"></textarea>
             <div class="compose-form__actions">
@@ -284,8 +356,6 @@ import GovLayout from '../layouts/GovLayout.astro';
             <p class="hint">규정 제16조: 발송문서는 발송방법을 기록해 보관합니다.</p>
             <label for="s-method">발송방법</label>
             <input id="s-method" name="sentMethod" type="text" maxlength="40" placeholder="우편 / 전자우편 / 방문제출 등" />
-            <label for="s-handled-by">처리자</label>
-            <input id="s-handled-by" name="handledBy" type="text" maxlength="40" />
             <div class="compose-form__actions">
               <button type="submit" class="btn btn-primary">발송완료 처리</button>
             </div>
@@ -293,18 +363,35 @@ import GovLayout from '../layouts/GovLayout.astro';
         </div>
 
         <div class="compose-preview">
-          <div class="official-doc" data-detail-preview>
-            <p class="official-doc__org">사단법인 대한불교밀교종</p>
+          <div class="official-doc" data-official-doc="detail">
+            <div class="official-doc__masthead">
+              <div class="official-doc__emblem">卍</div>
+              <h3 class="official-doc__orgname">사단법인 대한불교밀교종</h3>
+            </div>
             <p class="official-doc__number" data-detail-preview-number></p>
-            <div class="official-doc__field"><span>수신</span><strong data-detail-preview-recipient></strong></div>
-            <div class="official-doc__field"><span>제목</span><strong data-detail-preview-title></strong></div>
+            <div class="official-doc__meta">
+              <div class="official-doc__meta-row"><span>수신</span><strong data-detail-preview-recipient></strong></div>
+              <div class="official-doc__meta-row" data-detail-preview-via-row hidden><span>(경유)</span><strong data-detail-preview-via></strong></div>
+              <div class="official-doc__meta-row"><span>제목</span><strong data-detail-preview-title></strong></div>
+            </div>
             <div class="official-doc__body" data-detail-preview-body></div>
-            <div class="official-doc__field"><span>붙임</span><strong data-detail-preview-attachments></strong></div>
-            <div class="official-doc__sign">
-              <p data-detail-preview-track></p>
-              <div class="official-doc__stamp">
-                <span data-detail-preview-drafter></span>
-                <span class="stamp-mark">印</span>
+            <div class="official-doc__meta-row official-doc__attach"><span>붙임</span><strong data-detail-preview-attachments></strong></div>
+
+            <table class="official-doc__routing">
+              <thead><tr><th>구분</th><th>직위</th><th>성명</th><th>결재</th></tr></thead>
+              <tbody>
+                <tr><td>기안</td><td data-detail-preview-drafter-position>-</td><td data-detail-preview-drafter-name>-</td><td class="official-doc__routing-seal">〇</td></tr>
+                <tr data-detail-preview-reviewer-row><td>검토</td><td data-detail-preview-reviewer-position>-</td><td data-detail-preview-reviewer-name>-</td><td class="official-doc__routing-seal" data-detail-preview-reviewer-seal>　</td></tr>
+                <tr data-detail-preview-approver-row><td>결재</td><td data-detail-preview-approver-position>-</td><td data-detail-preview-approver-name>-</td><td class="official-doc__routing-seal" data-detail-preview-approver-seal>　</td></tr>
+              </tbody>
+            </table>
+
+            <div class="official-doc__issue">
+              <p data-detail-preview-track class="official-doc__issue-track"></p>
+              <div class="official-doc__issue-name">
+                사단법인 대한불교밀교종
+                <span data-detail-preview-signer></span>
+                <span class="stamp-mark" data-detail-preview-stamp>밀교종印</span>
               </div>
             </div>
             <p class="official-doc__footer">사단법인 대한불교밀교종 · milgyo.org</p>
@@ -330,8 +417,23 @@ import GovLayout from '../layouts/GovLayout.astro';
     routineCategory: '일반(경미한 내부보고·단순사무 — 전결대상)',
   }}>
     (function () {
-      const STORAGE_KEY = 'milgyo-system-token';
+      const STORAGE_KEY = 'milgyo-system-session';
       const allCategories = importantCategories.concat([routineCategory]);
+      let allUsers = [];
+
+      // ---------- 세션 ----------
+      const getSession = () => {
+        try {
+          const raw = sessionStorage.getItem(STORAGE_KEY);
+          return raw ? JSON.parse(raw) : null;
+        } catch (error) {
+          return null;
+        }
+      };
+      const setSession = (session) => sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+      const clearSession = () => sessionStorage.removeItem(STORAGE_KEY);
+      const getToken = () => (getSession() || {}).token || '';
+      const getMe = () => (getSession() || {}).user || null;
 
       // 네이버웍스 조직도를 그대로 반영한 담당부서 트리 (사무국/소속기관·교구/위원회·신도단체만 하위 조직 보유)
       const departmentTree = [
@@ -364,8 +466,19 @@ import GovLayout from '../layouts/GovLayout.astro';
       const loginScreen = document.querySelector('[data-login-screen]');
       const appShell = document.querySelector('[data-app-shell]');
       const loginForm = document.querySelector('[data-login-form]');
-      const tokenInput = document.getElementById('gov-token');
+      const loginError = document.querySelector('[data-login-error]');
       const logoutBtn = document.querySelector('[data-logout]');
+      const meLabel = document.querySelector('[data-me-label]');
+      const openUsersBtn = document.querySelector('[data-open-users]');
+
+      const toggleBootstrapBtn = document.querySelector('[data-toggle-bootstrap]');
+      const bootstrapForm = document.querySelector('[data-bootstrap-form]');
+      const bootstrapError = document.querySelector('[data-bootstrap-error]');
+      const bootstrapOk = document.querySelector('[data-bootstrap-ok]');
+
+      toggleBootstrapBtn.addEventListener('click', () => {
+        bootstrapForm.hidden = !bootstrapForm.hidden;
+      });
 
       const panelDocuments = document.querySelector('[data-panel="documents"]');
       const panelReceived = document.querySelector('[data-panel="received"]');
@@ -383,10 +496,9 @@ import GovLayout from '../layouts/GovLayout.astro';
 
       const sidebarLinks = document.querySelectorAll('[data-view]');
       const receivedSidebarLink = document.querySelector('[data-received-view]');
+      const topbarNavLinks = document.querySelectorAll('[data-nav]');
 
       let currentView = '결재대기';
-
-      const getToken = () => sessionStorage.getItem(STORAGE_KEY) || '';
 
       const callApi = async (path, body) => {
         const response = await fetch(path, {
@@ -396,7 +508,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         });
         const data = await response.json().catch(() => ({ ok: false, message: '응답 처리 중 오류가 발생했습니다.' }));
         if (response.status === 401) {
-          sessionStorage.removeItem(STORAGE_KEY);
+          clearSession();
           showLogin();
         }
         return data;
@@ -409,6 +521,11 @@ import GovLayout from '../layouts/GovLayout.astro';
       const showApp = () => {
         loginScreen.hidden = true;
         appShell.hidden = false;
+        const me = getMe();
+        if (me) {
+          meLabel.textContent = `${me.name}${me.position ? ' · ' + me.position : ''}`;
+          openUsersBtn.hidden = me.role !== 'admin';
+        }
       };
 
       const showDocumentsPanel = () => {
@@ -429,7 +546,6 @@ import GovLayout from '../layouts/GovLayout.astro';
         반려: '반려문서함',
       };
 
-      // 결재대기/발송대기/완료/반려 함(체크박스 + 일괄결재) — 온나라 스타일
       const QUEUE_VIEWS = ['결재대기', '발송대기', '완료', '반려'];
       const listToolbar = document.querySelector('[data-list-toolbar]');
       const selectAllCheckbox = document.querySelector('[data-select-all]');
@@ -456,22 +572,27 @@ import GovLayout from '../layouts/GovLayout.astro';
             <td class="doc-table__select" data-no-open>
               <input type="checkbox" data-row-select value="${row.id}" ${row.status === '결재대기' && row.approval_track !== '전결' ? '' : 'disabled'} />
             </td>
-            <td>${row.doc_type}</td>
-            <td>${formatDate(row.created_at)}</td>
+            <td class="center">${row.doc_type}</td>
+            <td class="center">${formatDate(row.created_at)}</td>
             <td class="doc-table__title">${row.title}</td>
-            <td>${row.department || '-'}</td>
-            <td>${row.drafter}</td>
-            <td>${row.recipient || '-'}</td>
-            <td><span class="badge badge--${row.status}">${row.status}</span></td>
+            <td class="center">${row.department || '-'}</td>
+            <td class="center">${row.drafter}</td>
+            <td class="center">${row.recipient || '-'}</td>
+            <td class="center"><span class="badge badge--${row.status}">${row.status}</span></td>
           </tr>
         `).join('');
 
         docTable.innerHTML = `
           <table class="doc-table__frame">
+            <colgroup>
+              <col style="width:44px" /><col style="width:80px" /><col style="width:110px" />
+              <col /><col style="width:160px" /><col style="width:100px" /><col style="width:150px" /><col style="width:90px" />
+            </colgroup>
             <thead>
               <tr>
                 <th class="doc-table__select"></th>
-                <th>구분</th><th>보고일자</th><th>제목</th><th>부서</th><th>보고자</th><th>보낸기관</th><th>상태</th>
+                <th class="center">구분</th><th class="center">보고일자</th><th>제목</th><th class="center">부서</th>
+                <th class="center">보고자</th><th class="center">보낸기관</th><th class="center">상태</th>
               </tr>
             </thead>
             <tbody>
@@ -501,22 +622,27 @@ import GovLayout from '../layouts/GovLayout.astro';
 
         const bodyRows = rows.map((row) => `
           <tr class="doc-table__row" data-doc-id="${row.id}">
-            <td class="mono">${row.id}</td>
-            <td>${formatDate(row.created_at)}</td>
+            <td class="mono center">${row.id}</td>
+            <td class="center">${formatDate(row.created_at)}</td>
             <td class="doc-table__title">${row.title}</td>
-            <td>${row.recipient || row.department || '-'}</td>
-            <td>${row.drafter}</td>
-            <td>${row.reviewer_name || '-'}</td>
-            <td>${row.reviewer_role || '-'}</td>
-            <td><span class="badge badge--${row.status}">${row.status}</span></td>
+            <td class="center">${row.recipient || row.department || '-'}</td>
+            <td class="center">${row.drafter}</td>
+            <td class="center">${row.reviewer_name || row.approver_name || '-'}</td>
+            <td class="center">${row.reviewer_position || row.approver_position || '-'}</td>
+            <td class="center"><span class="badge badge--${row.status}">${row.status}</span></td>
           </tr>
         `).join('');
 
         docTable.innerHTML = `
           <table class="doc-table__frame">
+            <colgroup>
+              <col style="width:150px" /><col style="width:110px" /><col />
+              <col style="width:150px" /><col style="width:100px" /><col style="width:100px" /><col style="width:110px" /><col style="width:90px" />
+            </colgroup>
             <thead>
               <tr>
-                <th>번호</th><th>보고일자</th><th>제목</th><th>수(발)신자</th><th>보고자</th><th>검토자</th><th>검토자직위</th><th>상태</th>
+                <th class="center">번호</th><th class="center">보고일자</th><th>제목</th><th class="center">수(발)신자</th>
+                <th class="center">보고자</th><th class="center">검토자</th><th class="center">검토자직위</th><th class="center">상태</th>
               </tr>
             </thead>
             <tbody>
@@ -567,22 +693,43 @@ import GovLayout from '../layouts/GovLayout.astro';
         updateSelectionUi();
       });
 
+      // 사이드바/상단 메뉴 어디를 눌러도 같은 문서 목록 화면으로 전환되도록 하나의 함수로 통일한다.
+      const activateDocumentsView = (view) => {
+        currentView = view;
+        sidebarLinks.forEach((b) => b.classList.toggle('active', b.getAttribute('data-view') === view));
+        panelTitle.textContent = viewLabels[currentView] || '문서목록';
+        listToolbar.hidden = !QUEUE_VIEWS.includes(currentView);
+        showDocumentsPanel();
+        refreshDocuments();
+      };
+
+      const activateReceivedView = () => {
+        sidebarLinks.forEach((b) => b.classList.remove('active'));
+        showReceivedPanel();
+        refreshReceived();
+      };
+
       sidebarLinks.forEach((btn) => {
         btn.addEventListener('click', () => {
-          sidebarLinks.forEach((b) => b.classList.remove('active'));
-          btn.classList.add('active');
-          currentView = btn.getAttribute('data-view');
-          panelTitle.textContent = viewLabels[currentView] || '문서목록';
-          listToolbar.hidden = currentView === '전체' || !QUEUE_VIEWS.includes(currentView);
-          showDocumentsPanel();
-          refreshDocuments();
+          topbarNavLinks.forEach((b) => b.classList.toggle('active', b.getAttribute('data-nav') === (btn.getAttribute('data-view') === '전체' ? 'registry' : 'approval')));
+          activateDocumentsView(btn.getAttribute('data-view'));
         });
       });
 
       receivedSidebarLink.addEventListener('click', () => {
-        sidebarLinks.forEach((b) => b.classList.remove('active'));
-        showReceivedPanel();
-        refreshReceived();
+        topbarNavLinks.forEach((b) => b.classList.toggle('active', b.getAttribute('data-nav') === 'received'));
+        activateReceivedView();
+      });
+
+      topbarNavLinks.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          topbarNavLinks.forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          const nav = btn.getAttribute('data-nav');
+          if (nav === 'received') { activateReceivedView(); return; }
+          if (nav === 'registry') { activateDocumentsView('전체'); return; }
+          activateDocumentsView('결재대기'); // 홈 / 결재
+        });
       });
 
       refreshBtn.addEventListener('click', refreshDocuments);
@@ -622,6 +769,23 @@ import GovLayout from '../layouts/GovLayout.astro';
 
       receivedRefreshBtn.addEventListener('click', refreshReceived);
 
+      // ---------- 계정 목록(검토자/결재자 지정용) ----------
+      const reviewerSelect = document.querySelector('[data-reviewer-select]');
+      const approverSelect = document.querySelector('[data-approver-select]');
+
+      const refreshUserOptions = async () => {
+        const token = getToken();
+        if (!token) return;
+        const data = await callApi('/api/users/list', { token });
+        if (!data.ok) return;
+        allUsers = data.rows || [];
+        reviewerSelect.innerHTML = '<option value="">(선택 안 함)</option>' + allUsers
+          .map((u) => `<option value="${u.id}">${u.name}${u.position ? ' · ' + u.position : ''}</option>`).join('');
+        approverSelect.innerHTML = '<option value="">결재자를 선택해 주세요</option>' + allUsers
+          .filter((u) => u.can_approve)
+          .map((u) => `<option value="${u.id}">${u.name}${u.position ? ' · ' + u.position : ''}</option>`).join('');
+      };
+
       // ---------- 문서작성(기안/발송) ----------
       const composeModal = document.querySelector('[data-compose-modal]');
       const openComposeBtn = document.querySelector('[data-open-compose]');
@@ -630,6 +794,8 @@ import GovLayout from '../layouts/GovLayout.astro';
       const trackHint = document.querySelector('[data-track-hint]');
       const trackChoice = document.querySelector('[data-track-choice]');
       const recipientField = document.querySelector('[data-recipient-field]');
+      const reviewerApproverFields = document.querySelector('[data-reviewer-approver-fields]');
+      const approverLabel = document.querySelector('[data-approver-label]');
 
       categorySelect.innerHTML = allCategories.map((c) => `<option value="${c}">${c}</option>`).join('');
       const departmentSelect = document.querySelector('[data-department-select]');
@@ -637,15 +803,21 @@ import GovLayout from '../layouts/GovLayout.astro';
 
       document.querySelectorAll('[data-close-compose]').forEach((btn) =>
         btn.addEventListener('click', () => { composeModal.hidden = true; }));
-      openComposeBtn.addEventListener('click', () => { composeModal.hidden = false; updatePreview(); });
+      openComposeBtn.addEventListener('click', async () => {
+        await refreshUserOptions();
+        composeModal.hidden = false;
+        updatePreview();
+      });
 
       const updateTrackHint = () => {
         const category = categorySelect.value;
         const isImportant = importantCategories.includes(category);
         trackChoice.hidden = !isImportant;
+        approverSelect.required = isImportant;
+        approverLabel.textContent = isImportant ? '결재자 · 제13조②' : '결재자(전결 — 지정 불필요)';
         trackHint.textContent = isImportant
-          ? '중요문서 — 제13조③에 따라 이사장결재 또는 이사회의결이 필요합니다.'
-          : '경미한 문서 — 제13조④에 따라 등록과 동시에 담당자 전결로 처리됩니다.';
+          ? '중요문서 — 제13조③에 따라 이사장결재 또는 이사회의결이 필요하며, 결재자 지정이 필요합니다.'
+          : '경미한 문서 — 제13조④에 따라 등록과 동시에 담당자 전결로 처리됩니다(결재자 지정 불필요).';
       };
       categorySelect.addEventListener('change', () => { updateTrackHint(); updatePreview(); });
 
@@ -655,21 +827,44 @@ import GovLayout from '../layouts/GovLayout.astro';
         updatePreview();
       }));
 
+      const findUser = (id) => allUsers.find((u) => u.id === id);
+
       const updatePreview = () => {
         const formData = new FormData(composeForm);
         const category = formData.get('category');
         const isImportant = importantCategories.includes(category);
         const track = !isImportant ? '전결' : (formData.get('approvalTrackChoice') || '이사장결재');
+        const me = getMe() || {};
 
         document.querySelector('[data-preview-recipient]').textContent =
           formData.get('docType') === '발송' ? (formData.get('recipient') || '(수신처 미입력)') : '(내부결재)';
+        const via = formData.get('via') || '';
+        document.querySelector('[data-preview-via-row]').hidden = !via;
+        document.querySelector('[data-preview-via]').textContent = via || '-';
         document.querySelector('[data-preview-title]').textContent = formData.get('title') || '제목을 입력해 주세요';
         document.querySelector('[data-preview-body]').textContent = formData.get('body') || '본문을 입력해 주세요.';
         document.querySelector('[data-preview-attachments]').textContent = formData.get('attachmentsNote') || '—';
         document.querySelector('[data-preview-track]').textContent = `결재: ${track}`;
-        document.querySelector('[data-preview-drafter]').textContent = formData.get('drafter') || '기안자';
+
+        document.querySelector('[data-preview-drafter-name]').textContent = me.name || '-';
+        document.querySelector('[data-preview-drafter-position]').textContent = me.position || '-';
+
+        const reviewer = findUser(formData.get('reviewerUserId'));
+        document.querySelector('[data-preview-reviewer-row]').hidden = !reviewer;
+        document.querySelector('[data-preview-reviewer-name]').textContent = reviewer ? reviewer.name : '-';
+        document.querySelector('[data-preview-reviewer-position]').textContent = reviewer ? (reviewer.position || '-') : '-';
+
+        const approver = findUser(formData.get('approverUserId'));
+        const showApproverRow = isImportant;
+        document.querySelector('[data-preview-approver-row]').hidden = !showApproverRow;
+        document.querySelector('[data-preview-approver-name]').textContent = isImportant ? (approver ? approver.name : '-') : me.name || '-';
+        document.querySelector('[data-preview-approver-position]').textContent = isImportant ? (approver ? approver.position || '-' : '-') : (me.position || '-');
+        document.querySelector('[data-preview-signer]').textContent = isImportant
+          ? (approver ? `${approver.position || ''} ${approver.name}`.trim() : '결재자 미지정')
+          : `${me.position || '담당자'} ${me.name || ''}`.trim();
       };
       composeForm.addEventListener('input', updatePreview);
+      composeForm.addEventListener('change', updatePreview);
       updateTrackHint();
 
       // ---------- 붙임파일(실제 업로드) ----------
@@ -792,6 +987,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       // ---------- 문서 상세 / 결재 ----------
       const detailModal = document.querySelector('[data-detail-modal]');
       const decideForm = document.querySelector('[data-decide-form]');
+      const decideBlocked = document.querySelector('[data-decide-blocked]');
       const sendForm = document.querySelector('[data-send-form]');
       let currentDetailId = null;
 
@@ -804,6 +1000,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         if (!data.ok) { statusEl.textContent = data.message || '문서를 불러오지 못했습니다.'; return; }
         currentDetailId = id;
         const doc = data.document;
+        const me = getMe() || {};
 
         document.querySelector('[data-detail-title]').textContent = doc.title;
         document.querySelector('[data-detail-meta]').textContent =
@@ -830,13 +1027,40 @@ import GovLayout from '../layouts/GovLayout.astro';
 
         document.querySelector('[data-detail-preview-number]').textContent = `문서번호 · ${doc.id}`;
         document.querySelector('[data-detail-preview-recipient]').textContent = doc.recipient || '(내부결재)';
+        document.querySelector('[data-detail-preview-via-row]').hidden = !doc.via;
+        document.querySelector('[data-detail-preview-via]').textContent = doc.via || '-';
         document.querySelector('[data-detail-preview-title]').textContent = doc.title;
         document.querySelector('[data-detail-preview-body]').textContent = doc.body;
         document.querySelector('[data-detail-preview-attachments]').textContent = doc.attachments_note || '—';
         document.querySelector('[data-detail-preview-track]').textContent = `결재: ${doc.approval_track}`;
-        document.querySelector('[data-detail-preview-drafter]').textContent = doc.drafter;
 
-        decideForm.hidden = !(doc.approval_track !== '전결' && doc.status === '결재대기');
+        document.querySelector('[data-detail-preview-drafter-name]').textContent = doc.drafter || '-';
+        document.querySelector('[data-detail-preview-drafter-position]').textContent = doc.drafter_position || '-';
+
+        const hasReviewer = !!doc.reviewer_name;
+        document.querySelector('[data-detail-preview-reviewer-row]').hidden = !hasReviewer;
+        document.querySelector('[data-detail-preview-reviewer-name]').textContent = doc.reviewer_name || '-';
+        document.querySelector('[data-detail-preview-reviewer-position]').textContent = doc.reviewer_position || '-';
+        document.querySelector('[data-detail-preview-reviewer-seal]').textContent = doc.status !== '결재대기' && hasReviewer ? '〇' : '　';
+
+        const isRoutine = doc.approval_track === '전결';
+        document.querySelector('[data-detail-preview-approver-row]').hidden = false;
+        document.querySelector('[data-detail-preview-approver-name]').textContent = doc.approver_name || '-';
+        document.querySelector('[data-detail-preview-approver-position]').textContent = doc.approver_position || '-';
+        document.querySelector('[data-detail-preview-approver-seal]').textContent = (doc.status === '승인' || doc.status === '발송완료') ? '〇' : '　';
+        document.querySelector('[data-detail-preview-signer]').textContent = isRoutine
+          ? `${doc.drafter_position || '담당자'} ${doc.drafter}`.trim()
+          : `${doc.approver_position || ''} ${doc.approver_name || ''}`.trim();
+        document.querySelector('[data-detail-preview-stamp]').style.opacity =
+          (doc.status === '승인' || doc.status === '발송완료') ? '1' : '0.25';
+
+        const canDecide = doc.approval_track !== '전결' && doc.status === '결재대기';
+        const isMyApproval = me.role === 'admin' || doc.approver_user_id === me.id;
+        decideForm.hidden = !(canDecide && isMyApproval);
+        decideBlocked.hidden = !(canDecide && !isMyApproval);
+        if (canDecide && !isMyApproval) {
+          decideBlocked.textContent = `이 문서는 결재자로 지정된 "${doc.approver_name || '지정된 결재자'}(${doc.approver_position || ''})"님만 결재 처리할 수 있습니다.`;
+        }
         sendForm.hidden = !(doc.doc_type === '발송' && doc.status === '승인');
 
         detailModal.hidden = false;
@@ -901,7 +1125,7 @@ import GovLayout from '../layouts/GovLayout.astro';
 
       openBatchApproveBtn.addEventListener('click', () => {
         if (!selectedIds.size) { statusEl.textContent = '일괄결재할 문서를 먼저 선택해 주세요.'; return; }
-        batchHint.textContent = `선택한 ${selectedIds.size}건을 일괄 처리합니다(전결·이미 처리된 문서는 자동 제외).`;
+        batchHint.textContent = `선택한 ${selectedIds.size}건을 일괄 처리합니다.`;
         batchModal.hidden = false;
       });
       document.querySelectorAll('[data-close-batch]').forEach((btn) =>
@@ -924,24 +1148,174 @@ import GovLayout from '../layouts/GovLayout.astro';
         refreshDocuments();
       });
 
-      // ---------- 로그인/로그아웃 ----------
-      loginForm.addEventListener('submit', (event) => {
+      // ---------- 계정관리(관리자) ----------
+      const usersModal = document.querySelector('[data-users-modal]');
+      const usersTable = document.querySelector('[data-users-table]');
+      const userForm = document.querySelector('[data-user-form]');
+      const userFormTitle = document.querySelector('[data-user-form-title]');
+      const userFormStatus = document.querySelector('[data-user-form-status]');
+      const userPasswordLabel = document.querySelector('[data-user-password-label]');
+      const userActiveRow = document.querySelector('[data-user-active-row]');
+      const userFormSubmit = document.querySelector('[data-user-form-submit]');
+      const userFormResetBtn = document.querySelector('[data-user-form-reset]');
+
+      const resetUserForm = () => {
+        userForm.reset();
+        userForm.elements.id.value = '';
+        userFormTitle.textContent = '계정 추가';
+        userPasswordLabel.textContent = '비밀번호(8자 이상)';
+        userForm.elements.password.required = true;
+        userActiveRow.hidden = true;
+        userFormSubmit.textContent = '계정 추가';
+        userFormStatus.textContent = '';
+      };
+      userFormResetBtn.addEventListener('click', resetUserForm);
+
+      const renderUsersTable = (rows) => {
+        usersTable.innerHTML = `
+          <table class="doc-table__frame">
+            <thead>
+              <tr><th>성명</th><th>아이디</th><th>직책</th><th>직급</th><th class="center">역할</th><th class="center">결재권</th><th class="center">상태</th><th></th></tr>
+            </thead>
+            <tbody>
+              ${rows.map((u) => `
+                <tr>
+                  <td>${u.name}</td>
+                  <td class="mono">${u.username}</td>
+                  <td>${u.position || '-'}</td>
+                  <td>${u.grade || '-'}</td>
+                  <td class="center">${u.role === 'admin' ? '관리자' : '일반'}</td>
+                  <td class="center">${u.can_approve ? 'O' : '-'}</td>
+                  <td class="center">${u.active ? '활성' : '비활성'}</td>
+                  <td class="center"><button type="button" class="btn btn-outline" data-edit-user="${u.id}">수정</button></td>
+                </tr>
+              `).join('') || '<tr><td colspan="8" class="empty">등록된 계정이 없습니다.</td></tr>'}
+            </tbody>
+          </table>
+        `;
+        usersTable.querySelectorAll('[data-edit-user]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const user = rows.find((u) => u.id === btn.getAttribute('data-edit-user'));
+            if (!user) return;
+            userForm.elements.id.value = user.id;
+            userForm.elements.name.value = user.name;
+            userForm.elements.username.value = user.username;
+            userForm.elements.username.disabled = true;
+            userForm.elements.password.value = '';
+            userForm.elements.password.required = false;
+            userForm.elements.position.value = user.position || '';
+            userForm.elements.grade.value = user.grade || '';
+            userForm.elements.role.value = user.role;
+            userForm.elements.canApprove.checked = !!user.can_approve;
+            userForm.elements.active.checked = !!user.active;
+            userActiveRow.hidden = false;
+            userFormTitle.textContent = `계정 수정 — ${user.name}`;
+            userPasswordLabel.textContent = '새 비밀번호(변경 시에만 입력, 8자 이상)';
+            userFormSubmit.textContent = '수정 저장';
+            userFormStatus.textContent = '';
+          });
+        });
+      };
+
+      const refreshUsersTable = async () => {
+        const token = getToken();
+        const data = await callApi('/api/users/list', { token, includeInactive: true });
+        if (!data.ok) { userFormStatus.textContent = data.message || '계정 목록을 불러오지 못했습니다.'; return; }
+        renderUsersTable(data.rows || []);
+      };
+
+      openUsersBtn.addEventListener('click', () => {
+        resetUserForm();
+        userForm.elements.username.disabled = false;
+        usersModal.hidden = false;
+        refreshUsersTable();
+      });
+      document.querySelectorAll('[data-close-users]').forEach((btn) =>
+        btn.addEventListener('click', () => { usersModal.hidden = true; }));
+
+      userForm.addEventListener('submit', async (event) => {
         event.preventDefault();
-        sessionStorage.setItem(STORAGE_KEY, tokenInput.value.trim());
-        showApp();
-        showDocumentsPanel();
-        refreshDocuments();
+        const token = getToken();
+        const formData = new FormData(userForm);
+        const id = formData.get('id');
+        const payload = {
+          token,
+          name: formData.get('name'),
+          username: formData.get('username'),
+          password: formData.get('password') || undefined,
+          position: formData.get('position'),
+          grade: formData.get('grade'),
+          role: formData.get('role'),
+          canApprove: formData.get('canApprove') === 'on',
+        };
+        let data;
+        if (id) {
+          payload.id = id;
+          payload.active = formData.get('active') === 'on';
+          payload.newPassword = formData.get('password') || undefined;
+          data = await callApi('/api/users/update', payload);
+        } else {
+          data = await callApi('/api/users/create', payload);
+        }
+        if (!data.ok) { userFormStatus.textContent = data.message || '처리에 실패했습니다.'; return; }
+        userFormStatus.textContent = data.message;
+        resetUserForm();
+        userForm.elements.username.disabled = false;
+        refreshUsersTable();
+        refreshUserOptions();
       });
 
-      logoutBtn.addEventListener('click', () => {
-        sessionStorage.removeItem(STORAGE_KEY);
+      // ---------- 로그인/로그아웃/최초 관리자 ----------
+      loginForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        loginError.hidden = true;
+        const formData = new FormData(loginForm);
+        const data = await callApi('/api/auth/login', {
+          username: formData.get('username'), password: formData.get('password'),
+        });
+        if (!data.ok) {
+          loginError.hidden = false;
+          loginError.textContent = data.message || '로그인에 실패했습니다.';
+          return;
+        }
+        setSession({ token: data.token, user: data.user });
+        showApp();
+        await refreshUserOptions();
+        activateDocumentsView('결재대기');
+      });
+
+      bootstrapForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        bootstrapError.hidden = true;
+        bootstrapOk.hidden = true;
+        const formData = new FormData(bootstrapForm);
+        const data = await callApi('/api/auth/bootstrap', {
+          adminToken: formData.get('adminToken'),
+          name: formData.get('name'),
+          username: formData.get('username'),
+          password: formData.get('password'),
+          position: formData.get('position'),
+        });
+        if (!data.ok) {
+          bootstrapError.hidden = false;
+          bootstrapError.textContent = data.message || '계정 생성에 실패했습니다.';
+          return;
+        }
+        bootstrapOk.hidden = false;
+        bootstrapOk.textContent = data.message;
+        document.getElementById('login-username').value = formData.get('username');
+      });
+
+      logoutBtn.addEventListener('click', async () => {
+        const token = getToken();
+        clearSession();
         showLogin();
+        if (token) callApi('/api/auth/logout', { token });
       });
 
       if (getToken()) {
         showApp();
-        showDocumentsPanel();
-        refreshDocuments();
+        refreshUserOptions().then(() => activateDocumentsView('결재대기'));
       } else {
         showLogin();
       }
@@ -961,6 +1335,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       align-items: center;
       justify-content: center;
       background: linear-gradient(160deg, var(--gov-navy) 0%, var(--gov-navy-dark) 60%);
+      padding: 2rem 1rem;
     }
     .login-card {
       background: #fff;
@@ -970,6 +1345,8 @@ import GovLayout from '../layouts/GovLayout.astro';
       max-width: 380px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.25);
       text-align: center;
+      max-height: 92vh;
+      overflow-y: auto;
     }
     .login-card__kicker { color: var(--gov-gold); font-weight: 700; margin: 0 0 0.2rem; font-size: 0.85rem; }
     .login-card h1 { margin: 0 0 0.3rem; font-size: 1.5rem; }
@@ -980,6 +1357,13 @@ import GovLayout from '../layouts/GovLayout.astro';
       border: 1px solid var(--gov-border); border-radius: 8px; padding: 0.6rem 0.8rem; font-size: 1rem;
     }
     .login-card__help { color: var(--gov-muted); font-size: 0.78rem; margin-top: 1rem; }
+    .login-card__error { color: #a12626; font-size: 0.82rem; text-align: left; margin: 0.2rem 0 0; }
+    .login-card__error--ok { color: #1e6f2b; }
+    .login-card__toggle {
+      background: none; border: none; color: var(--gov-accent); font-size: 0.8rem; margin-top: 0.8rem; cursor: pointer;
+      text-decoration: underline;
+    }
+    .login-card__bootstrap { margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed var(--gov-border); }
 
     .btn {
       border: 1px solid transparent; border-radius: 8px; padding: 0.55rem 1rem; font-size: 0.92rem; font-weight: 600;
@@ -1002,12 +1386,19 @@ import GovLayout from '../layouts/GovLayout.astro';
       background: var(--gov-gold); color: #1a1a1a; font-size: 0.7rem; font-weight: 700;
       padding: 0.15rem 0.4rem; border-radius: 4px;
     }
-    .app-topbar__menu { display: flex; gap: 1.4rem; font-size: 0.88rem; color: rgba(255,255,255,0.75); }
-    .app-topbar__menu .active { color: #fff; font-weight: 700; }
+    .app-topbar__menu { display: flex; gap: 0.3rem; font-size: 0.88rem; }
+    .app-topbar__link {
+      background: transparent; border: none; color: rgba(255,255,255,0.75); font-size: 0.88rem;
+      padding: 0.4rem 0.7rem; border-radius: 6px; cursor: pointer;
+    }
+    .app-topbar__link:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .app-topbar__link.active { color: #fff; font-weight: 700; background: rgba(255,255,255,0.14); }
+    .app-topbar__right { display: flex; align-items: center; gap: 0.7rem; }
+    .app-topbar__me { font-size: 0.85rem; color: rgba(255,255,255,0.85); }
 
     .app-body { display: flex; min-height: calc(100vh - 56px); }
     .app-sidebar {
-      width: 240px; background: #fff; border-right: 1px solid var(--gov-border);
+      width: 240px; flex-shrink: 0; background: #fff; border-right: 1px solid var(--gov-border);
       padding: 1rem 0.8rem; display: flex; flex-direction: column; gap: 1rem;
     }
     .sidebar-compose { margin-bottom: 0.4rem; }
@@ -1023,7 +1414,7 @@ import GovLayout from '../layouts/GovLayout.astro';
     }
     .sidebar-link.active .sidebar-link__count { background: var(--gov-accent); color: #fff; }
 
-    .app-main { flex: 1; padding: 1.4rem 1.6rem; }
+    .app-main { flex: 1; min-width: 0; padding: 1.4rem 1.8rem; }
     .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap; gap: 0.6rem; }
     .panel-header h2 { margin: 0; font-size: 1.15rem; }
     .panel-header__tools { display: flex; gap: 0.5rem; }
@@ -1045,8 +1436,10 @@ import GovLayout from '../layouts/GovLayout.astro';
     .mono { font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.82rem; color: var(--gov-muted); }
     .doc-table__title { font-weight: 600; }
     .muted { color: var(--gov-muted); font-size: 0.82rem; }
+    .center { text-align: center; }
     .badge {
       justify-self: start; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.78rem; background: #eee;
+      display: inline-block;
     }
     .badge--승인 { background: #e3f4e3; color: #1e6f2b; }
     .badge--반려 { background: #fbe4e4; color: #a12626; }
@@ -1063,18 +1456,27 @@ import GovLayout from '../layouts/GovLayout.astro';
     .list-toolbar__count { color: var(--gov-muted); }
     .list-toolbar [data-open-batch-approve] { margin-left: auto; }
 
-    /* 온나라 예시와 같이 문서가 없어도 표 틀(헤더)이 항상 보이도록 <table> 기반으로 구성 */
-    .doc-table__frame { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--gov-border); border-radius: 10px; overflow: hidden; font-size: 0.88rem; }
-    .doc-table__frame thead { background: #f2f4f7; }
-    .doc-table__frame th {
-      text-align: left; color: var(--gov-muted); font-size: 0.78rem; font-weight: 700; padding: 0.65rem 0.8rem;
-      border-bottom: 1px solid var(--gov-border);
+    /* 온나라 예시와 같이 문서가 없어도 표 틀(헤더)이 항상 보이도록 <table> 기반으로 구성하고,
+       가로 폭을 넉넉히 확보하며 셀 경계선을 뚜렷하게 그린다. */
+    .doc-table { overflow-x: auto; }
+    .doc-table__frame {
+      width: 100%; min-width: 760px; border-collapse: collapse; background: #fff;
+      border: 1px solid #c7cedb; border-radius: 10px; overflow: hidden; font-size: 0.9rem; table-layout: fixed;
     }
-    .doc-table__frame td { padding: 0.65rem 0.8rem; border-bottom: 1px solid var(--gov-border); vertical-align: middle; }
+    .doc-table__frame thead { background: #eef1f6; }
+    .doc-table__frame th {
+      text-align: left; color: var(--gov-text); font-size: 0.82rem; font-weight: 700; padding: 0.75rem 0.9rem;
+      border: 1px solid #c7cedb; white-space: nowrap;
+    }
+    .doc-table__frame td {
+      padding: 0.7rem 0.9rem; border: 1px solid #dde2ea; vertical-align: middle;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .doc-table__frame td.doc-table__title { white-space: normal; }
+    .doc-table__frame tbody tr:nth-child(even) { background: #fafbfd; }
     .doc-table__frame tbody tr[data-doc-id] { cursor: pointer; }
-    .doc-table__frame tbody tr[data-doc-id]:hover { background: #f8fafd; }
-    .doc-table__frame tbody tr:last-child td { border-bottom: none; }
-    .doc-table__select { width: 40px; text-align: center; }
+    .doc-table__frame tbody tr[data-doc-id]:hover { background: #eef4ff; }
+    .doc-table__select { width: 44px; text-align: center; }
     .doc-table__empty-row td { padding: 2.4rem; }
 
     .attachment-pending-list, .attachment-list { list-style: none; margin: 0.3rem 0 0.2rem; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
@@ -1092,13 +1494,17 @@ import GovLayout from '../layouts/GovLayout.astro';
       z-index: 100; padding: 1rem;
     }
     .modal { background: #fff; border-radius: 14px; max-width: 480px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 1.4rem; }
-    .modal--wide { max-width: 920px; }
+    .modal--wide { max-width: 1000px; }
     .modal__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; }
     .modal__header h2 { margin: 0; font-size: 1.1rem; }
     .modal__close { background: none; border: none; font-size: 1.3rem; color: var(--gov-muted); }
 
     .compose-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem; }
     @media (max-width: 760px) { .compose-layout { grid-template-columns: 1fr; } }
+
+    .users-layout { display: grid; grid-template-columns: 1.6fr 1fr; gap: 1.4rem; align-items: start; }
+    @media (max-width: 760px) { .users-layout { grid-template-columns: 1fr; } }
+    .checkbox-row { display: flex; align-items: center; gap: 0.4rem; font-weight: 400 !important; margin-top: 0.6rem !important; }
 
     .compose-form { display: flex; flex-direction: column; gap: 0.35rem; }
     .compose-form label { font-weight: 600; font-size: 0.86rem; margin-top: 0.5rem; }
@@ -1110,23 +1516,46 @@ import GovLayout from '../layouts/GovLayout.astro';
     .compose-form__actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem; }
 
     .compose-preview { background: #f7f8fa; border-radius: 10px; padding: 1rem; }
+
+    /* 공문서 서식 — 행정기관 공문 예시(로고+기관명 중앙, 수신/경유/제목, 본문, 결재라인, 발신명의+관인) 기반 */
     .official-doc {
       background: #fff; border: 1px solid #d8d2c4; border-radius: 4px; padding: 2rem 1.8rem;
       font-family: "Batang", "Nanum Myeongjo", serif; min-height: 460px;
     }
-    .official-doc__org { text-align: center; font-size: 1.15rem; font-weight: 700; margin: 0 0 0.3rem; letter-spacing: 0.05em; }
-    .official-doc__number { text-align: center; font-size: 0.78rem; color: #7a7568; margin: 0 0 1.4rem; }
-    .official-doc__field { display: flex; gap: 0.6rem; border-top: 1px solid #e4dfd1; padding: 0.5rem 0; font-size: 0.92rem; }
-    .official-doc__field span { width: 3.4rem; color: #7a7568; flex-shrink: 0; }
-    .official-doc__body {
-      border-top: 1px solid #e4dfd1; padding: 1rem 0; min-height: 140px; white-space: pre-wrap; font-size: 0.92rem; line-height: 1.7;
+    .official-doc__masthead { text-align: center; margin-bottom: 0.4rem; }
+    .official-doc__emblem {
+      display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px;
+      border-radius: 50%; background: var(--gov-navy); color: #fff; font-size: 1.1rem; margin-bottom: 0.4rem;
     }
-    .official-doc__sign { display: flex; justify-content: space-between; align-items: center; margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid #e4dfd1; }
-    .official-doc__sign p { margin: 0; font-size: 0.82rem; color: #7a7568; }
-    .official-doc__stamp { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; }
+    .official-doc__orgname { margin: 0; font-size: 1.2rem; font-weight: 700; letter-spacing: 0.15em; }
+    .official-doc__number { text-align: center; font-size: 0.76rem; color: #7a7568; margin: 0.3rem 0 1.2rem; }
+    .official-doc__meta { border-top: 2px solid #23262b; border-bottom: 1px solid #23262b; padding: 0.3rem 0; }
+    .official-doc__meta-row { display: flex; gap: 0.6rem; padding: 0.4rem 0; font-size: 0.92rem; }
+    .official-doc__meta-row span { width: 3.4rem; color: #4a463c; flex-shrink: 0; }
+    .official-doc__attach { border-top: 1px dashed #d8d2c4; margin-top: 0.6rem; padding-top: 0.6rem; }
+    .official-doc__body {
+      padding: 1rem 0; min-height: 130px; white-space: pre-wrap; font-size: 0.92rem; line-height: 1.7;
+    }
+
+    .official-doc__routing {
+      width: auto; margin: 1rem 0 0 auto; border-collapse: collapse; font-family: inherit; font-size: 0.8rem;
+    }
+    .official-doc__routing th, .official-doc__routing td {
+      border: 1px solid #b7ac91; padding: 0.35rem 0.7rem; text-align: center; color: #4a463c;
+    }
+    .official-doc__routing th { background: #f4f0e6; font-weight: 700; }
+    .official-doc__routing-seal { color: #b0362f; font-weight: 700; }
+
+    .official-doc__issue { margin-top: 1.6rem; padding-top: 1rem; border-top: 1px solid #e4dfd1; text-align: center; }
+    .official-doc__issue-track { margin: 0 0 0.6rem; font-size: 0.82rem; color: #7a7568; }
+    .official-doc__issue-name {
+      position: relative; display: inline-flex; align-items: center; gap: 0.6rem; font-size: 1.05rem; font-weight: 700;
+      letter-spacing: 0.08em;
+    }
     .stamp-mark {
-      display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px;
-      border: 2px solid #b0362f; color: #b0362f; border-radius: 4px; font-size: 0.85rem; transform: rotate(-6deg);
+      display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px;
+      border: 2px solid #b0362f; color: #b0362f; border-radius: 50%; font-size: 0.62rem; font-weight: 700;
+      transform: rotate(-8deg); text-align: center; line-height: 1.1; opacity: 0.9;
     }
     .official-doc__footer { text-align: center; font-size: 0.72rem; color: #a39d8d; margin-top: 1.6rem; }
 

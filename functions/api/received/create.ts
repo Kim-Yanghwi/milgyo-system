@@ -1,18 +1,14 @@
 // 문서24, 우편, 이메일 등으로 주고받은 문서를 수기로 등록하는 접수/외부발송 대장.
 import {
-  checkAdminAuthRateLimit,
+  authenticateSession,
   clean,
-  clearAdminAuthFailures,
   ensureTables,
   json,
   makeReceivedNumber,
-  recordAdminAuthFailure,
-  verifyAdminToken,
 } from '../../_shared/helpers';
 
 interface Env {
   DB: D1Database;
-  ADMIN_TOKEN: string;
 }
 
 type CreatePayload = {
@@ -23,7 +19,6 @@ type CreatePayload = {
   sourceSystem?: string;
   externalDocNumber?: string;
   memo?: string;
-  handledBy?: string;
   receivedAt?: string; // YYYY-MM-DD
 };
 
@@ -31,7 +26,6 @@ const VALID_DIRECTIONS = ['접수', '외부발송'];
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
-  if (!env.ADMIN_TOKEN) return json({ ok: false, message: 'ADMIN_TOKEN이 설정되지 않았습니다.' }, 500);
 
   let payload: CreatePayload;
   try {
@@ -40,15 +34,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400);
   }
 
-  const authRateLimit = await checkAdminAuthRateLimit(env.DB, request);
-  if (!authRateLimit.ok) return json({ ok: false, message: authRateLimit.message }, 429);
-
-  const token = clean(payload.token, 300);
-  if (!(await verifyAdminToken(token, env.ADMIN_TOKEN))) {
-    await recordAdminAuthFailure(env.DB, authRateLimit.rateKey);
-    return json({ ok: false, message: '관리자 인증값이 올바르지 않습니다.' }, 401);
-  }
-  await clearAdminAuthFailures(env.DB, authRateLimit.rateKey);
+  await ensureTables(env.DB);
+  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
+  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+  const me = auth.user;
 
   const direction = clean(payload.direction, 10);
   const title = clean(payload.title, 200);
@@ -56,7 +45,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const sourceSystem = clean(payload.sourceSystem, 40);
   const externalDocNumber = clean(payload.externalDocNumber, 100);
   const memo = clean(payload.memo, 2000);
-  const handledBy = clean(payload.handledBy, 40);
   const receivedAt = clean(payload.receivedAt, 10);
 
   if (!VALID_DIRECTIONS.includes(direction)) {
@@ -66,13 +54,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!counterparty) {
     return json({ ok: false, message: direction === '접수' ? '발신자를 입력해 주세요.' : '수신자를 입력해 주세요.' }, 400);
   }
-  if (!handledBy) return json({ ok: false, message: '등록 담당자를 입력해 주세요.' }, 400);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(receivedAt)) {
     return json({ ok: false, message: '접수·발송 일자를 YYYY-MM-DD 형식으로 입력해 주세요.' }, 400);
   }
 
   try {
-    await ensureTables(env.DB);
     const now = new Date();
     const nowIso = now.toISOString();
     const id = await makeReceivedNumber(env.DB, now, direction);
@@ -85,7 +71,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     `)
       .bind(
         id, direction, title, counterparty, sourceSystem || null, externalDocNumber || null,
-        memo || null, handledBy, receivedAt, nowIso,
+        memo || null, me.name, receivedAt, nowIso,
       )
       .run();
 
