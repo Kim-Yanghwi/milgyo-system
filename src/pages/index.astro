@@ -323,9 +323,11 @@ import GovLayout from '../layouts/GovLayout.astro';
 
             <div class="official-doc__issue">
               <div class="official-doc__issue-name">
-                <span>사단법인 대한불교밀교종</span>
-                <span data-preview-signer-wrap hidden><span data-preview-signer-position></span> <span data-preview-signer-name></span></span>
-                <span class="stamp-mark" data-stamp="preview">밀교종印</span>
+                <span class="official-doc__issuer-org">
+                  <span class="official-doc__issuer-org-text">사단법인 대한불교밀교종</span>
+                  <span class="stamp-mark" data-stamp="preview">밀교종印</span>
+                </span>
+                <span class="official-doc__issuer-signer" data-preview-signer-wrap hidden><span data-preview-signer-position></span> <span data-preview-signer-name></span></span>
               </div>
             </div>
             <p class="official-doc__footer">사단법인 대한불교밀교종 · milgyo.org</p>
@@ -561,9 +563,11 @@ import GovLayout from '../layouts/GovLayout.astro';
 
             <div class="official-doc__issue">
               <div class="official-doc__issue-name">
-                <span>사단법인 대한불교밀교종</span>
-                <span data-detail-preview-signer-wrap hidden><span data-detail-preview-signer-position></span> <span data-detail-preview-signer-name></span></span>
-                <span class="stamp-mark" data-detail-preview-stamp data-stamp="detail">밀교종印</span>
+                <span class="official-doc__issuer-org">
+                  <span class="official-doc__issuer-org-text">사단법인 대한불교밀교종</span>
+                  <span class="stamp-mark" data-detail-preview-stamp data-stamp="detail">밀교종印</span>
+                </span>
+                <span class="official-doc__issuer-signer" data-detail-preview-signer-wrap hidden><span data-detail-preview-signer-position></span> <span data-detail-preview-signer-name></span></span>
               </div>
             </div>
             <p class="official-doc__footer">사단법인 대한불교밀교종 · milgyo.org</p>
@@ -1394,7 +1398,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         const w=window.open('','_blank','width=900,height=1000');
         if(!w)return;
         w.document.write(`<html><head><meta charset="utf-8"><title>${esc(currentDetailDoc?.title||'문서')}</title><style>
-          body{font-family:Batang,serif;padding:30px;color:#222}.official-doc{max-width:720px;margin:auto}.official-doc__masthead{display:flex;flex-direction:column;align-items:stretch;margin-bottom:12px;width:100%}.official-doc__brand{display:flex;align-items:center;align-self:center;justify-content:center;gap:6px;white-space:nowrap}.official-doc__number-row{display:flex;justify-content:flex-end;width:100%;min-height:18px;padding-top:8px}.official-doc__number{white-space:nowrap;text-align:right;font-size:10px;color:#666;margin:0}.official-doc__issue,.official-doc__footer{text-align:center}.official-doc__emblem{width:32px;height:32px;flex:0 0 32px}.official-doc__emblem img{width:100%;height:100%;object-fit:contain}.official-doc__orgname{margin:0;letter-spacing:.1em}.official-doc__meta{border-top:2px solid #222;border-bottom:1px solid #222}.official-doc__meta-row{display:flex;gap:12px;padding:6px}.official-doc__meta-row>span{width:48px}.official-doc__body{min-height:300px;white-space:pre-wrap;padding:20px 0}.official-doc__approval-strip{display:flex;flex-wrap:wrap;justify-content:flex-end;width:620px;max-width:100%;margin:10px 0 0 auto}.approval-person{display:grid;grid-template-columns:34px minmax(0,1fr) 22px;flex:0 0 118px;border:1px solid #777;margin:-1px 0 0 -1px;min-height:34px;font-size:9px}.approval-person>*{display:flex;align-items:center;justify-content:center;padding:2px}.approval-person>span{background:#f4f0e6;border-right:1px solid #777}.approval-person>strong{flex-direction:column;line-height:1.15;overflow:hidden}.approval-person>em{font-style:normal;border-left:1px solid #777}.approval-person b,.approval-person i{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:normal;font-weight:400}.official-doc__issue-track--under{width:620px;max-width:100%;margin:4px 0 0 auto;text-align:right;font-size:10px}.official-doc__issue{margin-top:7px;padding-top:8px;border-top:1px solid #ddd}.official-doc__issue-name{display:inline-flex;align-items:center;gap:8px;font-weight:700}.stamp-mark{display:inline-flex;width:38px;height:38px;align-items:center;justify-content:center;border:2px solid #b22;border-radius:50%;color:#b22;font-size:9px;overflow:hidden}.stamp-mark img{width:100%;height:100%;object-fit:contain}
+          body{font-family:Batang,serif;padding:30px;color:#222}.official-doc{max-width:720px;margin:auto}.official-doc__masthead{display:flex;flex-direction:column;align-items:stretch;margin-bottom:12px;width:100%}.official-doc__brand{display:flex;align-items:center;align-self:center;justify-content:center;gap:6px;white-space:nowrap}.official-doc__number-row{display:flex;justify-content:flex-end;width:100%;min-height:18px;padding-top:8px}.official-doc__number{white-space:nowrap;text-align:right;font-size:10px;color:#666;margin:0}.official-doc__issue,.official-doc__footer{text-align:center}.official-doc__emblem{width:32px;height:32px;flex:0 0 32px}.official-doc__emblem img{width:100%;height:100%;object-fit:contain}.official-doc__orgname{margin:0;letter-spacing:.1em}.official-doc__meta{border-top:2px solid #222;border-bottom:1px solid #222}.official-doc__meta-row{display:flex;gap:12px;padding:6px}.official-doc__meta-row>span{width:48px}.official-doc__body{min-height:300px;white-space:pre-wrap;padding:20px 0}.official-doc__approval-strip{display:flex;flex-wrap:wrap;justify-content:flex-end;width:620px;max-width:100%;margin:10px 0 0 auto}.approval-person{display:grid;grid-template-columns:34px minmax(0,1fr) 22px;flex:0 0 118px;border:1px solid #777;margin:-1px 0 0 -1px;min-height:34px;font-size:9px}.approval-person>*{display:flex;align-items:center;justify-content:center;padding:2px}.approval-person>span{background:#f4f0e6;border-right:1px solid #777}.approval-person>strong{flex-direction:column;line-height:1.15;overflow:hidden}.approval-person>em{font-style:normal;border-left:1px solid #777}.approval-person b,.approval-person i{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:normal;font-weight:400}.official-doc__issue-track--under{width:620px;max-width:100%;margin:4px 0 0 auto;text-align:right;font-size:10px}.official-doc__issue{margin-top:7px;padding-top:8px;border-top:1px solid #ddd}.official-doc__issue-name{position:relative;display:inline-flex;align-items:center;gap:11px;font-weight:700}.official-doc__issuer-org{position:relative;display:inline-block;line-height:1.45;padding-right:17px}.official-doc__issuer-org-text{position:relative;z-index:1;white-space:nowrap}.official-doc__issuer-signer{white-space:nowrap}.stamp-mark{position:absolute;z-index:2;right:-12px;top:50%;display:inline-flex;width:40px;height:40px;align-items:center;justify-content:center;border:2px solid #b22;border-radius:50%;color:#b22;font-size:9px;overflow:hidden;transform:translateY(-50%) rotate(-8deg)}.stamp-mark--image{border:0;opacity:1;transform:translateY(-50%) rotate(-3deg)}.stamp-mark img{display:block;width:100%;height:100%;object-fit:contain}
         </style></head><body>${node.outerHTML}</body></html>`);
         w.document.close();
         w.focus();
@@ -1534,12 +1538,33 @@ import GovLayout from '../layouts/GovLayout.astro';
 
       // 관인·로고
       let orgSealImage='',orgLogoImage='';
+      const trimTransparentImage=(dataUrl)=>new Promise((resolve)=>{
+        if(!dataUrl){resolve('');return;}
+        const image=new Image();
+        image.onload=()=>{
+          try{
+            const canvas=document.createElement('canvas');canvas.width=image.naturalWidth||image.width;canvas.height=image.naturalHeight||image.height;
+            const context=canvas.getContext('2d',{willReadFrequently:true});if(!context){resolve(dataUrl);return;}
+            context.drawImage(image,0,0);const pixels=context.getImageData(0,0,canvas.width,canvas.height).data;
+            let left=canvas.width,top=canvas.height,right=-1,bottom=-1;
+            for(let y=0;y<canvas.height;y+=1){for(let x=0;x<canvas.width;x+=1){if(pixels[(y*canvas.width+x)*4+3]>12){if(x<left)left=x;if(x>right)right=x;if(y<top)top=y;if(y>bottom)bottom=y;}}}
+            if(right<left||bottom<top||(left===0&&top===0&&right===canvas.width-1&&bottom===canvas.height-1)){resolve(dataUrl);return;}
+            const padding=Math.max(2,Math.round(Math.max(right-left+1,bottom-top+1)*0.015));
+            left=Math.max(0,left-padding);top=Math.max(0,top-padding);right=Math.min(canvas.width-1,right+padding);bottom=Math.min(canvas.height-1,bottom+padding);
+            const output=document.createElement('canvas');output.width=right-left+1;output.height=bottom-top+1;
+            const outputContext=output.getContext('2d');if(!outputContext){resolve(dataUrl);return;}
+            outputContext.drawImage(canvas,left,top,output.width,output.height,0,0,output.width,output.height);
+            resolve(output.toDataURL('image/png'));
+          }catch(error){resolve(dataUrl);}
+        };
+        image.onerror=()=>resolve(dataUrl);image.src=dataUrl;
+      });
       const applyBranding=()=>{const logoSource=orgLogoImage||'/logo.png';$$('[data-emblem]').forEach((el)=>{el.innerHTML=`<img src="${logoSource}" alt="대한불교밀교종 로고" />`;});$$('[data-stamp]').forEach((el)=>{el.innerHTML=orgSealImage?`<img src="${orgSealImage}" alt="관인" />`:'밀교종印';el.classList.toggle('stamp-mark--image',!!orgSealImage);});$$('[data-topbar-logo]').forEach((el)=>{el.src=logoSource;});};
-      const loadOrgSettings=async()=>{const d=await callApi('/api/settings/get',{token:getToken()});if(d.ok){orgSealImage=d.sealImage||'';orgLogoImage=d.logoImage||'';applyBranding();}};
+      const loadOrgSettings=async()=>{const d=await callApi('/api/settings/get',{token:getToken()});if(d.ok){orgSealImage=await trimTransparentImage(d.sealImage||'');orgLogoImage=d.logoImage||'';applyBranding();}};
       const brandingModal=$('[data-branding-modal]'),brandingForm=$('[data-branding-form]');let pendingLogo='',pendingSeal='';
       const readImage=(file)=>new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||''));r.onerror=()=>reject(r.error);r.readAsDataURL(file);});
       const renderBranding=()=>{$('[data-branding-logo-preview]').innerHTML=`<img src="${pendingLogo||orgLogoImage||'/logo.png'}" alt="로고" />`;$('[data-branding-seal-preview]').innerHTML=(pendingSeal||orgSealImage)?`<img src="${pendingSeal||orgSealImage}" alt="관인" />`:'<span class="muted">등록된 관인 없음</span>';};
-      $('[data-open-branding]').addEventListener('click',()=>{pendingLogo='';pendingSeal='';renderBranding();brandingModal.hidden=false;});$$('[data-close-branding]').forEach((b)=>b.addEventListener('click',()=>brandingModal.hidden=true));$('#brand-logo').addEventListener('change',async(e)=>{if(e.target.files[0])pendingLogo=await readImage(e.target.files[0]);renderBranding();});$('#brand-seal').addEventListener('change',async(e)=>{if(e.target.files[0])pendingSeal=await readImage(e.target.files[0]);renderBranding();});brandingForm.addEventListener('submit',async(e)=>{e.preventDefault();const d=await callApi('/api/settings/save',{token:getToken(),logoImage:pendingLogo,sealImage:pendingSeal});$('[data-branding-status]').textContent=d.message||'';if(d.ok){await loadOrgSettings();renderBranding();}});
+      $('[data-open-branding]').addEventListener('click',()=>{pendingLogo='';pendingSeal='';renderBranding();brandingModal.hidden=false;});$$('[data-close-branding]').forEach((b)=>b.addEventListener('click',()=>brandingModal.hidden=true));$('#brand-logo').addEventListener('change',async(e)=>{if(e.target.files[0])pendingLogo=await readImage(e.target.files[0]);renderBranding();});$('#brand-seal').addEventListener('change',async(e)=>{if(e.target.files[0])pendingSeal=await trimTransparentImage(await readImage(e.target.files[0]));renderBranding();});brandingForm.addEventListener('submit',async(e)=>{e.preventDefault();const d=await callApi('/api/settings/save',{token:getToken(),logoImage:pendingLogo,sealImage:pendingSeal});$('[data-branding-status]').textContent=d.message||'';if(d.ok){await loadOrgSettings();renderBranding();}});
 
       // 조직도
       const orgchartModal=$('[data-orgchart-modal]');
@@ -2017,16 +2042,23 @@ import GovLayout from '../layouts/GovLayout.astro';
     .official-doc__issue { margin-top: 0.45rem; padding-top: 0.55rem; border-top: 1px solid #e4dfd1; text-align: center; }
     .official-doc__issue-track { margin: 0 0 0.5rem; font-size: 0.74rem; color: #7a7568; }
     .official-doc__issue-name {
-      position: relative; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.92rem; font-weight: 700;
+      position: relative; display: inline-flex; align-items: center; gap: 0.72rem; font-size: 0.92rem; font-weight: 700;
       letter-spacing: 0.06em;
     }
-    .stamp-mark {
-      display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px;
-      border: 2px solid #b0362f; color: #b0362f; border-radius: 50%; font-size: 0.56rem; font-weight: 700;
-      transform: rotate(-8deg); text-align: center; line-height: 1.1; opacity: 0.9; overflow: hidden; flex-shrink: 0;
+    .official-doc__issuer-org {
+      position: relative; display: inline-block; line-height: 1.45; padding-right: 1.05rem;
     }
-    .stamp-mark--image { border: none; transform: none; opacity: 1; }
-    .stamp-mark img { width: 100%; height: 100%; object-fit: contain; }
+    .official-doc__issuer-org-text { position: relative; z-index: 1; white-space: nowrap; }
+    .official-doc__issuer-signer { white-space: nowrap; }
+    .stamp-mark {
+      position: absolute; z-index: 2; right: -0.72rem; top: 50%;
+      display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px;
+      border: 2px solid #b0362f; color: #b0362f; border-radius: 50%; font-size: 0.56rem; font-weight: 700;
+      transform: translateY(-50%) rotate(-8deg); text-align: center; line-height: 1.1; opacity: 0.9; overflow: hidden;
+      pointer-events: none;
+    }
+    .stamp-mark--image { border: none; opacity: 1; transform: translateY(-50%) rotate(-3deg); }
+    .stamp-mark img { display: block; width: 100%; height: 100%; object-fit: contain; }
     .official-doc__footer { text-align: center; font-size: 0.66rem; color: #a39d8d; margin-top: 1.1rem; }
     @media (max-width: 560px) {
       .official-doc__number-row { padding-top: 0.46rem; }
