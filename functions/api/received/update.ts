@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
+import { authenticateSession, clean, ensureTables, isValidIsoDate, json } from '../../_shared/helpers';
 
 interface Env { DB: D1Database; }
 type Payload = {
@@ -31,7 +31,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!VALID_DIRECTIONS.includes(direction)) return json({ ok: false, message: '구분을 선택해 주세요.' }, 400);
   if (title.length < 2) return json({ ok: false, message: '제목을 2자 이상 입력해 주세요.' }, 400);
   if (!counterparty) return json({ ok: false, message: direction === '접수' ? '발신자를 입력해 주세요.' : '수신자를 입력해 주세요.' }, 400);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(receivedAt)) return json({ ok: false, message: '접수·발송 일자를 정확히 입력해 주세요.' }, 400);
+  if (!isValidIsoDate(receivedAt)) return json({ ok: false, message: '접수·발송 일자를 정확히 입력해 주세요.' }, 400);
 
   const existing = await env.DB.prepare(`SELECT id, direction, handled_by_user_id FROM received_documents WHERE id = ?`).bind(id)
     .first<{ id: string; direction: string; handled_by_user_id: string | null }>();
@@ -58,7 +58,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       department || null, relatedDocumentId || null, receivedAt, new Date().toISOString(), id,
     ).run();
     return json({ ok: true, id, message: '접수·발송대장 내용이 수정되었습니다.' });
-  } catch {
+  } catch (error) {
+    console.error('received update failed', error);
     return json({ ok: false, message: '대장 문서 수정 중 오류가 발생했습니다.' }, 500);
   }
 };

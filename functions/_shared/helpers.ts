@@ -81,7 +81,7 @@ export const verifyPassword = async (password: string, stored: string) => {
   if (stored.startsWith('pbkdf2$')) {
     const [, iterationText, saltText, expectedText] = stored.split('$');
     const iterations = Number(iterationText);
-    if (!iterations || !saltText || !expectedText) return false;
+    if (!Number.isInteger(iterations) || iterations < 10_000 || iterations > 1_000_000 || !saltText || !expectedText) return false;
     const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
     const bits = await crypto.subtle.deriveBits(
       { name: 'PBKDF2', hash: 'SHA-256', salt: base64ToBytes(saltText), iterations },
@@ -94,6 +94,16 @@ export const verifyPassword = async (password: string, stored: string) => {
   const [salt, expectedHash] = stored.split(':');
   const actualHash = await sha256(`${salt}:${password}`);
   return timingSafeEqual(actualHash, expectedHash);
+};
+
+export const isValidIsoDate = (value: string) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 };
 
 export const IMPORTANT_CATEGORIES = [
@@ -212,7 +222,19 @@ let tablesEnsured = false;
 let tablesEnsurePromise: Promise<void> | null = null;
 let lastRateLimitCleanupAt = 0;
 const MAINTENANCE_COOLDOWN_MS = 10 * 60 * 1000;
-const SCHEMA_VERSION = '2026-07-25.5';
+const SCHEMA_VERSION = '2026-07-25.6';
+
+type TableColumnInfo = { name: string; type: string; notnull: number; pk: number };
+
+const getTableColumns = async (db: D1Database, table: string) => {
+  const rows = await db.prepare(`PRAGMA table_info(${table})`).all<TableColumnInfo>();
+  return rows.results ?? [];
+};
+
+const hasColumns = async (db: D1Database, table: string, required: string[]) => {
+  const names = new Set((await getTableColumns(db, table)).map((column) => column.name));
+  return required.every((name) => names.has(name));
+};
 
 const ensureColumn = async (db: D1Database, table: string, columnDef: string) => {
   try {
@@ -222,6 +244,11 @@ const ensureColumn = async (db: D1Database, table: string, columnDef: string) =>
     // 기존 컬럼이 이미 있는 경우만 정상으로 간주합니다. 다른 마이그레이션 오류는 숨기지 않습니다.
     if (!/duplicate column name|already exists/i.test(message)) throw error;
   }
+};
+
+export const isSchemaError = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  return /no such table|no such column|has no column named|table .* has .* columns|datatype mismatch|schema/i.test(message);
 };
 
 const seedTemplates = async (db: D1Database) => {
@@ -310,7 +337,11 @@ const runSchemaMigration = async (db: D1Database) => {
     ['documents', 'via TEXT'], ['documents', `approval_mode TEXT NOT NULL DEFAULT '결재'`], ['documents', 'template_id TEXT'], ['documents', 'template_name TEXT'],
     ['documents', `form_data_json TEXT NOT NULL DEFAULT '{}'`], ['documents', `access_scope TEXT NOT NULL DEFAULT '전체'`],
     ['documents', 'client_request_id TEXT'], ['documents', 'submitted_at TEXT'], ['documents', 'completed_at TEXT'],
-    ['system_users', 'department TEXT'],
+    ['system_users', 'position TEXT'], ['system_users', 'grade TEXT'], ['system_users', 'department TEXT'],
+    ['system_users', `role TEXT NOT NULL DEFAULT 'user'`],
+    ['system_users', 'can_approve INTEGER NOT NULL DEFAULT 0'],
+    ['system_users', 'active INTEGER NOT NULL DEFAULT 1'],
+    ['system_users', 'created_at TEXT'],
     ['received_documents', 'department TEXT'], ['received_documents', 'related_document_id TEXT'],
     ['received_documents', 'handled_by_user_id TEXT'], ['received_documents', 'updated_at TEXT'],
     ['document_attachments', `storage_type TEXT NOT NULL DEFAULT 'd1'`], ['document_attachments', 'r2_key TEXT'],
@@ -319,6 +350,14 @@ const runSchemaMigration = async (db: D1Database) => {
   for (const [table, column] of columns) await ensureColumn(db, table, column);
 
   const now = new Date().toISOString();
+  await db.prepare(`
+    UPDATE system_users
+    SET role = COALESCE(NULLIF(role, ''), 'user'),
+        can_approve = COALESCE(can_approve, 0),
+        active = COALESCE(active, 1),
+        created_at = COALESCE(created_at, ?)
+    WHERE role IS NULL OR role = '' OR can_approve IS NULL OR active IS NULL OR created_at IS NULL
+  `).bind(now).run();
   await db.prepare(`UPDATE received_documents SET updated_at = COALESCE(updated_at, created_at, ?) WHERE updated_at IS NULL`)
     .bind(now).run();
 
@@ -353,17 +392,32 @@ const hasCurrentSchema = async (db: D1Database) => {
   try {
     const row = await db.prepare(`SELECT meta_value FROM system_meta WHERE meta_key = 'schema_version'`)
       .first<{ meta_value: string }>();
-    return row?.meta_value === SCHEMA_VERSION;
+    if (row?.meta_value !== SCHEMA_VERSION) return false;
+
+    // 버전 표식만 맞고 실제 컬럼이 누락된 운영 DB도 자동 복구할 수 있도록 핵심 구조를 함께 확인합니다.
+    const checks = await Promise.all([
+      hasColumns(db, 'system_users', ['id', 'name', 'username', 'password_hash', 'position', 'grade', 'department', 'role', 'can_approve', 'active', 'created_at']),
+      hasColumns(db, 'documents', ['id', 'approval_mode', 'status', 'client_request_id']),
+      hasColumns(db, 'document_approval_lines', ['id', 'document_id', 'line_order', 'line_type', 'user_id', 'status']),
+    ]);
+    return checks.every(Boolean);
   } catch {
     return false;
   }
+};
+
+export const repairTables = async (db: D1Database) => {
+  tablesEnsured = false;
+  tablesEnsurePromise = null;
+  await runSchemaMigration(db);
+  tablesEnsured = true;
 };
 
 export const ensureTables = async (db: D1Database) => {
   if (tablesEnsured) return;
   if (!tablesEnsurePromise) {
     tablesEnsurePromise = (async () => {
-      // 대부분의 요청에서는 버전 1회 조회만 수행해 로그인·목록 조회 지연을 줄입니다.
+      // 대부분의 요청에서는 버전 및 핵심 컬럼만 1회 확인합니다.
       if (!(await hasCurrentSchema(db))) await runSchemaMigration(db);
       tablesEnsured = true;
     })().catch((error) => {
@@ -417,6 +471,51 @@ export const verifyAdminToken = async (submittedToken: string, expectedToken: st
   return timingSafeEqual(submittedDigest, expectedDigest);
 };
 
+export type NewSystemUser = {
+  name: string;
+  username: string;
+  passwordHash: string;
+  position?: string | null;
+  grade?: string | null;
+  department?: string | null;
+  role: 'admin' | 'user';
+  canApprove: boolean;
+  active?: boolean;
+  createdAt?: string;
+};
+
+// 오래된 운영 DB가 INTEGER PRIMARY KEY를 사용하더라도 계정 생성이 실패하지 않도록 실제 id 형식을 확인합니다.
+export const insertSystemUser = async (db: D1Database, input: NewSystemUser) => {
+  const columns = await getTableColumns(db, 'system_users');
+  const idColumn = columns.find((column) => column.name === 'id');
+  if (!idColumn) throw new Error('system_users.id column is missing');
+
+  const createdAt = input.createdAt || new Date().toISOString();
+  const values = [
+    input.name, input.username, input.passwordHash, input.position || null, input.grade || null,
+    input.department || null, input.role, input.canApprove ? 1 : 0, input.active === false ? 0 : 1, createdAt,
+  ];
+
+  if (/INT/i.test(idColumn.type || '') && Number(idColumn.pk) > 0) {
+    const row = await db.prepare(`
+      INSERT INTO system_users
+        (name, username, password_hash, position, grade, department, role, can_approve, active, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      RETURNING CAST(id AS TEXT) AS id
+    `).bind(...values).first<{ id: string | number }>();
+    if (!row?.id) throw new Error('계정 식별번호를 생성하지 못했습니다.');
+    return String(row.id);
+  }
+
+  const id = `USR-${randomHex(20)}`;
+  await db.prepare(`
+    INSERT INTO system_users
+      (id, name, username, password_hash, position, grade, department, role, can_approve, active, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(id, ...values).run();
+  return id;
+};
+
 export type SessionUser = {
   id: string; name: string; username: string; position: string | null; grade: string | null;
   department: string | null; role: string; can_approve: number;
@@ -436,7 +535,7 @@ export const authenticateSession = async (
 ): Promise<{ ok: true; user: SessionUser } | { ok: false; message: string; status: number }> => {
   if (!token) return { ok: false, message: '로그인이 필요합니다.', status: 401 };
   const row = await db.prepare(`
-    SELECT u.id, u.name, u.username, u.position, u.grade, u.department, u.role, u.can_approve, u.active, s.expires_at
+    SELECT CAST(u.id AS TEXT) AS id, u.name, u.username, u.position, u.grade, u.department, u.role, u.can_approve, u.active, s.expires_at
     FROM system_sessions s JOIN system_users u ON u.id = s.user_id WHERE s.token = ?
   `).bind(token).first<SessionUser & { active: number; expires_at: string }>();
   if (!row) return { ok: false, message: '로그인이 만료되었습니다. 다시 로그인해 주세요.', status: 401 };
@@ -458,8 +557,11 @@ export const canReadDocument = (user: SessionUser, document: Record<string, unkn
 };
 
 const nextSequence = async (db: D1Database, seqKey: string, initialValue = 0) => {
-  await db.prepare(`INSERT OR IGNORE INTO document_sequences (seq_key, last_seq) VALUES (?, ?)`)
-    .bind(seqKey, initialValue).run();
+  // 문서가 이미 있는데 순번 테이블이 초기화되었거나 낮은 값으로 남은 경우에도 중복 번호가 생기지 않도록 보정합니다.
+  await db.prepare(`
+    INSERT INTO document_sequences (seq_key, last_seq) VALUES (?, ?)
+    ON CONFLICT(seq_key) DO UPDATE SET last_seq = MAX(document_sequences.last_seq, excluded.last_seq)
+  `).bind(seqKey, initialValue).run();
   const row = await db.prepare(`UPDATE document_sequences SET last_seq = last_seq + 1 WHERE seq_key = ? RETURNING last_seq`)
     .bind(seqKey).first<{ last_seq: number }>();
   return Number(row?.last_seq || initialValue + 1);

@@ -28,6 +28,14 @@ const completedActionForLine = (lineType: ApprovalLine['line_type']) => {
   return '승인';
 };
 
+const isAllowedActionForLine = (lineType: ApprovalLine['line_type'], action: string) => {
+  if (action === '반려') return true;
+  if (lineType === '검토') return action === '승인' || action === '검토완료';
+  if (lineType === '협조') return action === '승인' || action === '협조완료';
+  if (lineType === '전결') return action === '승인' || action === '전결';
+  return action === '승인';
+};
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
   let payload: DecidePayload;
@@ -65,6 +73,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (currentLine) {
       if (me.role !== 'admin' && currentLine.user_id !== me.id) {
         return json({ ok: false, message: `지정된 ${currentLine.line_type}자만 처리할 수 있습니다.` }, 403);
+      }
+      if (!isAllowedActionForLine(currentLine.line_type, action)) {
+        return json({ ok: false, message: `${currentLine.line_type} 단계에서 사용할 수 없는 처리 구분입니다.` }, 400);
       }
       if (action === '반려') {
         const now = new Date().toISOString();

@@ -3,8 +3,10 @@ import {
   clean,
   ensureTables,
   hashPassword,
+  insertSystemUser,
+  isSchemaError,
   json,
-  randomHex,
+  repairTables,
 } from '../../_shared/helpers';
 
 interface Env {
@@ -23,49 +25,88 @@ type CreatePayload = {
   canApprove?: boolean;
 };
 
+const createAccount = async (
+  db: D1Database,
+  input: {
+    name: string;
+    username: string;
+    passwordHash: string;
+    position: string;
+    grade: string;
+    department: string;
+    role: 'admin' | 'user';
+    canApprove: boolean;
+  },
+) => insertSystemUser(db, {
+  name: input.name,
+  username: input.username,
+  passwordHash: input.passwordHash,
+  position: input.position || null,
+  grade: input.grade || null,
+  department: input.department || null,
+  role: input.role,
+  canApprove: input.canApprove,
+  active: true,
+});
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
 
   let payload: CreatePayload;
   try {
     payload = await request.json();
-  } catch (error) {
+  } catch {
     return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400);
   }
 
-  await ensureTables(env.DB);
-  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
-  if (auth.user.role !== 'admin') return json({ ok: false, message: '계정 관리는 관리자만 할 수 있습니다.' }, 403);
-
-  const name = clean(payload.name, 40);
-  const username = clean(payload.username, 60);
-  const password = typeof payload.password === 'string' ? payload.password.slice(0, 200) : '';
-  const position = clean(payload.position, 40);
-  const grade = clean(payload.grade, 20);
-  const department = clean(payload.department, 60);
-  const role = payload.role === 'admin' ? 'admin' : 'user';
-  const canApprove = !!payload.canApprove || role === 'admin';
-
-  if (!name) return json({ ok: false, message: '성명을 입력해 주세요.' }, 400);
-  if (!username || username.length < 3) return json({ ok: false, message: '아이디를 3자 이상 입력해 주세요.' }, 400);
-  if (!password || password.length < 8) return json({ ok: false, message: '비밀번호를 8자 이상 입력해 주세요.' }, 400);
-
   try {
-    const existing = await env.DB.prepare(`SELECT id FROM system_users WHERE username = ?`).bind(username).first();
+    await ensureTables(env.DB);
+    const auth = await authenticateSession(env.DB, clean(payload.token, 200));
+    if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+    if (auth.user.role !== 'admin') return json({ ok: false, message: '계정 관리는 관리자만 할 수 있습니다.' }, 403);
+
+    const name = clean(payload.name, 40);
+    const username = clean(payload.username, 60);
+    const password = typeof payload.password === 'string' ? payload.password.slice(0, 200) : '';
+    const position = clean(payload.position, 40);
+    const grade = clean(payload.grade, 20);
+    const department = clean(payload.department, 60);
+    const role: 'admin' | 'user' = payload.role === 'admin' ? 'admin' : 'user';
+    const canApprove = !!payload.canApprove || role === 'admin';
+
+    if (!name) return json({ ok: false, message: '성명을 입력해 주세요.' }, 400);
+    if (!username || username.length < 3) return json({ ok: false, message: '아이디를 3자 이상 입력해 주세요.' }, 400);
+    if (/\s/.test(username)) return json({ ok: false, message: '아이디에는 공백을 사용할 수 없습니다.' }, 400);
+    if (!password || password.length < 8) return json({ ok: false, message: '비밀번호를 8자 이상 입력해 주세요.' }, 400);
+
+    const existing = await env.DB.prepare(`SELECT id FROM system_users WHERE username = ? COLLATE NOCASE`)
+      .bind(username).first();
     if (existing) return json({ ok: false, message: '이미 사용 중인 아이디입니다.' }, 400);
 
-    const id = `USR-${randomHex(20)}`;
     const passwordHash = await hashPassword(password);
-    const now = new Date().toISOString();
-    await env.DB.prepare(`
-      INSERT INTO system_users (id, name, username, password_hash, position, grade, department, role, can_approve, active, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
-    `).bind(id, name, username, passwordHash, position || null, grade || null, department || null, role, canApprove ? 1 : 0, now).run();
+    const input = { name, username, passwordHash, position, grade, department, role, canApprove };
+
+    let id: string;
+    try {
+      id = await createAccount(env.DB, input);
+    } catch (error) {
+      if (!isSchemaError(error)) throw error;
+      console.warn('system_users schema mismatch detected; retrying after repair', error);
+      await repairTables(env.DB);
+      id = await createAccount(env.DB, input);
+    }
 
     return json({ ok: true, id, message: '계정이 생성되었습니다.' });
   } catch (error) {
-    return json({ ok: false, message: '계정 생성 중 오류가 발생했습니다.' }, 500);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('user create failed', error);
+    if (/unique constraint failed: system_users\.username|idx_system_users_username/i.test(message)) {
+      return json({ ok: false, message: '이미 사용 중인 아이디입니다.' }, 400);
+    }
+    if (/cpu time|resource limits|operationerror|derivebits/i.test(message)) {
+      return json({ ok: false, message: '비밀번호 암호화 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.' }, 500);
+    }
+    return json({ ok: false, message: '계정 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요. 오류가 계속되면 시스템 관리자에게 문의해 주세요.' }, 500);
   }
 };
 

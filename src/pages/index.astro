@@ -1399,7 +1399,7 @@ import GovLayout from '../layouts/GovLayout.astro';
 
       // 계정관리
       const usersModal=$('[data-users-modal]'),usersTable=$('[data-users-table]'),userForm=$('[data-user-form]');
-      const resetUserForm=()=>{userForm.reset();userForm.elements.id.value='';$('[data-user-form-title]').textContent='계정 추가';$('[data-user-password-label]').textContent='비밀번호(8자 이상)';userForm.elements.password.required=true;$('[data-user-active-row]').hidden=true;$('[data-user-form-submit]').textContent='계정 추가';$('[data-user-form-status]').textContent='';userForm.elements.username.disabled=false;};
+      const resetUserForm=()=>{userForm.reset();userForm.elements.id.value='';$('[data-user-form-title]').textContent='계정 추가';$('[data-user-password-label]').textContent='비밀번호(8자 이상)';userForm.elements.password.required=true;$('[data-user-active-row]').hidden=true;$('[data-user-form-submit]').textContent='계정 추가';const status=$('[data-user-form-status]');status.textContent='';status.classList.remove('form-status--error','form-status--ok');userForm.elements.username.disabled=false;};
       $('[data-user-form-reset]').addEventListener('click',resetUserForm);
       const renderUsersTable=(rows)=>{
         usersTable.innerHTML=`<table class="doc-table__frame doc-table__frame--users"><colgroup><col class="col-user-name" /><col class="col-user-id" /><col class="col-user-position" /><col class="col-user-grade" /><col class="col-user-department" /><col class="col-user-role" /><col class="col-user-approval" /><col class="col-user-status" /><col class="col-user-action" /></colgroup><thead><tr><th>성명</th><th>아이디</th><th>직책</th><th>직급</th><th>담당부서</th><th>역할</th><th>결재권</th><th>상태</th><th>관리</th></tr></thead><tbody>${rows.map((u)=>`<tr><td><strong>${esc(u.name)}</strong></td><td class="mono">${esc(u.username)}</td><td>${esc(u.position||'-')}</td><td>${esc(u.grade||'-')}</td><td>${esc(u.department||'-')}</td><td>${u.role==='admin'?'관리자':'일반'}</td><td><span class="status-chip ${u.can_approve?'status-chip--ok':''}">${u.can_approve?'부여':'없음'}</span></td><td><span class="status-chip ${u.active?'status-chip--ok':'status-chip--off'}">${u.active?'활성':'비활성'}</span></td><td><button type="button" class="btn btn-outline btn-sm" data-edit-user="${esc(u.id)}">수정</button></td></tr>`).join('')||'<tr class="doc-table__empty-row"><td colspan="9" class="empty"><strong>등록된 계정이 없습니다.</strong><span>오른쪽 입력영역에서 새 계정을 추가할 수 있습니다.</span></td></tr>'}</tbody></table>`;
@@ -1407,7 +1407,33 @@ import GovLayout from '../layouts/GovLayout.astro';
       };
       const refreshUsersTable=async()=>{const d=await callApi('/api/users/list',{token:getToken(),includeInactive:true});if(d.ok)renderUsersTable(d.rows||[]);else $('[data-user-form-status]').textContent=d.message;};
       openUsersBtn.addEventListener('click',()=>{resetUserForm();renderUsersTable([]);usersModal.hidden=false;refreshUsersTable();});$$('[data-close-users]').forEach((b)=>b.addEventListener('click',()=>usersModal.hidden=true));
-      userForm.addEventListener('submit',async(e)=>{e.preventDefault();const fd=new FormData(userForm),id=fd.get('id'),payload={token:getToken(),id,name:fd.get('name'),username:fd.get('username'),password:fd.get('password')||undefined,newPassword:fd.get('password')||undefined,position:fd.get('position'),grade:fd.get('grade'),department:fd.get('department'),role:fd.get('role'),canApprove:fd.get('canApprove')==='on',active:fd.get('active')==='on'};const result=await callApi(id?'/api/users/update':'/api/users/create',payload);$('[data-user-form-status]').textContent=result.message||'';if(result.ok){resetUserForm();refreshUsersTable();refreshUserOptions();}});
+      userForm.addEventListener('submit',async(e)=>{
+        e.preventDefault();
+        const statusEl=$('[data-user-form-status]'),submitButton=$('[data-user-form-submit]');
+        const fd=new FormData(userForm),id=fd.get('id');
+        const payload={
+          token:getToken(),id,name:fd.get('name'),username:fd.get('username'),
+          password:fd.get('password')||undefined,newPassword:fd.get('password')||undefined,
+          position:fd.get('position'),grade:fd.get('grade'),department:fd.get('department'),role:fd.get('role'),
+          canApprove:fd.get('canApprove')==='on',active:fd.get('active')==='on'
+        };
+        const originalText=submitButton.textContent;
+        submitButton.disabled=true;
+        submitButton.textContent=id?'저장 중...':'생성 중...';
+        statusEl.classList.remove('form-status--error','form-status--ok');
+        statusEl.textContent=id?'계정 정보를 저장하고 있습니다.':'계정을 생성하고 있습니다.';
+        try {
+          const result=await callApi(id?'/api/users/update':'/api/users/create',payload);
+          if(!result.ok){statusEl.classList.add('form-status--error');statusEl.textContent=result.message||'요청 처리에 실패했습니다.';return;}
+          resetUserForm();
+          statusEl.classList.add('form-status--ok');
+          statusEl.textContent=result.message||'정상적으로 처리되었습니다.';
+          await Promise.all([refreshUsersTable(),refreshUserOptions()]);
+        } finally {
+          submitButton.disabled=false;
+          submitButton.textContent=userForm.elements.id.value?'수정 저장':'계정 추가';
+        }
+      });
 
       // 관인·로고
       let orgSealImage='',orgLogoImage='';
@@ -1473,7 +1499,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       border-radius: 16px;
       padding: 2.4rem 2.2rem;
       width: 100%;
-      max-width: 380px;
+      max-width: 440px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.25);
       text-align: center;
       max-height: 92vh;
@@ -1481,7 +1507,13 @@ import GovLayout from '../layouts/GovLayout.astro';
     }
     .login-card__logo { width: 68px; height: 68px; object-fit: contain; display: block; margin: 0 auto 0.55rem; }
     .login-card__kicker { color: var(--gov-gold); font-weight: 700; margin: 0 0 0.2rem; font-size: 0.85rem; }
-    .login-card h1 { margin: 0 0 0.3rem; font-size: 1.5rem; }
+    .login-card h1 {
+      margin: 0 0 0.3rem;
+      font-size: clamp(1.18rem, 2vw, 1.42rem);
+      letter-spacing: -0.045em;
+      line-height: 1.25;
+      white-space: nowrap;
+    }
     .login-card__desc { color: var(--gov-muted); margin: 0 0 1.4rem; font-size: 0.9rem; }
     .login-card form { display: flex; flex-direction: column; gap: 0.5rem; text-align: left; }
     .login-card label { font-size: 0.85rem; font-weight: 600; }
@@ -1494,6 +1526,8 @@ import GovLayout from '../layouts/GovLayout.astro';
       text-decoration: underline;
     }
     .login-card__bootstrap { margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed var(--gov-border); }
+    .form-status--error { color: #a12626 !important; font-weight: 700; }
+    .form-status--ok { color: #1e6f2b !important; font-weight: 700; }
 
     .btn {
       border: 1px solid transparent; border-radius: 3px; padding: 0.55rem 1rem; font-size: 0.92rem; font-weight: 600;
@@ -1545,10 +1579,10 @@ import GovLayout from '../layouts/GovLayout.astro';
       border: 1px solid #cfd8e6; border-radius: 8px; background: #f7f9fc;
       box-shadow: 0 2px 7px rgba(23, 49, 81, 0.05);
     }
-    .sidebar-profile__row { display: grid; grid-template-columns: 62px minmax(0, 1fr); min-height: 34px; border-bottom: 1px solid #e1e6ee; }
+    .sidebar-profile__row { display: grid; grid-template-columns: 76px minmax(0, 1fr); min-height: 34px; border-bottom: 1px solid #e1e6ee; }
     .sidebar-profile__row:last-child { border-bottom: 0; }
     .sidebar-profile__row span, .sidebar-profile__row strong { display: flex; align-items: center; min-width: 0; padding: 0.38rem 0.48rem; font-size: 0.76rem; }
-    .sidebar-profile__row span { color: #526174; background: #edf2f8; font-weight: 700; }
+    .sidebar-profile__row span { color: #526174; background: #edf2f8; font-weight: 700; white-space: nowrap; }
     .sidebar-profile__row strong { color: var(--gov-text); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .sidebar-compose { margin-bottom: 0.4rem; }
     .sidebar-group__title { font-size: 0.78rem; color: #fff; background: #557eb1; font-weight: 700; margin: 0 0 0.25rem; padding: 0.42rem 0.55rem; border-radius: 2px; }
@@ -2014,6 +2048,8 @@ import GovLayout from '../layouts/GovLayout.astro';
       .orgchart-tree { border-right: none; border-bottom: 1px solid var(--gov-border); padding-right: 0; padding-bottom: 1rem; }
     }
     @media (max-width: 760px) {
+      .login-card { max-width: 440px; padding: 2rem 1.5rem; }
+      .login-card h1 { font-size: clamp(1.04rem, 5vw, 1.28rem); }
       .home-heading { align-items: flex-start; flex-direction: column; }
       .home-stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
       .app-topbar { height: auto; align-items: flex-start; gap: 0.7rem; padding: 0.9rem 1rem; flex-wrap: wrap; }

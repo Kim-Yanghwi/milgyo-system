@@ -4,9 +4,11 @@ import {
   clearAuthFailures,
   ensureTables,
   hashPassword,
+  insertSystemUser,
+  isSchemaError,
   json,
-  randomHex,
   recordAuthFailure,
+  repairTables,
   verifyAdminToken,
 } from '../../_shared/helpers';
 
@@ -23,8 +25,7 @@ type BootstrapPayload = {
   position?: string;
 };
 
-// 최초 관리자 계정을 만들거나(계정이 하나도 없을 때), Cloudflare Pages 환경변수의
-// ADMIN_TOKEN(마스터 키)을 아는 사람만 추가 관리자 계정을 복구용으로 만들 수 있게 하는 엔드포인트입니다.
+// 최초 관리자 계정을 만들거나, ADMIN_TOKEN을 아는 관리자가 복구용 관리자 계정을 추가합니다.
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
   if (!env.ADMIN_TOKEN) return json({ ok: false, message: 'ADMIN_TOKEN이 설정되지 않았습니다.' }, 500);
@@ -32,7 +33,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let payload: BootstrapPayload;
   try {
     payload = await request.json();
-  } catch (error) {
+  } catch {
     return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400);
   }
 
@@ -54,19 +55,35 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (!name) return json({ ok: false, message: '성명을 입력해 주세요.' }, 400);
     if (!username || username.length < 3) return json({ ok: false, message: '아이디를 3자 이상 입력해 주세요.' }, 400);
+    if (/\s/.test(username)) return json({ ok: false, message: '아이디에는 공백을 사용할 수 없습니다.' }, 400);
     if (!password || password.length < 8) return json({ ok: false, message: '비밀번호를 8자 이상 입력해 주세요.' }, 400);
 
     await ensureTables(env.DB);
-    const existing = await env.DB.prepare(`SELECT id FROM system_users WHERE username = ?`).bind(username).first();
+    const existing = await env.DB.prepare(`SELECT id FROM system_users WHERE username = ? COLLATE NOCASE`).bind(username).first();
     if (existing) return json({ ok: false, message: '이미 사용 중인 아이디입니다.' }, 400);
 
-    const id = `USR-${randomHex(20)}`;
     const passwordHash = await hashPassword(password);
-    const now = new Date().toISOString();
-    await env.DB.prepare(`
-      INSERT INTO system_users (id, name, username, password_hash, position, grade, role, can_approve, active, created_at)
-      VALUES (?, ?, ?, ?, ?, NULL, 'admin', 1, 1, ?)
-    `).bind(id, name, username, passwordHash, position || '관리자', now).run();
+    const input = {
+      name,
+      username,
+      passwordHash,
+      position: position || '관리자',
+      grade: null,
+      department: null,
+      role: 'admin' as const,
+      canApprove: true,
+      active: true,
+    };
+
+    let id: string;
+    try {
+      id = await insertSystemUser(env.DB, input);
+    } catch (error) {
+      if (!isSchemaError(error)) throw error;
+      console.warn('bootstrap schema mismatch detected; retrying after repair', error);
+      await repairTables(env.DB);
+      id = await insertSystemUser(env.DB, input);
+    }
 
     return json({ ok: true, id, message: '관리자 계정이 생성되었습니다. 이제 이 아이디로 로그인해 주세요.' });
   } catch (error) {

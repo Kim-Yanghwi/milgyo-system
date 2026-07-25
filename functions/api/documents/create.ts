@@ -171,7 +171,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const userMap = new Map<string, UserRow>();
   if (allSelectedIds.length) {
     const placeholders = allSelectedIds.map(() => '?').join(',');
-    const users = await env.DB.prepare(`SELECT id, name, position, can_approve, active FROM system_users WHERE id IN (${placeholders})`)
+    const users = await env.DB.prepare(`SELECT CAST(id AS TEXT) AS id, name, position, can_approve, active FROM system_users WHERE id IN (${placeholders})`)
       .bind(...allSelectedIds).all<UserRow>();
     for (const user of users.results ?? []) userMap.set(user.id, user);
     const missing = allSelectedIds.filter((id) => !userMap.get(id)?.active);

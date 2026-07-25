@@ -38,7 +38,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     await ensureTables(env.DB);
     const user = await env.DB.prepare(`
-      SELECT id, name, username, password_hash, position, grade, department, role, can_approve, active
+      SELECT CAST(id AS TEXT) AS id, name, username, password_hash, position, grade, department, role, can_approve, active
       FROM system_users WHERE username = ?
     `).bind(username).first<{
       id: string; name: string; username: string; password_hash: string;

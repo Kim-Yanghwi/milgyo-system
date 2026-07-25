@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json, makeReceivedNumber } from '../../_shared/helpers';
+import { authenticateSession, clean, ensureTables, isValidIsoDate, json, makeReceivedNumber } from '../../_shared/helpers';
 interface Env { DB: D1Database; }
 type CreatePayload = {
   token?: string; direction?: string; title?: string; counterparty?: string; sourceSystem?: string;
@@ -24,7 +24,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!VALID_DIRECTIONS.includes(direction)) return json({ ok: false, message: '구분(접수/외부발송)을 선택해 주세요.' }, 400);
   if (title.length < 2) return json({ ok: false, message: '제목을 2자 이상 입력해 주세요.' }, 400);
   if (!counterparty) return json({ ok: false, message: direction === '접수' ? '발신자를 입력해 주세요.' : '수신자를 입력해 주세요.' }, 400);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(receivedAt)) return json({ ok: false, message: '접수·발송 일자를 정확히 입력해 주세요.' }, 400);
+  if (!isValidIsoDate(receivedAt)) return json({ ok: false, message: '접수·발송 일자를 정확히 입력해 주세요.' }, 400);
   if (relatedDocumentId) {
     const related = await env.DB.prepare(`SELECT id FROM documents WHERE id=?`).bind(relatedDocumentId).first();
     if (!related) return json({ ok: false, message: '연결할 내부문서를 찾을 수 없습니다.' }, 400);
@@ -38,6 +38,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     `).bind(id, direction, title, counterparty, sourceSystem || null, externalDocNumber || null, memo || null,
       department || auth.user.department || null, relatedDocumentId || null, auth.user.name, auth.user.id, receivedAt, now.toISOString(), now.toISOString()).run();
     return json({ ok: true, id, message: '접수·발송대장에 등록되었습니다.' });
-  } catch { return json({ ok: false, message: '등록 중 오류가 발생했습니다.' }, 500); }
+  } catch (error) { console.error('received create failed', error); return json({ ok: false, message: '등록 중 오류가 발생했습니다.' }, 500); }
 };
 export const onRequestGet: PagesFunction = async () => json({ ok: false, message: 'POST 방식으로 요청해 주세요.' }, 405);
