@@ -2,6 +2,7 @@ import { authenticateSession, clean, ensureTables, json } from '../../_shared/he
 
 interface Env { DB: D1Database; FILES?: R2Bucket; }
 type Payload = { token?: string };
+const ACTIVE_STATUSES = "'검토대기','협조대기','결재대기','전결대기'";
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
@@ -15,18 +16,22 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const visibilitySql = me.role === 'admin'
     ? '1=1'
-    : `(access_scope <> '관련자' OR drafter_user_id = ? OR reviewer_user_id = ? OR approver_user_id = ?)`;
-  const visibilityBindings = me.role === 'admin' ? [] : [me.id, me.id, me.id];
+    : `(access_scope <> '관련자' OR drafter_user_id = ? OR reviewer_user_id = ? OR approver_user_id = ?
+       OR EXISTS (SELECT 1 FROM document_approval_lines access_line WHERE access_line.document_id = documents.id AND access_line.user_id = ?))`;
+  const visibilityBindings = me.role === 'admin' ? [] : [me.id, me.id, me.id, me.id];
 
   const countQueries: Array<{ key: string; sql: string; values: unknown[] }> = [
     { key: 'draft', sql: `SELECT COUNT(*) AS count FROM documents WHERE status='임시저장' AND drafter_user_id=?`, values: [me.id] },
-    { key: 'progress', sql: `SELECT COUNT(*) AS count FROM documents WHERE status IN ('검토대기','결재대기') AND drafter_user_id=?`, values: [me.id] },
+    { key: 'progress', sql: `SELECT COUNT(*) AS count FROM documents WHERE status IN (${ACTIVE_STATUSES}) AND drafter_user_id=?`, values: [me.id] },
     {
       key: 'pending',
       sql: me.role === 'admin'
-        ? `SELECT COUNT(*) AS count FROM documents WHERE status IN ('검토대기','결재대기')`
-        : `SELECT COUNT(*) AS count FROM documents WHERE (status='검토대기' AND reviewer_user_id=?) OR (status='결재대기' AND approver_user_id=?)`,
-      values: me.role === 'admin' ? [] : [me.id, me.id],
+        ? `SELECT COUNT(*) AS count FROM documents WHERE status IN (${ACTIVE_STATUSES})`
+        : `SELECT COUNT(*) AS count FROM documents WHERE
+            EXISTS (SELECT 1 FROM document_approval_lines pending_line WHERE pending_line.document_id = documents.id AND pending_line.status='대기' AND pending_line.user_id=?)
+            OR (NOT EXISTS (SELECT 1 FROM document_approval_lines any_line WHERE any_line.document_id = documents.id)
+                AND ((status='검토대기' AND reviewer_user_id=?) OR (status IN ('결재대기','전결대기') AND approver_user_id=?)))`,
+      values: me.role === 'admin' ? [] : [me.id, me.id, me.id],
     },
     {
       key: 'send',
@@ -75,7 +80,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       recentRegistry: recentRegistry.results ?? [],
       storage: { r2Connected: !!env.FILES },
     });
-  } catch {
+  } catch (error) {
+    console.error('dashboard summary failed', error);
     return json({ ok: false, message: '홈 화면 정보를 불러오는 중 오류가 발생했습니다.' }, 500);
   }
 };

@@ -16,6 +16,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   await env.DB.batch([
     env.DB.prepare(`DELETE FROM document_attachments WHERE document_id=?`).bind(id),
     env.DB.prepare(`DELETE FROM document_approvals WHERE document_id=?`).bind(id),
+    env.DB.prepare(`DELETE FROM document_approval_lines WHERE document_id=?`).bind(id),
     env.DB.prepare(`DELETE FROM documents WHERE id=?`).bind(id),
   ]);
   const r2Keys = (keys.results ?? []).map((row) => row.r2_key).filter(Boolean);

@@ -212,7 +212,7 @@ let tablesEnsured = false;
 let tablesEnsurePromise: Promise<void> | null = null;
 let lastRateLimitCleanupAt = 0;
 const MAINTENANCE_COOLDOWN_MS = 10 * 60 * 1000;
-const SCHEMA_VERSION = '2026-07-25.4';
+const SCHEMA_VERSION = '2026-07-25.5';
 
 const ensureColumn = async (db: D1Database, table: string, columnDef: string) => {
   try {
@@ -258,7 +258,7 @@ const runSchemaMigration = async (db: D1Database) => {
       drafter TEXT NOT NULL, drafter_user_id TEXT, drafter_position TEXT,
       reviewer_user_id TEXT, reviewer_name TEXT, reviewer_position TEXT,
       approver_user_id TEXT, approver_name TEXT, approver_position TEXT,
-      department TEXT, recipient TEXT, via TEXT, approval_track TEXT NOT NULL,
+      department TEXT, recipient TEXT, via TEXT, approval_track TEXT NOT NULL, approval_mode TEXT NOT NULL DEFAULT '결재',
       status TEXT NOT NULL DEFAULT '결재대기', sent_method TEXT, sent_at TEXT,
       template_id TEXT, template_name TEXT, form_data_json TEXT NOT NULL DEFAULT '{}',
       access_scope TEXT NOT NULL DEFAULT '전체', client_request_id TEXT,
@@ -267,6 +267,11 @@ const runSchemaMigration = async (db: D1Database) => {
     db.prepare(`CREATE TABLE IF NOT EXISTS document_approvals (
       id TEXT PRIMARY KEY, document_id TEXT NOT NULL, action TEXT NOT NULL, approver_name TEXT NOT NULL,
       approver_role TEXT, memo TEXT, created_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS document_approval_lines (
+      id TEXT PRIMARY KEY, document_id TEXT NOT NULL, line_order INTEGER NOT NULL,
+      line_type TEXT NOT NULL, user_id TEXT NOT NULL, user_name TEXT NOT NULL, user_position TEXT,
+      status TEXT NOT NULL DEFAULT '예정', acted_at TEXT, memo TEXT, created_at TEXT NOT NULL
     )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS received_documents (
       id TEXT PRIMARY KEY, direction TEXT NOT NULL, title TEXT NOT NULL, counterparty TEXT NOT NULL,
@@ -302,7 +307,7 @@ const runSchemaMigration = async (db: D1Database) => {
     ['documents', 'drafter_user_id TEXT'], ['documents', 'drafter_position TEXT'],
     ['documents', 'reviewer_user_id TEXT'], ['documents', 'reviewer_name TEXT'], ['documents', 'reviewer_position TEXT'],
     ['documents', 'approver_user_id TEXT'], ['documents', 'approver_name TEXT'], ['documents', 'approver_position TEXT'],
-    ['documents', 'via TEXT'], ['documents', 'template_id TEXT'], ['documents', 'template_name TEXT'],
+    ['documents', 'via TEXT'], ['documents', `approval_mode TEXT NOT NULL DEFAULT '결재'`], ['documents', 'template_id TEXT'], ['documents', 'template_name TEXT'],
     ['documents', `form_data_json TEXT NOT NULL DEFAULT '{}'`], ['documents', `access_scope TEXT NOT NULL DEFAULT '전체'`],
     ['documents', 'client_request_id TEXT'], ['documents', 'submitted_at TEXT'], ['documents', 'completed_at TEXT'],
     ['system_users', 'department TEXT'],
@@ -322,6 +327,8 @@ const runSchemaMigration = async (db: D1Database) => {
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_status ON documents (status)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_created ON documents (created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_document_approvals_doc ON document_approvals (document_id, created_at)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_document_approval_lines_doc ON document_approval_lines (document_id, line_order)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_document_approval_lines_pending ON document_approval_lines (user_id, status, document_id)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_received_documents_created ON received_documents (created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_received_documents_handler ON received_documents (handled_by_user_id, created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_document_attachments_doc ON document_attachments (document_id, created_at)`),

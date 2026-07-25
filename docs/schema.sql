@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS documents (
   recipient TEXT,
   via TEXT,
   approval_track TEXT NOT NULL,
+  approval_mode TEXT NOT NULL DEFAULT '결재',
   status TEXT NOT NULL DEFAULT '결재대기',
   sent_method TEXT,
   sent_at TEXT,
@@ -63,6 +64,20 @@ CREATE TABLE IF NOT EXISTS document_approvals (
   action TEXT NOT NULL,
   approver_name TEXT NOT NULL,
   approver_role TEXT,
+  memo TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS document_approval_lines (
+  id TEXT PRIMARY KEY,
+  document_id TEXT NOT NULL,
+  line_order INTEGER NOT NULL,
+  line_type TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  user_name TEXT NOT NULL,
+  user_position TEXT,
+  status TEXT NOT NULL DEFAULT '예정',
+  acted_at TEXT,
   memo TEXT,
   created_at TEXT NOT NULL
 );
@@ -149,6 +164,8 @@ CREATE INDEX IF NOT EXISTS idx_documents_reviewer ON documents (reviewer_user_id
 CREATE INDEX IF NOT EXISTS idx_documents_drafter ON documents (drafter_user_id, status);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_documents_request_id ON documents (client_request_id) WHERE client_request_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_document_approvals_doc ON document_approvals (document_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_document_approval_lines_doc ON document_approval_lines (document_id, line_order);
+CREATE INDEX IF NOT EXISTS idx_document_approval_lines_pending ON document_approval_lines (user_id, status, document_id);
 CREATE INDEX IF NOT EXISTS idx_received_documents_created ON received_documents (created_at);
 CREATE INDEX IF NOT EXISTS idx_received_documents_handler ON received_documents (handled_by_user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_document_attachments_doc ON document_attachments (document_id, created_at);
@@ -163,5 +180,5 @@ CREATE TABLE IF NOT EXISTS system_meta (
 );
 
 INSERT INTO system_meta (meta_key, meta_value, updated_at)
-VALUES ('schema_version', '2026-07-25.4', CURRENT_TIMESTAMP)
+VALUES ('schema_version', '2026-07-25.5', CURRENT_TIMESTAMP)
 ON CONFLICT(meta_key) DO UPDATE SET meta_value=excluded.meta_value, updated_at=excluded.updated_at;

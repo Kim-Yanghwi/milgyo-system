@@ -19,7 +19,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   `).bind(clean(payload.attachmentId, 60)).first<any>();
   if (!attachment) return json({ ok: false, message: '첨부파일을 찾을 수 없습니다.' }, 404);
   const doc = await env.DB.prepare('SELECT * FROM documents WHERE id=?').bind(attachment.document_id).first<Record<string, unknown>>();
-  if (!doc || !canReadDocument(auth.user, doc)) return json({ ok: false, message: '첨부파일 열람 권한이 없습니다.' }, 403);
+  if (!doc) return json({ ok: false, message: '첨부파일 열람 권한이 없습니다.' }, 403);
+  let readable = canReadDocument(auth.user, doc);
+  if (!readable && doc.access_scope === '관련자') {
+    const related = await env.DB.prepare('SELECT 1 AS allowed FROM document_approval_lines WHERE document_id=? AND user_id=? LIMIT 1')
+      .bind(attachment.document_id, auth.user.id).first<{ allowed: number }>();
+    readable = !!related;
+  }
+  if (!readable) return json({ ok: false, message: '첨부파일 열람 권한이 없습니다.' }, 403);
   let dataBase64 = attachment.data_base64 || '';
   if (attachment.storage_type === 'r2') {
     if (!env.FILES || !attachment.r2_key) return json({ ok: false, message: 'R2 첨부파일 저장소가 연결되지 않았습니다.' }, 500);

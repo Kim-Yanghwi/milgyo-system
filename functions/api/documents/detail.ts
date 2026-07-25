@@ -13,15 +13,30 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     const document = await env.DB.prepare(`SELECT * FROM documents WHERE id = ?`).bind(id).first<Record<string, unknown>>();
     if (!document) return json({ ok: false, message: '해당 문서를 찾을 수 없습니다.' }, 404);
-    if (!canReadDocument(auth.user, document)) return json({ ok: false, message: '이 문서를 열람할 권한이 없습니다.' }, 403);
-    const [approvals, attachments] = await Promise.all([
+    let readable = canReadDocument(auth.user, document);
+    if (!readable && document.access_scope === '관련자') {
+      const related = await env.DB.prepare(`SELECT 1 AS allowed FROM document_approval_lines WHERE document_id = ? AND user_id = ? LIMIT 1`)
+        .bind(id, auth.user.id).first<{ allowed: number }>();
+      readable = !!related;
+    }
+    if (!readable) return json({ ok: false, message: '이 문서를 열람할 권한이 없습니다.' }, 403);
+    const [approvals, approvalLines, attachments] = await Promise.all([
       env.DB.prepare(`SELECT * FROM document_approvals WHERE document_id = ? ORDER BY created_at ASC`).bind(id).all(),
+      env.DB.prepare(`SELECT * FROM document_approval_lines WHERE document_id = ? ORDER BY line_order ASC`).bind(id).all(),
       env.DB.prepare(`SELECT id, file_name, mime_type, size_bytes, created_at FROM document_attachments WHERE document_id = ? ORDER BY created_at ASC`).bind(id).all(),
     ]);
     let formData = {};
     try { formData = JSON.parse(String(document.form_data_json || '{}')); } catch { formData = {}; }
-    return json({ ok: true, document: { ...document, form_data: formData }, approvals: approvals.results ?? [], attachments: attachments.results ?? [], me: auth.user });
-  } catch {
+    return json({
+      ok: true,
+      document: { ...document, form_data: formData },
+      approvals: approvals.results ?? [],
+      approvalLines: approvalLines.results ?? [],
+      attachments: attachments.results ?? [],
+      me: auth.user,
+    });
+  } catch (error) {
+    console.error('document detail failed', error);
     return json({ ok: false, message: '문서 조회 중 오류가 발생했습니다.' }, 500);
   }
 };

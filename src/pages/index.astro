@@ -35,7 +35,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         <p class="login-card__error" data-bootstrap-error hidden></p>
         <p class="login-card__error login-card__error--ok" data-bootstrap-ok hidden></p>
       </form>
-      <p class="login-card__help">로그인은 12시간 동안 유지되며 같은 브라우저의 새 탭에서도 이어집니다.</p>
+      <p class="login-card__help">권한이 필요한 경우 사무국으로 문의하시기 바랍니다.</p>
     </div>
   </div>
 
@@ -43,10 +43,10 @@ import GovLayout from '../layouts/GovLayout.astro';
   <div class="app-shell" data-app-shell>
     <header class="app-topbar">
       <button type="button" class="app-topbar__menu-toggle" data-toggle-sidebar aria-label="메뉴 접기">☰</button>
-      <div class="app-topbar__brand">
-        <img class="app-topbar__logo" src="/logo.png" alt="" data-topbar-logo />
+      <button type="button" class="app-topbar__brand" data-go-home aria-label="홈으로 이동">
+        <img class="app-topbar__logo" src="/logo.png" alt="대한불교밀교종 로고" data-topbar-logo />
         <span>대한불교밀교종 종단관리시스템</span>
-      </div>
+      </button>
       <nav class="app-topbar__menu">
         <button type="button" class="app-topbar__link active" data-nav="home">홈</button>
         <button type="button" class="app-topbar__link" data-nav="approval">결재</button>
@@ -54,7 +54,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         <button type="button" class="app-topbar__link" data-nav="received">접수·발송</button>
       </nav>
       <div class="app-topbar__right">
-        <span class="app-topbar__me" data-me-label></span>
+        <span class="app-topbar__me" data-me-label hidden></span>
         <button type="button" class="btn btn-ghost" data-open-templates hidden>서식관리</button>
         <button type="button" class="btn btn-ghost" data-open-users hidden>계정관리</button>
         <button type="button" class="btn btn-ghost" data-open-orgchart>조직도</button>
@@ -64,6 +64,11 @@ import GovLayout from '../layouts/GovLayout.astro';
 
     <div class="app-body">
       <aside class="app-sidebar">
+        <section class="sidebar-profile" aria-label="로그인 계정 정보">
+          <div class="sidebar-profile__row"><span>이름</span><strong data-me-name>-</strong></div>
+          <div class="sidebar-profile__row"><span>직책</span><strong data-me-position>-</strong></div>
+          <div class="sidebar-profile__row"><span>담당부서</span><strong data-me-department>-</strong></div>
+        </section>
         <button type="button" class="btn btn-primary btn-block sidebar-compose" data-open-compose>+ 문서작성</button>
 
         <div class="sidebar-group">
@@ -215,8 +220,23 @@ import GovLayout from '../layouts/GovLayout.astro';
             <input id="c-summary" name="summary" type="text" maxlength="200" placeholder="보고내용을 한 줄로 요약해 주세요." />
 
             <div data-reviewer-approver-fields>
-              <label for="c-reviewer">검토자(선택)</label>
-              <select id="c-reviewer" name="reviewerUserId" data-reviewer-select></select>
+              <div class="approval-picker">
+                <div class="approval-picker__heading"><label for="c-reviewer">검토자(선택 · 복수 지정 가능)</label><small>지정 순서대로 검토합니다.</small></div>
+                <div class="approval-picker__controls"><select id="c-reviewer" data-reviewer-select></select><button type="button" class="btn btn-outline btn-sm" data-add-reviewer>추가</button></div>
+                <div class="approval-picker__list" data-reviewer-list><span class="muted">지정된 검토자가 없습니다.</span></div>
+              </div>
+
+              <div class="approval-picker">
+                <div class="approval-picker__heading"><label for="c-cooperator">협조자(선택 · 복수 지정 가능)</label><small>검토 후 지정 순서대로 협조합니다.</small></div>
+                <div class="approval-picker__controls"><select id="c-cooperator" data-cooperator-select></select><button type="button" class="btn btn-outline btn-sm" data-add-cooperator>추가</button></div>
+                <div class="approval-picker__list" data-cooperator-list><span class="muted">지정된 협조자가 없습니다.</span></div>
+              </div>
+
+              <label>최종 처리방식</label>
+              <div class="radio-row approval-mode-row">
+                <label><input type="radio" name="approvalMode" value="결재" checked /> 결재</label>
+                <label><input type="radio" name="approvalMode" value="전결" /> 전결</label>
+              </div>
 
               <label for="c-approver" data-approver-label>결재자 · 제13조②</label>
               <select id="c-approver" name="approverUserId" data-approver-select></select>
@@ -226,7 +246,7 @@ import GovLayout from '../layouts/GovLayout.astro';
             <select id="c-department" name="department" data-department-select></select>
 
             <label for="c-access-scope">열람범위</label>
-            <select id="c-access-scope" name="accessScope"><option value="전체">전체 구성원</option><option value="관련자">기안자·검토자·결재자·관리자만</option></select>
+            <select id="c-access-scope" name="accessScope"><option value="전체">전체 구성원</option><option value="관련자">기안자·검토자·협조자·결재자·관리자만</option></select>
 
             <label>발신명의 표시(선택)</label>
             <div class="signer-option-row">
@@ -296,11 +316,7 @@ import GovLayout from '../layouts/GovLayout.astro';
             <div class="official-doc__body" data-preview-body>본문을 입력해 주세요.</div>
             <div class="official-doc__meta-row official-doc__attach"><span>붙임</span><strong data-preview-attachments>—</strong></div>
 
-            <div class="official-doc__approval-strip">
-              <div class="approval-person"><span>기안</span><strong><b data-preview-drafter-position>-</b> <i data-preview-drafter-name>-</i></strong><em>○</em></div>
-              <div class="approval-person" data-preview-reviewer-row><span>검토</span><strong><b data-preview-reviewer-position>-</b> <i data-preview-reviewer-name>-</i></strong><em>　</em></div>
-              <div class="approval-person" data-preview-approver-row><span>결재</span><strong><b data-preview-approver-position>-</b> <i data-preview-approver-name>-</i></strong><em>　</em></div>
-            </div>
+            <div class="official-doc__approval-strip" data-preview-approval-strip></div>
             <p data-preview-track class="official-doc__issue-track official-doc__issue-track--under">결재: 전결</p>
 
             <div class="official-doc__issue">
@@ -367,7 +383,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       </div>
       <form class="compose-form" data-batch-form>
         <p class="hint" data-batch-hint>선택한 문서를 일괄 처리합니다.</p>
-        <p class="hint">본인이 결재자로 지정된 결재대기 문서만 처리됩니다(전결·타인 지정 문서는 자동 제외).</p>
+        <p class="hint">현재 단계의 담당자로 지정된 검토·협조·결재·전결 문서만 처리됩니다(타인 지정 문서는 자동 제외).</p>
         <label for="b-memo">결재 의견(선택)</label>
         <textarea id="b-memo" name="memo" rows="3" maxlength="2000"></textarea>
         <div class="compose-form__actions">
@@ -526,11 +542,7 @@ import GovLayout from '../layouts/GovLayout.astro';
             <div class="official-doc__body" data-detail-preview-body></div>
             <div class="official-doc__meta-row official-doc__attach"><span>붙임</span><strong data-detail-preview-attachments></strong></div>
 
-            <div class="official-doc__approval-strip">
-              <div class="approval-person"><span>기안</span><strong><b data-detail-preview-drafter-position>-</b> <i data-detail-preview-drafter-name>-</i></strong><em>○</em></div>
-              <div class="approval-person" data-detail-preview-reviewer-row><span>검토</span><strong><b data-detail-preview-reviewer-position>-</b> <i data-detail-preview-reviewer-name>-</i></strong><em data-detail-preview-reviewer-seal>　</em></div>
-              <div class="approval-person" data-detail-preview-approver-row><span>결재</span><strong><b data-detail-preview-approver-position>-</b> <i data-detail-preview-approver-name>-</i></strong><em data-detail-preview-approver-seal>　</em></div>
-            </div>
+            <div class="official-doc__approval-strip" data-detail-preview-approval-strip></div>
             <p data-detail-preview-track class="official-doc__issue-track official-doc__issue-track--under"></p>
 
             <div class="official-doc__issue">
@@ -691,6 +703,9 @@ import GovLayout from '../layouts/GovLayout.astro';
       const bootstrapError = $('[data-bootstrap-error]');
       const bootstrapOk = $('[data-bootstrap-ok]');
       const meLabel = $('[data-me-label]');
+      const meName = $('[data-me-name]');
+      const mePosition = $('[data-me-position]');
+      const meDepartment = $('[data-me-department]');
       const openUsersBtn = $('[data-open-users]');
       const openTemplatesBtn = $('[data-open-templates]');
       const openTemplatesFromComposeBtn = $('[data-open-templates-from-compose]');
@@ -712,6 +727,9 @@ import GovLayout from '../layouts/GovLayout.astro';
         const me = getMe();
         if (me) {
           meLabel.textContent = `${me.name}${me.position ? ' · ' + me.position : ''}`;
+          meName.textContent = me.name || '-';
+          mePosition.textContent = me.position || '-';
+          meDepartment.textContent = me.department || '-';
           const admin = me.role === 'admin';
           openUsersBtn.hidden = !admin;
           openTemplatesBtn.hidden = !admin;
@@ -741,17 +759,28 @@ import GovLayout from '../layouts/GovLayout.astro';
       let selectedIds = new Set();
       let currentDetailId = null;
       let currentDetailDoc = null;
+      let currentDetailApprovalLines = [];
       let currentReceivedDetailId = null;
       let currentReceivedDetailDoc = null;
+      let selectedReviewerIds = [];
+      let selectedCooperatorIds = [];
 
+      const userOptionLabel = (u) => `${u.name}${u.position ? ' · ' + u.position : ''}${u.department ? ' · ' + u.department : ''}`;
       const refreshUserOptions = async () => {
         const data = await callApi('/api/users/list', { token: getToken() });
         if (!data.ok) return;
         allUsers = data.rows || [];
         const reviewer = $('[data-reviewer-select]');
+        const cooperator = $('[data-cooperator-select]');
         const approver = $('[data-approver-select]');
-        reviewer.innerHTML = '<option value="">(검토자 없음)</option>' + allUsers.map((u) => `<option value="${esc(u.id)}">${esc(u.name)}${u.position ? ' · ' + esc(u.position) : ''}</option>`).join('');
-        approver.innerHTML = '<option value="">최종 결재자를 선택해 주세요</option>' + allUsers.filter((u) => u.can_approve).map((u) => `<option value="${esc(u.id)}">${esc(u.name)}${u.position ? ' · ' + esc(u.position) : ''}</option>`).join('');
+        const personOptions = allUsers.map((u) => `<option value="${esc(u.id)}">${esc(userOptionLabel(u))}</option>`).join('');
+        reviewer.innerHTML = '<option value="">검토자를 선택해 주세요</option>' + personOptions;
+        cooperator.innerHTML = '<option value="">협조자를 선택해 주세요</option>' + personOptions;
+        const me = getMe() || {};
+        const finalUsers = allUsers.filter((u) => u.can_approve || u.id === me.id);
+        approver.innerHTML = '<option value="">최종 처리자를 선택해 주세요</option>' + finalUsers.map((u) => `<option value="${esc(u.id)}">${esc(userOptionLabel(u))}</option>`).join('');
+        renderApprovalPickers();
+        updateApprovalMode();
       };
 
       const refreshTemplates = async (includeInactive = false) => {
@@ -791,9 +820,11 @@ import GovLayout from '../layouts/GovLayout.astro';
         selectAll.checked = enabled.length > 0 && enabled.every((box) => box.checked);
       };
       const canSelectRow = (row) => {
-        if (currentView !== '결재대기' || !['검토대기', '결재대기'].includes(row.status)) return false;
+        if (currentView !== '결재대기' || !['검토대기', '협조대기', '결재대기', '전결대기'].includes(row.status)) return false;
         const me = getMe() || {};
-        return me.role === 'admin' || (row.status === '검토대기' ? row.reviewer_user_id === me.id : row.approver_user_id === me.id);
+        if (me.role === 'admin') return true;
+        if (row.current_actor_user_id) return row.current_actor_user_id === me.id;
+        return row.status === '검토대기' ? row.reviewer_user_id === me.id : row.approver_user_id === me.id;
       };
       const renderDocumentRows = (rows) => {
         currentRows = rows;
@@ -809,13 +840,14 @@ import GovLayout from '../layouts/GovLayout.astro';
             <td class="doc-table__title">${esc(row.title)}</td>
             <td class="center">${esc(row.department || '-')}</td>
             <td class="center">${esc(row.drafter || '-')}</td>
-            <td class="center">${esc(row.reviewer_name || '-')}</td>
+            <td class="center">${esc(row.reviewer_names || row.reviewer_name || '-')}</td>
+            <td class="center">${esc(row.cooperator_names || '-')}</td>
             <td class="center">${esc(row.approver_name || '-')}</td>
             <td class="center"><span class="badge badge--${esc(row.status)}">${esc(row.status)}</span></td>
           </tr>`).join('');
-        const colspan = queueMode ? 10 : 9;
-        const docCols = `${queueMode ? '<col class="col-check" />' : ''}<col class="col-number" /><col class="col-type" /><col class="col-date" /><col class="col-title" /><col class="col-department" /><col class="col-person" /><col class="col-person" /><col class="col-person" /><col class="col-status" />`;
-        docTable.innerHTML = `<table class="doc-table__frame doc-table__frame--documents"><colgroup>${docCols}</colgroup><thead><tr>${queueMode ? '<th class="doc-table__select" aria-label="선택"></th>' : ''}<th>문서번호</th><th>구분</th><th>등록일</th><th>제목</th><th>담당부서</th><th>기안자</th><th>검토자</th><th>결재자</th><th>상태</th></tr></thead><tbody>${body || `<tr class="doc-table__empty-row"><td colspan="${colspan}" class="empty"><strong>조건에 맞는 문서가 없습니다.</strong><span>검색조건을 변경하거나 새 문서를 작성해 주세요.</span></td></tr>`}</tbody></table>`;
+        const colspan = queueMode ? 11 : 10;
+        const docCols = `${queueMode ? '<col class="col-check" />' : ''}<col class="col-number" /><col class="col-type" /><col class="col-date" /><col class="col-title" /><col class="col-department" /><col class="col-person" /><col class="col-person" /><col class="col-person" /><col class="col-person" /><col class="col-status" />`;
+        docTable.innerHTML = `<table class="doc-table__frame doc-table__frame--documents"><colgroup>${docCols}</colgroup><thead><tr>${queueMode ? '<th class="doc-table__select" aria-label="선택"></th>' : ''}<th>문서번호</th><th>구분</th><th>등록일</th><th>제목</th><th>담당부서</th><th>기안자</th><th>검토자</th><th>협조자</th><th>결재·전결자</th><th>상태</th></tr></thead><tbody>${body || `<tr class="doc-table__empty-row"><td colspan="${colspan}" class="empty"><strong>조건에 맞는 문서가 없습니다.</strong><span>검색조건을 변경하거나 새 문서를 작성해 주세요.</span></td></tr>`}</tbody></table>`;
         $$('tr[data-doc-id]', docTable).forEach((tr) => tr.addEventListener('click', (event) => { if (!event.target.closest('[data-no-open]')) openDetail(tr.dataset.docId); }));
         $$('[data-row-select]', docTable).forEach((box) => box.addEventListener('change', () => { box.checked ? selectedIds.add(box.value) : selectedIds.delete(box.value); updateSelection(); }));
         updateSelection();
@@ -888,6 +920,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       };
       $$('[data-view]').forEach((button) => button.addEventListener('click', () => activateDocumentsView(button.dataset.view)));
       $('[data-received-view]').addEventListener('click', activateReceivedView);
+      $('[data-go-home]').addEventListener('click', activateHome);
       $$('[data-nav]').forEach((button) => button.addEventListener('click', () => {
         if (button.dataset.nav === 'home') activateHome();
         else if (button.dataset.nav === 'received') activateReceivedView();
@@ -920,7 +953,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           if(!data.ok){statusEl.textContent=data.message||'CSV 생성에 실패했습니다.';return;}
           rows.push(...(data.rows||[]));pages=data.pages||1;page+=1;
         } while(page<=pages && rows.length<5000);
-        downloadCsv(`문서목록_${new Date().toISOString().slice(0,10)}.csv`,['문서번호','구분','등록일','제목','담당부서','기안자','검토자','결재자','상태'],rows.map((r)=>[r.id,r.doc_type,formatDate(r.created_at),r.title,r.department,r.drafter,r.reviewer_name,r.approver_name,r.status]));
+        downloadCsv(`문서목록_${new Date().toISOString().slice(0,10)}.csv`,['문서번호','구분','등록일','제목','담당부서','기안자','검토자','협조자','결재·전결자','상태'],rows.map((r)=>[r.id,r.doc_type,formatDate(r.created_at),r.title,r.department,r.drafter,r.reviewer_names||r.reviewer_name,r.cooperator_names,r.approver_name,r.status]));
         statusEl.textContent=`총 ${formatNumber(rows.length)}건을 CSV로 저장했습니다.`;
       });
 
@@ -934,6 +967,8 @@ import GovLayout from '../layouts/GovLayout.astro';
       const recipientField = $('[data-recipient-field]');
       const trackChoice = $('[data-track-choice]');
       const trackHint = $('[data-track-hint]');
+      const reviewerSelect = $('[data-reviewer-select]');
+      const cooperatorSelect = $('[data-cooperator-select]');
       const approverSelect = $('[data-approver-select]');
       let pendingAttachmentFiles = [];
       let bodyAuto = true;
@@ -941,6 +976,88 @@ import GovLayout from '../layouts/GovLayout.astro';
       let activeTemplate = null;
       const findUser = (id) => allUsers.find((u) => u.id === id);
       const findTemplate = (id) => allTemplates.find((t) => t.id === id);
+      const renderPickerList = (container, ids, role) => {
+        const people = ids.map(findUser).filter(Boolean);
+        if (!people.length) {
+          container.innerHTML = `<span class="muted">지정된 ${role}가 없습니다.</span>`;
+          return;
+        }
+        container.innerHTML = people.map((user, index) => `<div class="approval-picker__item">
+          <span class="approval-picker__order">${index + 1}</span>
+          <span class="approval-picker__person"><strong>${esc(user.name)}</strong><small>${esc([user.position,user.department].filter(Boolean).join(' · ') || '직책·부서 미지정')}</small></span>
+          <span class="approval-picker__actions">
+            <button type="button" class="icon-button" data-picker-move="up" data-picker-role="${role}" data-picker-index="${index}" aria-label="위로 이동" ${index === 0 ? 'disabled' : ''}>↑</button>
+            <button type="button" class="icon-button" data-picker-move="down" data-picker-role="${role}" data-picker-index="${index}" aria-label="아래로 이동" ${index === people.length - 1 ? 'disabled' : ''}>↓</button>
+            <button type="button" class="icon-button icon-button--danger" data-picker-remove data-picker-role="${role}" data-picker-index="${index}" aria-label="삭제">×</button>
+          </span>
+        </div>`).join('');
+      };
+      const renderApprovalPickers = () => {
+        const reviewerList = $('[data-reviewer-list]');
+        const cooperatorList = $('[data-cooperator-list]');
+        if (!reviewerList || !cooperatorList) return;
+        renderPickerList(reviewerList, selectedReviewerIds, '검토자');
+        renderPickerList(cooperatorList, selectedCooperatorIds, '협조자');
+        $$('[data-picker-remove]').forEach((button) => button.addEventListener('click', () => {
+          const target = button.dataset.pickerRole === '검토자' ? selectedReviewerIds : selectedCooperatorIds;
+          target.splice(Number(button.dataset.pickerIndex), 1);
+          renderApprovalPickers(); updatePreview();
+        }));
+        $$('[data-picker-move]').forEach((button) => button.addEventListener('click', () => {
+          const target = button.dataset.pickerRole === '검토자' ? selectedReviewerIds : selectedCooperatorIds;
+          const index = Number(button.dataset.pickerIndex);
+          const next = button.dataset.pickerMove === 'up' ? index - 1 : index + 1;
+          if (next < 0 || next >= target.length) return;
+          [target[index], target[next]] = [target[next], target[index]];
+          renderApprovalPickers(); updatePreview();
+        }));
+      };
+      const addApprovalPerson = (role) => {
+        const select = role === '검토자' ? reviewerSelect : cooperatorSelect;
+        const target = role === '검토자' ? selectedReviewerIds : selectedCooperatorIds;
+        const id = select.value;
+        if (!id) return;
+        if (target.length >= 10) { statusEl.textContent = `${role}는 최대 10명까지 지정할 수 있습니다.`; return; }
+        if (target.includes(id)) { statusEl.textContent = `이미 지정된 ${role}입니다.`; return; }
+        if (selectedReviewerIds.includes(id) || selectedCooperatorIds.includes(id) || approverSelect.value === id) {
+          statusEl.textContent = '같은 사람을 검토자·협조자·최종 처리자에 중복 지정할 수 없습니다.'; return;
+        }
+        if (id === getMe()?.id) { statusEl.textContent = `기안자 본인을 ${role}로 지정할 수 없습니다.`; return; }
+        target.push(id); select.value = ''; renderApprovalPickers(); updatePreview();
+      };
+      const getApprovalMode = () => composeForm.elements.approvalMode?.value || '결재';
+      const updateApprovalMode = () => {
+        if (!composeForm?.elements?.approvalMode || !approverSelect) return;
+        const mode = getApprovalMode();
+        const previous = approverSelect.value;
+        const me = getMe() || {};
+        const candidates = allUsers.filter((user) => user.can_approve || (mode === '전결' && user.id === me.id));
+        approverSelect.innerHTML = `<option value="">${mode}자를 선택해 주세요</option>` + candidates.map((user) => `<option value="${esc(user.id)}">${esc(userOptionLabel(user))}</option>`).join('');
+        if (candidates.some((user) => user.id === previous)) approverSelect.value = previous;
+        else if (mode === '전결' && candidates.some((user) => user.id === me.id)) approverSelect.value = me.id;
+        $('[data-approver-label]').textContent = `${mode}자 *`;
+        updateTrackHint();
+      };
+      const approvalPersonHtml = ({ type, user, seal = '　', status = '' }) => `<div class="approval-person ${status ? `approval-person--${esc(status)}` : ''}"><span>${esc(type)}</span><strong><b>${esc(user?.position || '-')}</b><i>${esc(user?.name || '-')}</i></strong><em>${seal}</em></div>`;
+      const renderApprovalStrip = (container, drafter, lines, detailed = false) => {
+        const items = [{ type: '기안', user: drafter, status: '완료', seal: '○' }, ...lines.map((line) => ({
+          type: line.line_type || line.type,
+          user: line.user || { name: line.user_name, position: line.user_position },
+          status: line.status || '예정',
+          seal: detailed ? (line.status === '완료' ? '○' : line.status === '반려' ? '×' : line.status === '대기' ? '…' : '　') : '　',
+        }))];
+        container.innerHTML = items.map(approvalPersonHtml).join('');
+      };
+      $('[data-add-reviewer]').addEventListener('click', () => addApprovalPerson('검토자'));
+      $('[data-add-cooperator]').addEventListener('click', () => addApprovalPerson('협조자'));
+      approverSelect.addEventListener('change', () => {
+        if (approverSelect.value && (selectedReviewerIds.includes(approverSelect.value) || selectedCooperatorIds.includes(approverSelect.value))) {
+          statusEl.textContent = '최종 처리자는 검토자·협조자와 중복 지정할 수 없습니다.';
+          approverSelect.value = '';
+        }
+        updatePreview();
+      });
+      $$('input[name="approvalMode"]', composeForm).forEach((radio) => radio.addEventListener('change', () => { updateApprovalMode(); updatePreview(); }));
 
       const renderTemplateFields = (template, values = {}) => {
         templateFieldsContainer.innerHTML = '';
@@ -1004,13 +1121,18 @@ import GovLayout from '../layouts/GovLayout.astro';
 
       const updateTrackHint = () => {
         const important = importantCategories.includes(categorySelect.value);
-        trackChoice.hidden = !important;
-        approverSelect.required = important;
-        $('[data-approver-label]').textContent = important ? '최종 결재자 *' : '결재자(전결)';
-        trackHint.textContent = important ? '중요문서는 검토자(선택) → 최종 결재자 순으로 처리됩니다.' : '경미한 문서는 등록과 동시에 기안자 전결로 완료됩니다.';
+        const mode = getApprovalMode();
+        trackChoice.hidden = !(important && mode === '결재');
+        const route = mode === '전결' ? '전결자' : '최종 결재자';
+        trackHint.textContent = `검토자(복수 가능) → 협조자(복수 가능) → ${route} 순으로 처리됩니다. 검토자와 협조자는 생략할 수 있습니다.`;
       };
       categorySelect.innerHTML = allCategories.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
-      categorySelect.addEventListener('change', () => { updateTrackHint(); updatePreview(); });
+      categorySelect.addEventListener('change', () => {
+        const defaultMode = importantCategories.includes(categorySelect.value) ? '결재' : '전결';
+        const modeInput = composeForm.querySelector(`input[name="approvalMode"][value="${defaultMode}"]`);
+        if (modeInput) modeInput.checked = true;
+        updateApprovalMode(); updatePreview();
+      });
       $$('input[name="docType"]', composeForm).forEach((radio) => radio.addEventListener('change', () => { recipientField.hidden = composeForm.elements.docType.value !== '발송'; updatePreview(); }));
       const signerEnabledInput = $('[data-issue-signer-enabled]');
       const signerFields = $('[data-issue-signer-fields]');
@@ -1023,21 +1145,22 @@ import GovLayout from '../layouts/GovLayout.astro';
 
       const updatePreview = () => {
         const data = new FormData(composeForm), me = getMe() || {};
+        const mode = getApprovalMode();
         const important = importantCategories.includes(String(data.get('category')));
-        const track = important ? (data.get('approvalTrackChoice') || '이사장결재') : '전결';
+        const track = mode === '전결' ? '전결' : important ? (data.get('approvalTrackChoice') || '이사장결재') : '일반결재';
         $('[data-preview-recipient]').textContent = data.get('docType') === '발송' ? (data.get('recipient') || '(수신처 미입력)') : '(내부결재)';
         const via = String(data.get('via') || ''); $('[data-preview-via-row]').hidden = !via; $('[data-preview-via]').textContent = via || '-';
         $('[data-preview-title]').textContent = data.get('title') || '제목을 입력해 주세요';
         $('[data-preview-body]').textContent = data.get('body') || '본문을 입력해 주세요.';
         $('[data-preview-attachments]').textContent = data.get('attachmentsNote') || '—';
-        const trackLabel = track === '이사장결재' ? '이사장 결재' : track === '이사회의결' ? '이사회 의결' : track;
-        $('[data-preview-track]').textContent = `결재: ${trackLabel}`;
-        $('[data-preview-drafter-name]').textContent = me.name || '-'; $('[data-preview-drafter-position]').textContent = me.position || '-';
-        const reviewer = findUser(data.get('reviewerUserId')); $('[data-preview-reviewer-row]').hidden = !reviewer;
-        $('[data-preview-reviewer-name]').textContent = reviewer?.name || '-'; $('[data-preview-reviewer-position]').textContent = reviewer?.position || '-';
-        const approver = findUser(data.get('approverUserId')); $('[data-preview-approver-row]').hidden = false;
-        $('[data-preview-approver-name]').textContent = important ? (approver?.name || '-') : (me.name || '-');
-        $('[data-preview-approver-position]').textContent = important ? (approver?.position || '-') : (me.position || '-');
+        const trackLabel = track === '이사장결재' ? '이사장 결재' : track === '이사회의결' ? '이사회 의결' : track === '일반결재' ? '일반 결재' : '전결';
+        $('[data-preview-track]').textContent = `${mode}: ${trackLabel}`;
+        const previewLines = [
+          ...selectedReviewerIds.map((id) => ({ type: '검토', user: findUser(id) })),
+          ...selectedCooperatorIds.map((id) => ({ type: '협조', user: findUser(id) })),
+          { type: mode, user: findUser(data.get('approverUserId')) || (mode === '전결' ? me : null) },
+        ];
+        renderApprovalStrip($('[data-preview-approval-strip]'), { name: me.name || '-', position: me.position || '-' }, previewLines, false);
         const signerEnabled = !!composeForm.elements.issueSignerEnabled?.checked;
         $('[data-preview-signer-wrap]').hidden = !signerEnabled;
         $('[data-preview-signer-position]').textContent = signerEnabled ? String(composeForm.elements.issueSignerPosition?.value || '') : '';
@@ -1072,7 +1195,11 @@ import GovLayout from '../layouts/GovLayout.astro';
       const resetCompose = () => {
         composeForm.reset(); $('[data-compose-document-id]').value=''; $('[data-compose-request-id]').value=randomRequestId();
         pendingAttachmentFiles=[]; renderPendingAttachments(); templateSelect.value=''; renderTemplateFields(null); bodyAuto=true; titleAuto=true;
-        recipientField.hidden=true; signerEnabledInput.checked=false; syncSignerFields(); updateTrackHint(); updatePreview();
+        selectedReviewerIds=[]; selectedCooperatorIds=[]; renderApprovalPickers();
+        recipientField.hidden=true; signerEnabledInput.checked=false; syncSignerFields();
+        const defaultMode = importantCategories.includes(categorySelect.value) ? '결재' : '전결';
+        const modeInput = composeForm.querySelector(`input[name="approvalMode"][value="${defaultMode}"]`); if (modeInput) modeInput.checked = true;
+        updateApprovalMode(); updateTrackHint(); updatePreview();
       };
       const openCompose = async () => {
         const pending=[];
@@ -1091,6 +1218,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         try {
           const data = new FormData(composeForm); const payload = Object.fromEntries(data.entries()); delete payload.attachmentsFile;
           payload.token=getToken(); payload.saveAsDraft=saveAsDraft; payload.formData=getTemplateValues();
+          payload.reviewerUserIds=[...selectedReviewerIds]; payload.cooperatorUserIds=[...selectedCooperatorIds];
           payload.templateName=activeTemplate?.name || ''; payload.clientRequestId=$('[data-compose-request-id]').value || randomRequestId();
           const result=await callApi('/api/documents/create',payload);
           if(!result.ok){statusEl.textContent=result.message||'저장에 실패했습니다.';return;}
@@ -1102,7 +1230,7 @@ import GovLayout from '../layouts/GovLayout.astro';
 
       // 문서 상세
       const detailModal=$('[data-detail-modal]'),decideForm=$('[data-decide-form]'),sendForm=$('[data-send-form]');
-      $$('[data-close-detail]').forEach((btn)=>btn.addEventListener('click',()=>{detailModal.hidden=true;currentDetailId=null;currentDetailDoc=null;}));
+      $$('[data-close-detail]').forEach((btn)=>btn.addEventListener('click',()=>{detailModal.hidden=true;currentDetailId=null;currentDetailDoc=null;currentDetailApprovalLines=[];}));
       const downloadBase64 = async (endpoint, attachmentId) => {
         const data=await callApi(endpoint,{token:getToken(),attachmentId}); if(!data.ok){statusEl.textContent=data.message;return;}
         const binary=atob(data.dataBase64),bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
@@ -1112,35 +1240,93 @@ import GovLayout from '../layouts/GovLayout.astro';
         const values=doc.form_data||{},template=findTemplate(doc.template_id),fields=template?.fields||Object.keys(values).filter((id)=>!id.startsWith('_')).map((id)=>({id,label:id}));
         $('[data-detail-form-data]').innerHTML=fields.length?`<table><tbody>${fields.map((f)=>`<tr><th>${esc(f.label)}</th><td>${esc(values[f.id]||'-')}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">서식 입력항목이 없습니다.</p>';
       };
+      const legacyApprovalLines = (doc, approvals = []) => {
+        const completedActions = new Set(approvals.map((item) => item.action));
+        const finalType = doc.approval_mode === '전결' || doc.approval_track === '전결' ? '전결' : '결재';
+        const lines = [];
+        if (doc.reviewer_user_id || doc.reviewer_name) {
+          let status = '예정';
+          if (completedActions.has('검토완료') || ['결재대기','전결대기','승인','발송완료'].includes(doc.status)) status = '완료';
+          else if (doc.status === '검토대기') status = '대기';
+          else if (doc.status === '반려' && completedActions.has('반려')) status = '반려';
+          lines.push({ line_order: 1, line_type: '검토', user_id: doc.reviewer_user_id, user_name: doc.reviewer_name, user_position: doc.reviewer_position, status });
+        }
+        if (doc.approver_user_id || doc.approver_name) {
+          let status = '예정';
+          if (['승인','발송완료'].includes(doc.status)) status = '완료';
+          else if (['결재대기','전결대기'].includes(doc.status)) status = '대기';
+          else if (doc.status === '반려' && !lines.some((line) => line.status === '반려')) status = '반려';
+          lines.push({ line_order: lines.length + 1, line_type: finalType, user_id: doc.approver_user_id, user_name: doc.approver_name, user_position: doc.approver_position, status });
+        }
+        return lines;
+      };
       const openDetail=async(id)=>{
         const data=await callApi('/api/documents/detail',{token:getToken(),id});if(!data.ok){statusEl.textContent=data.message;return;}
         currentDetailId=id;currentDetailDoc=data.document;const doc=data.document,me=getMe()||{};
-        $('[data-detail-title]').textContent=doc.title;$('[data-detail-meta]').textContent=`${doc.id} · ${doc.doc_type} · ${doc.category} · ${doc.approval_track} · 기안자 ${doc.drafter} · ${doc.status} · 열람 ${doc.access_scope||'전체'}`;
+        currentDetailApprovalLines=(data.approvalLines||[]).length ? data.approvalLines : legacyApprovalLines(doc,data.approvals||[]);
+        const modeLabel=doc.approval_mode||((doc.approval_track==='전결')?'전결':'결재');
+        $('[data-detail-title]').textContent=doc.title;$('[data-detail-meta]').textContent=`${doc.id} · ${doc.doc_type} · ${doc.category} · ${modeLabel} · ${doc.approval_track} · 기안자 ${doc.drafter} · ${doc.status} · 열람 ${doc.access_scope||'전체'}`;
         renderDetailFormData(doc);
         $('[data-detail-history]').innerHTML=(data.approvals||[]).map((a)=>`<div class="doc-approval-history__item">${esc(formatDateTime(a.created_at))} · ${esc(a.approver_role||'')} ${esc(a.approver_name)} · <strong>${esc(a.action)}</strong>${a.memo?' · '+esc(a.memo):''}</div>`).join('')||'<p class="muted">결재 이력이 없습니다.</p>';
         const attachments=$('[data-detail-attachments]');attachments.innerHTML=(data.attachments||[]).map((a)=>`<li class="attachment-list__item"><span>${esc(a.file_name)} <span class="muted">(${Math.max(1,Math.round((a.size_bytes||0)/1024))}KB)</span></span><button type="button" class="btn btn-outline" data-download-attachment="${esc(a.id)}">다운로드</button></li>`).join('')||'<li class="muted">등록된 첨부파일이 없습니다.</li>';
         $$('[data-download-attachment]',attachments).forEach((b)=>b.addEventListener('click',()=>downloadBase64('/api/documents/attachment-data',b.dataset.downloadAttachment)));
         $('[data-detail-preview-number]').textContent=`문서번호 · ${doc.id}`;$('[data-detail-preview-recipient]').textContent=doc.recipient||'(내부결재)';
-        $('[data-detail-preview-via-row]').hidden=!doc.via;$('[data-detail-preview-via]').textContent=doc.via||'-';$('[data-detail-preview-title]').textContent=doc.title;$('[data-detail-preview-body]').textContent=doc.body||'';$('[data-detail-preview-attachments]').textContent=doc.attachments_note||'—';const detailTrackLabel=doc.approval_track==='이사장결재'?'이사장 결재':doc.approval_track==='이사회의결'?'이사회 의결':doc.approval_track;$('[data-detail-preview-track]').textContent=`결재: ${detailTrackLabel}`;
-        $('[data-detail-preview-drafter-name]').textContent=doc.drafter||'-';$('[data-detail-preview-drafter-position]').textContent=doc.drafter_position||'-';
-        const hasReviewer=!!doc.reviewer_name;const reviewCompleted=(data.approvals||[]).some((item)=>item.action==='검토완료');$('[data-detail-preview-reviewer-row]').hidden=!hasReviewer;$('[data-detail-preview-reviewer-name]').textContent=doc.reviewer_name||'-';$('[data-detail-preview-reviewer-position]').textContent=doc.reviewer_position||'-';$('[data-detail-preview-reviewer-seal]').textContent=reviewCompleted&&hasReviewer?'〇':'　';
-        $('[data-detail-preview-approver-name]').textContent=doc.approver_name||'-';$('[data-detail-preview-approver-position]').textContent=doc.approver_position||'-';$('[data-detail-preview-approver-seal]').textContent=['승인','발송완료'].includes(doc.status)?'〇':'　';
+        $('[data-detail-preview-via-row]').hidden=!doc.via;$('[data-detail-preview-via]').textContent=doc.via||'-';$('[data-detail-preview-title]').textContent=doc.title;$('[data-detail-preview-body]').textContent=doc.body||'';$('[data-detail-preview-attachments]').textContent=doc.attachments_note||'—';
+        const detailTrackLabel=doc.approval_track==='이사장결재'?'이사장 결재':doc.approval_track==='이사회의결'?'이사회 의결':doc.approval_track;
+        $('[data-detail-preview-track]').textContent=`${modeLabel}: ${detailTrackLabel}`;
+        renderApprovalStrip($('[data-detail-preview-approval-strip]'),{name:doc.drafter||'-',position:doc.drafter_position||'-'},currentDetailApprovalLines,true);
         const signerEnabled=String(doc.form_data?._issueSignerEnabled||'false')==='true';
         $('[data-detail-preview-signer-wrap]').hidden=!signerEnabled;
         $('[data-detail-preview-signer-position]').textContent=signerEnabled?(doc.form_data?._issueSignerPosition||''):'';
         $('[data-detail-preview-signer-name]').textContent=signerEnabled?(doc.form_data?._issueSignerName||''):'';
         $('[data-detail-preview-stamp]').style.opacity=['승인','발송완료'].includes(doc.status)?'1':'0.25';
-        const canReview=doc.status==='검토대기'&&(me.role==='admin'||doc.reviewer_user_id===me.id),canApprove=doc.status==='결재대기'&&(me.role==='admin'||doc.approver_user_id===me.id);
-        decideForm.hidden=!(canReview||canApprove);$('[data-decide-blocked]').hidden=canReview||canApprove||!['검토대기','결재대기'].includes(doc.status);
-        if(!decideForm.hidden){const approve=$('[data-action="승인"]',decideForm);approve.textContent=canReview?'검토완료':'승인';approve.dataset.action=canReview?'검토완료':'승인';}
+        const currentLine=currentDetailApprovalLines.find((line)=>line.status==='대기');
+        const activeStatus=['검토대기','협조대기','결재대기','전결대기'].includes(doc.status);
+        const canHandle=!!currentLine&&(me.role==='admin'||currentLine.user_id===me.id);
+        const legacyCanHandle=!currentLine&&activeStatus&&(me.role==='admin'||(doc.status==='검토대기'?doc.reviewer_user_id===me.id:doc.approver_user_id===me.id));
+        decideForm.hidden=!(canHandle||legacyCanHandle);
+        const blocked=$('[data-decide-blocked]');
+        blocked.hidden=!activeStatus||canHandle||legacyCanHandle;
+        blocked.textContent=currentLine?`${currentLine.line_type}자 ${currentLine.user_name||''}의 처리를 기다리고 있습니다.`:'현재 단계의 지정 담당자만 처리할 수 있습니다.';
+        if(!decideForm.hidden){
+          const positive=$('[data-action="승인"]',decideForm);
+          const stage=currentLine?.line_type||(doc.status==='검토대기'?'검토':doc.status==='협조대기'?'협조':doc.status==='전결대기'?'전결':'결재');
+          positive.textContent=stage==='검토'?'검토완료':stage==='협조'?'협조완료':stage==='전결'?'전결':'승인';
+          positive.dataset.action='승인';
+        }
         sendForm.hidden=!(doc.doc_type==='발송'&&doc.status==='승인');
-        $('[data-edit-draft]').hidden=doc.status!=='임시저장';$('[data-delete-draft]').hidden=doc.status!=='임시저장';$('[data-recall-document]').hidden=!(['검토대기','결재대기'].includes(doc.status)&&(me.role==='admin'||doc.drafter_user_id===me.id));
+        $('[data-edit-draft]').hidden=doc.status!=='임시저장';$('[data-delete-draft]').hidden=doc.status!=='임시저장';
+        $('[data-recall-document]').hidden=!(activeStatus&&(me.role==='admin'||doc.drafter_user_id===me.id));
         detailModal.hidden=false;
       };
       decideForm.addEventListener('submit',async(event)=>{event.preventDefault();const action=event.submitter?.dataset.action||'승인';const result=await callApi('/api/documents/decide',{token:getToken(),id:currentDetailId,action,memo:new FormData(decideForm).get('memo')});if(!result.ok){statusEl.textContent=result.message;return;}detailModal.hidden=true;statusEl.textContent=result.message;refreshDocuments();});
       sendForm.addEventListener('submit',async(event)=>{event.preventDefault();const result=await callApi('/api/documents/mark-sent',{token:getToken(),id:currentDetailId,sentMethod:new FormData(sendForm).get('sentMethod')});if(!result.ok){statusEl.textContent=result.message;return;}detailModal.hidden=true;statusEl.textContent=result.message;refreshDocuments();});
       $('[data-delete-draft]').addEventListener('click',async()=>{if(!currentDetailId||!confirm('임시문서를 삭제하시겠습니까?'))return;const result=await callApi('/api/documents/delete-draft',{token:getToken(),id:currentDetailId});if(!result.ok){statusEl.textContent=result.message;return;}detailModal.hidden=true;statusEl.textContent=result.message;activateDocumentsView('임시저장');});
-      const loadDocumentIntoCompose=async(doc,asCopy=false)=>{if(!doc)return;await Promise.all([refreshUserOptions(),refreshTemplates()]);resetCompose();$('[data-compose-document-id]').value=asCopy?'':doc.id;$('[data-compose-request-id]').value=randomRequestId();composeForm.elements.docType.value=doc.doc_type;categorySelect.value=doc.category;composeForm.elements.title.value=asCopy?`[재기안] ${doc.title}`:(doc.title==='(제목 미입력)'?'':doc.title);composeForm.elements.summary.value=doc.summary||'';composeForm.elements.body.value=doc.body||'';composeForm.elements.attachmentsNote.value=doc.attachments_note||'';composeForm.elements.department.value=doc.department||'';composeForm.elements.recipient.value=doc.recipient||'';composeForm.elements.via.value=doc.via||'';composeForm.elements.reviewerUserId.value=doc.reviewer_user_id||'';composeForm.elements.approverUserId.value=doc.approver_user_id||'';composeForm.elements.accessScope.value=doc.access_scope||'전체';if(doc.approval_track==='이사회의결')composeForm.elements.approvalTrackChoice.value='이사회의결';const tpl=findTemplate(doc.template_id);templateSelect.value=doc.template_id||'';renderTemplateFields(tpl,doc.form_data||{});activeTemplate=tpl||null;bodyAuto=false;titleAuto=false;recipientField.hidden=doc.doc_type!=='발송';composeForm.elements.issueSignerEnabled.checked=String(doc.form_data?._issueSignerEnabled||'false')==='true';composeForm.elements.issueSignerPosition.value=doc.form_data?._issueSignerPosition||'';composeForm.elements.issueSignerName.value=doc.form_data?._issueSignerName||'';syncSignerFields();updateTrackHint();updatePreview();detailModal.hidden=true;composeModal.hidden=false;};
+      const loadDocumentIntoCompose=async(doc,asCopy=false)=>{
+        if(!doc)return;
+        await Promise.all([refreshUserOptions(),refreshTemplates()]);
+        const sourceLines=(currentDetailApprovalLines||[]).length?currentDetailApprovalLines:legacyApprovalLines(doc,[]);
+        resetCompose();
+        $('[data-compose-document-id]').value=asCopy?'':doc.id;$('[data-compose-request-id]').value=randomRequestId();
+        composeForm.elements.docType.value=doc.doc_type;categorySelect.value=doc.category;
+        composeForm.elements.title.value=asCopy?`[재기안] ${doc.title}`:(doc.title==='(제목 미입력)'?'':doc.title);
+        composeForm.elements.summary.value=doc.summary||'';composeForm.elements.body.value=doc.body||'';composeForm.elements.attachmentsNote.value=doc.attachments_note||'';
+        composeForm.elements.department.value=doc.department||'';composeForm.elements.recipient.value=doc.recipient||'';composeForm.elements.via.value=doc.via||'';
+        selectedReviewerIds=sourceLines.filter((line)=>line.line_type==='검토').map((line)=>line.user_id).filter(Boolean);
+        selectedCooperatorIds=sourceLines.filter((line)=>line.line_type==='협조').map((line)=>line.user_id).filter(Boolean);
+        const finalLine=sourceLines.find((line)=>['결재','전결'].includes(line.line_type));
+        const mode=doc.approval_mode||(finalLine?.line_type==='전결'||doc.approval_track==='전결'?'전결':'결재');
+        const modeInput=composeForm.querySelector(`input[name="approvalMode"][value="${mode}"]`);if(modeInput)modeInput.checked=true;
+        updateApprovalMode();
+        approverSelect.value=finalLine?.user_id||doc.approver_user_id||'';
+        composeForm.elements.accessScope.value=doc.access_scope||'전체';
+        if(doc.approval_track==='이사회의결')composeForm.elements.approvalTrackChoice.value='이사회의결';
+        const tpl=findTemplate(doc.template_id);templateSelect.value=doc.template_id||'';renderTemplateFields(tpl,doc.form_data||{});activeTemplate=tpl||null;
+        bodyAuto=false;titleAuto=false;recipientField.hidden=doc.doc_type!=='발송';
+        composeForm.elements.issueSignerEnabled.checked=String(doc.form_data?._issueSignerEnabled||'false')==='true';
+        composeForm.elements.issueSignerPosition.value=doc.form_data?._issueSignerPosition||'';composeForm.elements.issueSignerName.value=doc.form_data?._issueSignerName||'';
+        syncSignerFields();renderApprovalPickers();updateTrackHint();updatePreview();detailModal.hidden=true;composeModal.hidden=false;
+      };
       $('[data-copy-document]').addEventListener('click',()=>loadDocumentIntoCompose(currentDetailDoc,true));
       $('[data-recall-document]').addEventListener('click',async()=>{if(!currentDetailId||!confirm('진행 중인 문서를 회수하여 임시저장함으로 이동하시겠습니까?'))return;const result=await callApi('/api/documents/recall',{token:getToken(),id:currentDetailId});if(!result.ok){statusEl.textContent=result.message;return;}detailModal.hidden=true;statusEl.textContent=result.message;activateDocumentsView('임시저장');});
       $('[data-edit-draft]').addEventListener('click',()=>loadDocumentIntoCompose(currentDetailDoc,false));
@@ -1149,7 +1335,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         const w=window.open('','_blank','width=900,height=1000');
         if(!w)return;
         w.document.write(`<html><head><meta charset="utf-8"><title>${esc(currentDetailDoc?.title||'문서')}</title><style>
-          body{font-family:Batang,serif;padding:30px;color:#222}.official-doc{max-width:720px;margin:auto}.official-doc__masthead,.official-doc__number,.official-doc__issue,.official-doc__footer{text-align:center}.official-doc__emblem{width:32px;height:32px;margin:0 auto 5px}.official-doc__emblem img{width:100%;height:100%;object-fit:contain}.official-doc__orgname{margin:0;letter-spacing:.12em}.official-doc__meta{border-top:2px solid #222;border-bottom:1px solid #222}.official-doc__meta-row{display:flex;gap:12px;padding:6px}.official-doc__meta-row>span{width:48px}.official-doc__body{min-height:300px;white-space:pre-wrap;padding:20px 0}.official-doc__approval-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));border:1px solid #777;border-right:0;width:470px;max-width:100%;margin:12px 0 0 auto}.approval-person{display:grid;grid-template-columns:42px minmax(0,1fr) 28px;border-right:1px solid #777;min-height:48px;font-size:11px}.approval-person>*{display:flex;align-items:center;justify-content:center;padding:4px}.approval-person>span{background:#f4f0e6;border-right:1px solid #777}.approval-person>em{font-style:normal;border-left:1px solid #777}.approval-person b,.approval-person i{font-style:normal;font-weight:400}.official-doc__issue-track--under{width:470px;max-width:100%;margin:5px 0 0 auto;text-align:center;font-size:11px}.official-doc__issue{margin-top:7px;padding-top:8px;border-top:1px solid #ddd}.official-doc__issue-name{display:inline-flex;align-items:center;gap:8px;font-weight:700}.stamp-mark{display:inline-flex;width:38px;height:38px;align-items:center;justify-content:center;border:2px solid #b22;border-radius:50%;color:#b22;font-size:9px;overflow:hidden}.stamp-mark img{width:100%;height:100%;object-fit:contain}
+          body{font-family:Batang,serif;padding:30px;color:#222}.official-doc{max-width:720px;margin:auto}.official-doc__masthead,.official-doc__number,.official-doc__issue,.official-doc__footer{text-align:center}.official-doc__emblem{width:32px;height:32px;margin:0 auto 5px}.official-doc__emblem img{width:100%;height:100%;object-fit:contain}.official-doc__orgname{margin:0;letter-spacing:.12em}.official-doc__meta{border-top:2px solid #222;border-bottom:1px solid #222}.official-doc__meta-row{display:flex;gap:12px;padding:6px}.official-doc__meta-row>span{width:48px}.official-doc__body{min-height:300px;white-space:pre-wrap;padding:20px 0}.official-doc__approval-strip{display:flex;flex-wrap:wrap;justify-content:flex-end;width:620px;max-width:100%;margin:10px 0 0 auto}.approval-person{display:grid;grid-template-columns:34px minmax(0,1fr) 22px;flex:0 0 118px;border:1px solid #777;margin:-1px 0 0 -1px;min-height:34px;font-size:9px}.approval-person>*{display:flex;align-items:center;justify-content:center;padding:2px}.approval-person>span{background:#f4f0e6;border-right:1px solid #777}.approval-person>strong{flex-direction:column;line-height:1.15;overflow:hidden}.approval-person>em{font-style:normal;border-left:1px solid #777}.approval-person b,.approval-person i{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:normal;font-weight:400}.official-doc__issue-track--under{width:620px;max-width:100%;margin:4px 0 0 auto;text-align:right;font-size:10px}.official-doc__issue{margin-top:7px;padding-top:8px;border-top:1px solid #ddd}.official-doc__issue-name{display:inline-flex;align-items:center;gap:8px;font-weight:700}.stamp-mark{display:inline-flex;width:38px;height:38px;align-items:center;justify-content:center;border:2px solid #b22;border-radius:50%;color:#b22;font-size:9px;overflow:hidden}.stamp-mark img{width:100%;height:100%;object-fit:contain}
         </style></head><body>${node.outerHTML}</body></html>`);
         w.document.close();
         w.focus();
@@ -1326,20 +1512,27 @@ import GovLayout from '../layouts/GovLayout.astro';
       display: flex; align-items: center; justify-content: flex-start; gap: 0.72rem;
       padding: 0 1rem;
     }
-    .app-topbar__brand { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.02rem; margin-right: auto; white-space: nowrap; }
+    .app-topbar__brand {
+      display: flex; align-items: center; gap: 0.5rem; min-width: 0; max-width: 100%; flex: 0 1 auto;
+      margin-right: auto; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer;
+      font: inherit; font-weight: 700; font-size: 1.02rem; white-space: nowrap; text-align: left;
+    }
+    .app-topbar__brand:hover { color: #fff; opacity: 0.94; }
+    .app-topbar__brand:focus-visible { outline: 2px solid #fff; outline-offset: 4px; border-radius: 3px; }
+    .app-topbar__brand span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .app-topbar__logo { width: 24px; height: 24px; object-fit: contain; flex: 0 0 24px; }
     .app-topbar__badge {
       background: var(--gov-gold); color: #1a1a1a; font-size: 0.7rem; font-weight: 700;
       padding: 0.15rem 0.4rem; border-radius: 4px;
     }
-    .app-topbar__menu { display: flex; gap: 0.3rem; font-size: 0.88rem; }
+    .app-topbar__menu { display: flex; flex-shrink: 0; gap: 0.3rem; font-size: 0.88rem; }
     .app-topbar__link {
       background: transparent; border: none; color: rgba(255,255,255,0.75); font-size: 0.88rem;
       padding: 0.4rem 0.7rem; border-radius: 6px;
     }
     .app-topbar__link:hover { background: rgba(255,255,255,0.08); color: #fff; }
     .app-topbar__link.active { color: #fff; font-weight: 700; background: rgba(255,255,255,0.14); }
-    .app-topbar__right { display: flex; align-items: center; gap: 0.7rem; }
+    .app-topbar__right { display: flex; flex-shrink: 0; align-items: center; gap: 0.7rem; }
     .app-topbar__me { font-size: 0.85rem; color: rgba(255,255,255,0.85); }
 
     .app-body { display: flex; min-height: calc(100vh - 56px); }
@@ -1347,6 +1540,16 @@ import GovLayout from '../layouts/GovLayout.astro';
       width: 220px; flex-shrink: 0; background: #fff; border-right: 1px solid var(--gov-border);
       padding: 1rem 0.8rem; display: flex; flex-direction: column; gap: 1rem;
     }
+    .sidebar-profile {
+      display: flex; flex-direction: column; gap: 0; overflow: hidden;
+      border: 1px solid #cfd8e6; border-radius: 8px; background: #f7f9fc;
+      box-shadow: 0 2px 7px rgba(23, 49, 81, 0.05);
+    }
+    .sidebar-profile__row { display: grid; grid-template-columns: 62px minmax(0, 1fr); min-height: 34px; border-bottom: 1px solid #e1e6ee; }
+    .sidebar-profile__row:last-child { border-bottom: 0; }
+    .sidebar-profile__row span, .sidebar-profile__row strong { display: flex; align-items: center; min-width: 0; padding: 0.38rem 0.48rem; font-size: 0.76rem; }
+    .sidebar-profile__row span { color: #526174; background: #edf2f8; font-weight: 700; }
+    .sidebar-profile__row strong { color: var(--gov-text); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .sidebar-compose { margin-bottom: 0.4rem; }
     .sidebar-group__title { font-size: 0.78rem; color: #fff; background: #557eb1; font-weight: 700; margin: 0 0 0.25rem; padding: 0.42rem 0.55rem; border-radius: 2px; }
     .sidebar-link {
@@ -1549,6 +1752,37 @@ import GovLayout from '../layouts/GovLayout.astro';
     .compose-fieldset > [data-track-choice],
     .compose-fieldset > .attachment-pending-list { grid-column: 2; }
     .compose-fieldset > [data-track-choice] { margin-top: -0.15rem; }
+    .approval-picker {
+      grid-column: 1 / -1; display: grid; grid-template-columns: 145px minmax(0, 1fr);
+      gap: 0.45rem 1rem; align-items: start; padding: 0.12rem 0 0.72rem; border-bottom: 1px dashed #d8dee8;
+    }
+    .approval-picker + .approval-picker { padding-top: 0.1rem; }
+    .approval-picker__heading { grid-column: 1; display: flex; flex-direction: column; gap: 0.22rem; padding-top: 0.55rem; }
+    .approval-picker__heading label { line-height: 1.35; }
+    .approval-picker__heading small { color: var(--gov-muted); font-size: 0.72rem; line-height: 1.35; }
+    .approval-picker__controls { grid-column: 2; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; }
+    .approval-picker__controls .btn { min-width: 56px; }
+    .approval-picker__list { grid-column: 2; display: flex; flex-direction: column; gap: 0.35rem; min-height: 28px; }
+    .approval-picker__item {
+      display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 0.5rem;
+      border: 1px solid #d8dee8; border-radius: 7px; background: #fff; padding: 0.38rem 0.45rem;
+    }
+    .approval-picker__order {
+      display: inline-flex; align-items: center; justify-content: center; width: 23px; height: 23px;
+      border-radius: 999px; background: #e8effa; color: var(--gov-accent); font-size: 0.7rem; font-weight: 800;
+    }
+    .approval-picker__person { display: flex; flex-direction: column; gap: 0.08rem; min-width: 0; }
+    .approval-picker__person strong { font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .approval-picker__person small { color: var(--gov-muted); font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .approval-picker__actions { display: flex; gap: 0.2rem; }
+    .icon-button {
+      width: 27px; height: 27px; padding: 0; border: 1px solid #ccd4df; border-radius: 5px;
+      background: #fff; color: #4c5a6c; font-size: 0.8rem; line-height: 1;
+    }
+    .icon-button:hover:not(:disabled) { background: #edf3fb; border-color: #9db2ce; }
+    .icon-button:disabled { opacity: 0.35; cursor: default; }
+    .icon-button--danger { color: #a12626; }
+    .approval-mode-row { min-height: 40px; }
     .file-drop-label { align-self: start; padding-top: 0.1rem; }
 
     .branding-preview {
@@ -1619,31 +1853,27 @@ import GovLayout from '../layouts/GovLayout.astro';
     .official-doc__routing th { background: #f4f0e6; font-weight: 700; }
     .official-doc__routing-seal { color: #b0362f; font-weight: 700; }
     .official-doc__approval-strip {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
-      border: 1px solid #b7ac91;
-      border-right: 0;
-      margin: 0.85rem 0 0 auto;
-      width: min(100%, 470px);
-      background: #fff;
+      display: flex; justify-content: flex-start; overflow-x: auto; overflow-y: hidden;
+      border: 1px solid #b7ac91; margin: 0.7rem 0 0 auto; width: min(100%, 620px); background: #fff;
+      scrollbar-width: thin;
     }
     .approval-person {
-      display: grid;
-      grid-template-columns: 42px minmax(0, 1fr) 28px;
-      align-items: stretch;
-      min-height: 48px;
-      border-right: 1px solid #b7ac91;
-      color: #4a463c;
-      font-size: 0.7rem;
+      display: grid; grid-template-columns: 34px minmax(0, 1fr) 22px; align-items: stretch;
+      flex: 0 0 118px; min-width: 118px; min-height: 34px; border-right: 1px solid #b7ac91;
+      color: #4a463c; font-size: 0.63rem;
     }
+    .approval-person:last-child { border-right: 0; }
     .approval-person > span, .approval-person > strong, .approval-person > em {
-      display: flex; align-items: center; justify-content: center; min-width: 0; padding: 0.28rem 0.32rem;
+      display: flex; align-items: center; justify-content: center; min-width: 0; padding: 0.12rem 0.18rem;
     }
     .approval-person > span { background: #f4f0e6; font-weight: 700; border-right: 1px solid #b7ac91; }
-    .approval-person > strong { flex-wrap: wrap; gap: 0.22rem; font-weight: 500; overflow: hidden; }
-    .approval-person > strong b, .approval-person > strong i { font-style: normal; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .approval-person > strong { flex-direction: column; flex-wrap: nowrap; gap: 0; font-weight: 500; overflow: hidden; line-height: 1.15; }
+    .approval-person > strong b, .approval-person > strong i { display: block; max-width: 100%; font-style: normal; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .approval-person > em { font-style: normal; color: #b0362f; font-weight: 700; border-left: 1px solid #b7ac91; }
-    .official-doc__issue-track--under { width: min(100%, 470px); margin: 0.32rem 0 0 auto; text-align: center; }
+    .approval-person--대기 { box-shadow: inset 0 -2px 0 #2a5797; }
+    .approval-person--완료 { background: #f7fbf6; }
+    .approval-person--반려 { background: #fff4f4; }
+    .official-doc__issue-track--under { width: min(100%, 620px); margin: 0.28rem 0 0 auto; text-align: right; }
     .official-doc__issue { margin-top: 0.45rem; padding-top: 0.55rem; border-top: 1px solid #e4dfd1; text-align: center; }
     .official-doc__issue-track { margin: 0 0 0.5rem; font-size: 0.74rem; color: #7a7568; }
     .official-doc__issue-name {
@@ -1665,6 +1895,8 @@ import GovLayout from '../layouts/GovLayout.astro';
 
 
     .badge--검토대기 { background: #e7efff; color: #2859a8; }
+    .badge--협조대기 { background: #ece8ff; color: #5a43a5; }
+    .badge--전결대기 { background: #e7f4ee; color: #176b4b; }
     .badge--임시저장 { background: #eceff3; color: #505968; }
     .panel-filter-grid { justify-content: flex-end; }
     .panel-filter-grid input[type="date"] { min-width: 145px; }
@@ -1785,6 +2017,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       .home-heading { align-items: flex-start; flex-direction: column; }
       .home-stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
       .app-topbar { height: auto; align-items: flex-start; gap: 0.7rem; padding: 0.9rem 1rem; flex-wrap: wrap; }
+      .app-topbar__brand { max-width: calc(100% - 52px); }
       .app-topbar__menu, .app-topbar__right { width: 100%; flex-wrap: wrap; }
       .radio-row, .account-permission-row, .signer-option-row { flex-wrap: wrap; }
       .signer-option-fields { grid-template-columns: 1fr; width: 100%; }
@@ -1801,6 +2034,8 @@ import GovLayout from '../layouts/GovLayout.astro';
       .compose-fieldset > .hint,
       .compose-fieldset > [data-track-choice],
       .compose-fieldset > .attachment-pending-list { grid-column: 1; }
+      .approval-picker { grid-template-columns: 1fr; }
+      .approval-picker__heading, .approval-picker__controls, .approval-picker__list { grid-column: 1; }
       .template-fields-grid, .form-two-col { grid-template-columns: 1fr; }
       .template-field--full { grid-column: auto; }
       .template-field-row { grid-template-columns: 1fr; }

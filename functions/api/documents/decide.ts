@@ -1,7 +1,32 @@
 import { authenticateSession, clean, ensureTables, json, randomHex } from '../../_shared/helpers';
 interface Env { DB: D1Database; }
 type DecidePayload = { token?: string; id?: string; action?: string; memo?: string };
-const VALID_ACTIONS = ['승인', '반려', '검토완료'];
+const VALID_ACTIONS = ['승인', '반려', '검토완료', '협조완료', '전결'];
+
+type ApprovalLine = {
+  id: string;
+  document_id: string;
+  line_order: number;
+  line_type: '검토' | '협조' | '결재' | '전결';
+  user_id: string;
+  user_name: string;
+  user_position: string | null;
+  status: string;
+};
+
+const statusForLineType = (lineType: ApprovalLine['line_type']) => {
+  if (lineType === '검토') return '검토대기';
+  if (lineType === '협조') return '협조대기';
+  if (lineType === '전결') return '전결대기';
+  return '결재대기';
+};
+
+const completedActionForLine = (lineType: ApprovalLine['line_type']) => {
+  if (lineType === '검토') return '검토완료';
+  if (lineType === '협조') return '협조완료';
+  if (lineType === '전결') return '전결';
+  return '승인';
+};
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
@@ -19,11 +44,67 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     const document = await env.DB.prepare(`
-      SELECT id, status, approval_track, reviewer_user_id, approver_user_id FROM documents WHERE id = ?
-    `).bind(id).first<{ id: string; status: string; approval_track: string; reviewer_user_id: string | null; approver_user_id: string | null }>();
+      SELECT id, status, approval_track, approval_mode, reviewer_user_id, approver_user_id FROM documents WHERE id = ?
+    `).bind(id).first<{
+      id: string;
+      status: string;
+      approval_track: string;
+      approval_mode: string;
+      reviewer_user_id: string | null;
+      approver_user_id: string | null;
+    }>();
     if (!document) return json({ ok: false, message: '해당 문서를 찾을 수 없습니다.' }, 404);
-    if (document.approval_track === '전결') return json({ ok: false, message: '전결대상 문서는 별도 결재가 필요하지 않습니다.' }, 400);
 
+    const currentLine = await env.DB.prepare(`
+      SELECT id, document_id, line_order, line_type, user_id, user_name, user_position, status
+      FROM document_approval_lines
+      WHERE document_id = ? AND status = '대기'
+      ORDER BY line_order ASC LIMIT 1
+    `).bind(id).first<ApprovalLine>();
+
+    if (currentLine) {
+      if (me.role !== 'admin' && currentLine.user_id !== me.id) {
+        return json({ ok: false, message: `지정된 ${currentLine.line_type}자만 처리할 수 있습니다.` }, 403);
+      }
+      if (action === '반려') {
+        const now = new Date().toISOString();
+        await env.DB.batch([
+          env.DB.prepare(`UPDATE document_approval_lines SET status='반려', acted_at=?, memo=? WHERE id=?`)
+            .bind(now, memo || null, currentLine.id),
+          env.DB.prepare(`UPDATE documents SET status='반려', completed_at=?, updated_at=? WHERE id=?`)
+            .bind(now, now, id),
+          env.DB.prepare(`INSERT INTO document_approvals (id, document_id, action, approver_name, approver_role, memo, created_at) VALUES (?, ?, '반려', ?, ?, ?, ?)`)
+            .bind(`AP-${randomHex(20)}`, id, me.name, `${currentLine.line_type}자`, memo || null, now),
+        ]);
+        return json({ ok: true, status: '반려', action: '반려', message: '문서가 반려 처리되었습니다.' });
+      }
+
+      const recordedAction = completedActionForLine(currentLine.line_type);
+      const now = new Date().toISOString();
+      const nextLine = await env.DB.prepare(`
+        SELECT id, document_id, line_order, line_type, user_id, user_name, user_position, status
+        FROM document_approval_lines
+        WHERE document_id = ? AND line_order > ? AND status = '예정'
+        ORDER BY line_order ASC LIMIT 1
+      `).bind(id, currentLine.line_order).first<ApprovalLine>();
+      const nextStatus = nextLine ? statusForLineType(nextLine.line_type) : '승인';
+      const statements: D1PreparedStatement[] = [
+        env.DB.prepare(`UPDATE document_approval_lines SET status='완료', acted_at=?, memo=? WHERE id=?`)
+          .bind(now, memo || null, currentLine.id),
+        env.DB.prepare(`UPDATE documents SET status=?, completed_at=CASE WHEN ?='승인' THEN ? ELSE NULL END, updated_at=? WHERE id=?`)
+          .bind(nextStatus, nextStatus, now, now, id),
+        env.DB.prepare(`INSERT INTO document_approvals (id, document_id, action, approver_name, approver_role, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+          .bind(`AP-${randomHex(20)}`, id, recordedAction, me.name, `${currentLine.line_type}자`, memo || null, now),
+      ];
+      if (nextLine) statements.push(env.DB.prepare(`UPDATE document_approval_lines SET status='대기' WHERE id=?`).bind(nextLine.id));
+      await env.DB.batch(statements);
+      const message = nextLine
+        ? `${recordedAction} 처리되어 다음 ${nextLine.line_type}자에게 전달되었습니다.`
+        : currentLine.line_type === '전결' ? '문서가 전결 처리되었습니다.' : '문서가 최종 승인되었습니다.';
+      return json({ ok: true, status: nextStatus, action: recordedAction, message });
+    }
+
+    // 구버전 문서 호환: 결재선 테이블이 없는 기존 진행문서는 기존 단일 결재 방식으로 처리합니다.
     let newStatus = '';
     let recordedAction = action;
     if (document.status === '검토대기') {
@@ -31,10 +112,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (action === '승인') recordedAction = '검토완료';
       if (!['검토완료', '반려'].includes(recordedAction)) return json({ ok: false, message: '검토 단계에서는 검토완료 또는 반려만 가능합니다.' }, 400);
       newStatus = recordedAction === '반려' ? '반려' : '결재대기';
-    } else if (document.status === '결재대기') {
-      if (me.role !== 'admin' && document.approver_user_id !== me.id) return json({ ok: false, message: '지정된 최종 결재자만 처리할 수 있습니다.' }, 403);
-      if (!['승인', '반려'].includes(action)) return json({ ok: false, message: '최종 결재 단계에서는 승인 또는 반려만 가능합니다.' }, 400);
-      newStatus = action;
+    } else if (document.status === '결재대기' || document.status === '전결대기') {
+      if (me.role !== 'admin' && document.approver_user_id !== me.id) return json({ ok: false, message: '지정된 최종 처리자만 처리할 수 있습니다.' }, 403);
+      if (action === '반려') {
+        recordedAction = '반려';
+        newStatus = '반려';
+      } else {
+        recordedAction = document.status === '전결대기' || document.approval_mode === '전결' ? '전결' : '승인';
+        newStatus = '승인';
+      }
     } else {
       return json({ ok: false, message: `이미 "${document.status}" 상태로 처리된 문서입니다.` }, 400);
     }
@@ -49,7 +135,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       `).bind(`AP-${randomHex(20)}`, id, recordedAction, me.name, me.position || '처리자', memo || null, now),
     ]);
     return json({ ok: true, status: newStatus, action: recordedAction, message: recordedAction === '검토완료' ? '검토가 완료되어 최종 결재자에게 전달되었습니다.' : `문서가 ${recordedAction} 처리되었습니다.` });
-  } catch {
+  } catch (error) {
+    console.error('document decide failed', error);
     return json({ ok: false, message: '결재 처리 중 오류가 발생했습니다.' }, 500);
   }
 };
