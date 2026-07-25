@@ -16,11 +16,11 @@ const { title = '종단관리시스템 | 대한불교밀교종' } = Astro.props;
   <slot />
   <style is:global>
     :root {
-      --gov-navy: #1c3f6e;
-      --gov-navy-dark: #16325a;
-      --gov-accent: #2f6fed;
-      --gov-bg: #f2f4f7;
-      --gov-border: #dfe3ea;
+      --gov-navy: #37649b;
+      --gov-navy-dark: #244d80;
+      --gov-accent: #315f9f;
+      --gov-bg: #e9edf3;
+      --gov-border: #cbd3df;
       --gov-text: #23262b;
       --gov-muted: #6a7180;
       --gov-gold: #b08d3f;
@@ -34,6 +34,7 @@ const { title = '종단관리시스템 | 대한불교밀교종' } = Astro.props;
       font-family: "Pretendard", "Malgun Gothic", -apple-system, BlinkMacSystemFont, sans-serif;
     }
     button { font-family: inherit; cursor: pointer; }
+    :focus-visible { outline: 3px solid rgba(49,95,159,.35); outline-offset: 2px; }
     input, select, textarea { font-family: inherit; }
   </style>
 </body>

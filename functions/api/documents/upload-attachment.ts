@@ -1,35 +1,25 @@
-import {
-  authenticateSession,
-  clean,
-  ensureTables,
-  json,
-  randomHex,
-} from '../../_shared/helpers';
+import { authenticateSession, canReadDocument, clean, ensureTables, json, randomHex } from '../../_shared/helpers';
 
-interface Env {
-  DB: D1Database;
-}
+interface Env { DB: D1Database; FILES?: R2Bucket; }
+type Payload = { token?: string; documentId?: string; fileName?: string; mimeType?: string; dataBase64?: string };
 
-type UploadPayload = {
-  token?: string;
-  documentId?: string;
-  fileName?: string;
-  mimeType?: string;
-  dataBase64?: string;
-};
-
-// D1 한 행에 무리 없이 들어가도록 첨부파일은 4MB(base64 인코딩 전 기준)로 제한합니다.
 const MAX_FILE_BYTES = 4 * 1024 * 1024;
+const MAX_D1_FALLBACK_BYTES = 1250 * 1024;
+const BLOCKED_EXTENSIONS = /\.(html?|js|mjs|svg|exe|dll|bat|cmd|com|ps1|sh|php|jsp|asp|aspx)$/i;
+
+const decodeBase64 = (value: string) => {
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(value) || value.length % 4 === 1) return null;
+  try {
+    const binary = atob(value);
+    return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  } catch { return null; }
+};
+const safeKeyName = (name: string) => name.replace(/[^0-9A-Za-z._-]+/g, '_').slice(-120) || 'attachment.bin';
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
-
-  let payload: UploadPayload;
-  try {
-    payload = await request.json();
-  } catch (error) {
-    return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400);
-  }
+  let payload: Payload;
+  try { payload = await request.json(); } catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
 
   await ensureTables(env.DB);
   const auth = await authenticateSession(env.DB, clean(payload.token, 200));
@@ -39,38 +29,46 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const fileName = clean(payload.fileName, 200);
   const mimeType = clean(payload.mimeType, 120) || 'application/octet-stream';
   const dataBase64 = typeof payload.dataBase64 === 'string' ? payload.dataBase64 : '';
+  if (!documentId || !fileName || !dataBase64) return json({ ok: false, message: '첨부파일 정보가 부족합니다.' }, 400);
+  if (BLOCKED_EXTENSIONS.test(fileName)) return json({ ok: false, message: '보안상 등록할 수 없는 파일 형식입니다.' }, 400);
 
-  if (!documentId) return json({ ok: false, message: '문서번호가 필요합니다.' }, 400);
-  if (!fileName) return json({ ok: false, message: '파일명이 필요합니다.' }, 400);
-  if (!dataBase64) return json({ ok: false, message: '파일 내용이 비어 있습니다.' }, 400);
+  const bytes = decodeBase64(dataBase64);
+  if (!bytes) return json({ ok: false, message: '첨부파일 인코딩이 올바르지 않습니다.' }, 400);
+  if (bytes.byteLength > MAX_FILE_BYTES) return json({ ok: false, message: '첨부파일은 4MB 이하만 등록할 수 있습니다.' }, 400);
 
-  // base64 문자열 길이로 원본 바이트 크기를 대략 추정해 상한을 넘는 파일을 미리 걸러냅니다.
-  const approxBytes = Math.floor((dataBase64.length * 3) / 4);
-  if (approxBytes > MAX_FILE_BYTES) {
-    return json({ ok: false, message: '첨부파일은 4MB 이하만 등록할 수 있습니다.' }, 400);
+  const doc = await env.DB.prepare('SELECT * FROM documents WHERE id=?').bind(documentId).first<Record<string, unknown>>();
+  if (!doc) return json({ ok: false, message: '해당 문서를 찾을 수 없습니다.' }, 404);
+  if (!canReadDocument(auth.user, doc)) return json({ ok: false, message: '첨부 권한이 없습니다.' }, 403);
+  if (auth.user.role !== 'admin' && doc.drafter_user_id !== auth.user.id) return json({ ok: false, message: '기안자 또는 관리자만 첨부파일을 추가할 수 있습니다.' }, 403);
+
+  const count = await env.DB.prepare('SELECT COUNT(*) AS count FROM document_attachments WHERE document_id=?').bind(documentId).first<{ count: number }>();
+  if (Number(count?.count || 0) >= 10) return json({ ok: false, message: '문서당 첨부파일은 최대 10개까지 등록할 수 있습니다.' }, 400);
+
+  const id = `ATT-${randomHex(20)}`;
+  let storageType = 'd1';
+  let r2Key: string | null = null;
+  let storedBase64 = dataBase64;
+
+  if (env.FILES) {
+    storageType = 'r2';
+    storedBase64 = '';
+    r2Key = `documents/${documentId}/${id}-${safeKeyName(fileName)}`;
+    await env.FILES.put(r2Key, bytes, { httpMetadata: { contentType: mimeType }, customMetadata: { originalName: fileName, documentId } });
+  } else if (bytes.byteLength > MAX_D1_FALLBACK_BYTES) {
+    return json({ ok: false, message: '1.2MB를 넘는 첨부파일은 R2 바인딩(FILES)이 필요합니다. Cloudflare Pages에 R2 버킷을 연결해 주세요.' }, 400);
   }
 
   try {
-    await ensureTables(env.DB);
-    const document = await env.DB.prepare(`SELECT id FROM documents WHERE id = ?`)
-      .bind(documentId)
-      .first<{ id: string }>();
-    if (!document) return json({ ok: false, message: '해당 문서를 찾을 수 없습니다.' }, 404);
-
-    const id = `ATT-${randomHex(20)}`;
-    const now = new Date().toISOString();
     await env.DB.prepare(`
-      INSERT INTO document_attachments (id, document_id, file_name, mime_type, size_bytes, data_base64, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `)
-      .bind(id, documentId, fileName, mimeType, approxBytes, dataBase64, now)
-      .run();
-
-    return json({ ok: true, id, fileName, sizeBytes: approxBytes, message: '첨부파일이 등록되었습니다.' });
-  } catch (error) {
-    return json({ ok: false, message: '첨부파일 등록 중 오류가 발생했습니다.' }, 500);
+      INSERT INTO document_attachments
+        (id,document_id,file_name,mime_type,size_bytes,data_base64,storage_type,r2_key,created_at)
+      VALUES(?,?,?,?,?,?,?,?,?)
+    `).bind(id, documentId, fileName, mimeType, bytes.byteLength, storedBase64, storageType, r2Key, new Date().toISOString()).run();
+    return json({ ok: true, id, fileName, sizeBytes: bytes.byteLength, storageType, message: '첨부파일이 등록되었습니다.' });
+  } catch {
+    if (r2Key && env.FILES) await env.FILES.delete(r2Key).catch(() => undefined);
+    return json({ ok: false, message: '첨부파일 저장 중 오류가 발생했습니다.' }, 500);
   }
 };
 
-export const onRequestGet: PagesFunction = async () =>
-  json({ ok: false, message: 'POST 방식으로 요청해 주세요.' }, 405);
+export const onRequestGet: PagesFunction = async () => json({ ok: false, message: 'POST 방식으로 요청해 주세요.' }, 405);

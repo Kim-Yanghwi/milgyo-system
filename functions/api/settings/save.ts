@@ -18,6 +18,9 @@ type SavePayload = {
 
 // data URL 전체 길이 기준 대략 1.5MB로 제한(원본 이미지 약 1MB 상당) — D1 행 크기 제약을 고려한 여유값.
 const MAX_IMAGE_DATA_URL_LENGTH = 1.5 * 1024 * 1024;
+const isAllowedImageDataUrl = (value: string) =>
+  !value || /^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+$/.test(value);
+
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
@@ -39,6 +42,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const sealImage = typeof payload.sealImage === 'string' ? payload.sealImage.slice(0, MAX_IMAGE_DATA_URL_LENGTH) : '';
   const logoImage = typeof payload.logoImage === 'string' ? payload.logoImage.slice(0, MAX_IMAGE_DATA_URL_LENGTH) : '';
 
+  if (!isAllowedImageDataUrl(sealImage) || !isAllowedImageDataUrl(logoImage)) {
+    return json({ ok: false, message: '로고와 관인은 PNG, JPG 또는 WebP 이미지만 등록할 수 있습니다.' }, 400);
+  }
   if (payload.sealImage && payload.sealImage.length > MAX_IMAGE_DATA_URL_LENGTH) {
     return json({ ok: false, message: '관인 이미지 용량이 너무 큽니다. 1MB 이하의 이미지를 사용해 주세요.' }, 400);
   }

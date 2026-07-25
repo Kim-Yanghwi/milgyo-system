@@ -38,11 +38,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     await ensureTables(env.DB);
     const user = await env.DB.prepare(`
-      SELECT id, name, username, password_hash, position, grade, role, can_approve, active
+      SELECT id, name, username, password_hash, position, grade, department, role, can_approve, active
       FROM system_users WHERE username = ?
     `).bind(username).first<{
       id: string; name: string; username: string; password_hash: string;
-      position: string | null; grade: string | null; role: string; can_approve: number; active: number;
+      position: string | null; grade: string | null; department: string | null; role: string; can_approve: number; active: number;
     }>();
 
     if (!user || !user.active || !(await verifyPassword(password, user.password_hash))) {
@@ -58,7 +58,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       token,
       user: {
         id: user.id, name: user.name, username: user.username,
-        position: user.position, grade: user.grade, role: user.role, canApprove: !!user.can_approve,
+        position: user.position, grade: user.grade, department: user.department, role: user.role, canApprove: !!user.can_approve,
       },
     });
   } catch (error) {
