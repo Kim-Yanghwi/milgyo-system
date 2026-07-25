@@ -34,7 +34,7 @@ const createAccount = async (
     position: string;
     grade: string;
     department: string;
-    role: 'admin' | 'user';
+    role: 'admin' | 'audit' | 'user';
     canApprove: boolean;
   },
 ) => insertSystemUser(db, {
@@ -71,7 +71,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const position = clean(payload.position, 40);
     const grade = clean(payload.grade, 20);
     const department = clean(payload.department, 60);
-    const role: 'admin' | 'user' = payload.role === 'admin' ? 'admin' : 'user';
+    const role: 'admin' | 'audit' | 'user' = payload.role === 'admin' ? 'admin' : payload.role === 'audit' ? 'audit' : 'user';
     const canApprove = !!payload.canApprove || role === 'admin';
 
     if (!name) return json({ ok: false, message: '성명을 입력해 주세요.' }, 400);

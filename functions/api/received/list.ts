@@ -19,11 +19,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const where=filters.length?`WHERE ${filters.join(' AND ')}`:'';
   try{
     const countStmt=env.DB.prepare(`SELECT COUNT(*) AS count FROM received_documents ${where}`);
-    const count=bindings.length?await countStmt.bind(...bindings).first<{count:number}>():await countStmt.first<{count:number}>();
-    const total=Number(count?.count||0), offset=(page-1)*pageSize;
-    const stmt=env.DB.prepare(`SELECT * FROM received_documents ${where} ORDER BY ${SORTS[clean(payload.sort,20)]||SORTS.newest} LIMIT ? OFFSET ?`);
-    const rows=await stmt.bind(...bindings,pageSize,offset).all();
+    const boundCount=bindings.length?countStmt.bind(...bindings):countStmt;
+    const offset=(page-1)*pageSize;
+    const stmt=env.DB.prepare(`SELECT id,direction,title,counterparty,source_system,external_doc_number,memo,department,related_document_id,handled_by,CAST(handled_by_user_id AS TEXT) AS handled_by_user_id,received_at,created_at,updated_at FROM received_documents ${where} ORDER BY ${SORTS[clean(payload.sort,20)]||SORTS.newest} LIMIT ? OFFSET ?`);
+    const [countResult,rows]=await env.DB.batch([boundCount,stmt.bind(...bindings,pageSize,offset)]);
+    const count=(countResult.results?.[0]||{}) as Record<string,unknown>;
+    const total=Number(count.count||0);
     return json({ok:true,rows:rows.results??[],total,page,pageSize,pages:Math.max(1,Math.ceil(total/pageSize))});
-  }catch{return json({ok:false,message:'접수·발송대장 조회 중 오류가 발생했습니다.'},500);}
+  }catch(error){console.error('received list failed',error);return json({ok:false,message:'접수·발송대장 조회 중 오류가 발생했습니다.'},500);}
 };
 export const onRequestGet:PagesFunction=async()=>json({ok:false,message:'POST 방식으로 요청해 주세요.'},405);

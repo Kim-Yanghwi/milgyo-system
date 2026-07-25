@@ -165,7 +165,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
   if (!saveAsDraft && reviewerUserIds.includes(me.id)) return json({ ok: false, message: '기안자 본인을 검토자로 지정할 수 없습니다.' }, 400);
   if (!saveAsDraft && cooperatorUserIds.includes(me.id)) return json({ ok: false, message: '기안자 본인을 협조자로 지정할 수 없습니다.' }, 400);
-  if (!saveAsDraft && approvalMode === '결재' && approverUserId === me.id) return json({ ok: false, message: '기안자 본인을 결재자로 지정할 수 없습니다. 본인 처리 문서는 전결을 선택해 주세요.' }, 400);
   if (!saveAsDraft && !approverUserId) return json({ ok: false, message: `${approvalMode}자를 지정해 주세요.` }, 400);
 
   const userMap = new Map<string, UserRow>();
@@ -200,11 +199,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     userPosition: finalApprover.position,
   });
 
+  const selfImmediateApproval = !saveAsDraft
+    && finalApprover?.id === me.id
+    && reviewerUserIds.length === 0
+    && cooperatorUserIds.length === 0;
   const firstReviewer = lines.find((line) => line.lineType === '검토');
   const now = new Date();
   const nowIso = now.toISOString();
-  const status = saveAsDraft ? '임시저장' : statusForLineType(lines[0].lineType);
+  const status = saveAsDraft ? '임시저장' : selfImmediateApproval ? '승인' : statusForLineType(lines[0].lineType);
   const submittedAt = saveAsDraft ? null : nowIso;
+  const completedAt = selfImmediateApproval ? nowIso : null;
 
   try {
     const id = documentId || await makeDocumentNumber(env.DB, now);
@@ -215,7 +219,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           doc_type=?, category=?, title=?, summary=?, body=?, attachments_note=?,
           reviewer_user_id=?, reviewer_name=?, reviewer_position=?, approver_user_id=?, approver_name=?, approver_position=?,
           department=?, recipient=?, via=?, approval_track=?, approval_mode=?, status=?, template_id=?, template_name=?, form_data_json=?,
-          access_scope=?, client_request_id=COALESCE(client_request_id, ?), submitted_at=?, completed_at=NULL, updated_at=?
+          access_scope=?, client_request_id=COALESCE(client_request_id, ?), submitted_at=?, completed_at=?, updated_at=?
         WHERE id=?
       `).bind(
         docType, category, title || '(제목 미입력)', summary, body, attachmentsNote,
@@ -223,7 +227,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         finalApprover?.id || null, finalApprover?.name || null, finalApprover?.position || null,
         department || null, recipient || null, via || null, approvalTrack, approvalMode, status,
         templateId || null, templateName || null, JSON.stringify(formData), accessScope, clientRequestId,
-        submittedAt, nowIso, id,
+        submittedAt, completedAt, nowIso, id,
       ));
       statements.push(env.DB.prepare(`DELETE FROM document_approvals WHERE document_id = ? AND action = '임시저장'`).bind(id));
       statements.push(env.DB.prepare(`DELETE FROM document_approval_lines WHERE document_id = ?`).bind(id));
@@ -237,7 +241,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           department, recipient, via, approval_track, approval_mode, status,
           template_id, template_name, form_data_json, access_scope, client_request_id,
           submitted_at, completed_at, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         id, docType, category, title || '(제목 미입력)', summary, body, attachmentsNote,
         me.name, me.id, me.position || null,
@@ -245,7 +249,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         finalApprover?.id || null, finalApprover?.name || null, finalApprover?.position || null,
         department || me.department || null, recipient || null, via || null, approvalTrack, approvalMode, status,
         templateId || null, templateName || null, JSON.stringify(formData), accessScope, clientRequestId,
-        submittedAt, nowIso, nowIso,
+        submittedAt, completedAt, nowIso, nowIso,
       ));
     }
 
@@ -253,10 +257,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       statements.push(env.DB.prepare(`
         INSERT INTO document_approval_lines
           (id, document_id, line_order, line_type, user_id, user_name, user_position, status, acted_at, memo, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
       `).bind(
         `AL-${randomHex(20)}`, id, index + 1, line.lineType, line.userId, line.userName, line.userPosition,
-        !saveAsDraft && index === 0 ? '대기' : '예정', nowIso,
+        selfImmediateApproval ? '완료' : (!saveAsDraft && index === 0 ? '대기' : '예정'),
+        selfImmediateApproval ? nowIso : null,
+        nowIso,
       ));
     });
 
@@ -265,6 +271,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         INSERT INTO document_approvals (id, document_id, action, approver_name, approver_role, memo, created_at)
         VALUES (?, ?, '임시저장', ?, ?, NULL, ?)
       `).bind(`AP-${randomHex(20)}`, id, me.name, me.position || '기안자', nowIso));
+    } else if (selfImmediateApproval) {
+      statements.push(env.DB.prepare(`
+        INSERT INTO document_approvals (id, document_id, action, approver_name, approver_role, memo, created_at)
+        VALUES (?, ?, '상신', ?, ?, '기안자와 최종 처리자가 동일하여 즉시 승인', ?)
+      `).bind(`AP-${randomHex(20)}`, id, me.name, me.position || '기안자', nowIso));
+      statements.push(env.DB.prepare(`
+        INSERT INTO document_approvals (id, document_id, action, approver_name, approver_role, memo, created_at)
+        VALUES (?, ?, '승인', ?, ?, '기안자와 최종 처리자가 동일하여 자동 승인', ?)
+      `).bind(`AP-${randomHex(20)}`, id, me.name, me.position || '결재자', nowIso));
     } else {
       const firstLineLabel = lines[0].lineType === '검토' ? '검토자' : lines[0].lineType === '협조' ? '협조자' : `${lines[0].lineType}자`;
       statements.push(env.DB.prepare(`
@@ -280,7 +295,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       status,
       approvalTrack,
       approvalMode,
-      message: saveAsDraft ? '임시저장되었습니다.' : `문서가 ${lines[0].lineType} 단계로 상신되었습니다.`,
+      immediateApproved: selfImmediateApproval,
+      nextView: selfImmediateApproval ? (docType === '발송' ? '발송대기' : '완료') : (saveAsDraft ? '임시저장' : '진행'),
+      message: saveAsDraft
+        ? '임시저장되었습니다.'
+        : selfImmediateApproval
+          ? '기안자와 결재자가 같아 문서가 즉시 승인되었습니다.'
+          : `문서가 ${lines[0].lineType} 단계로 상신되었습니다.`,
     });
   } catch (error) {
     console.error('document create failed', error);

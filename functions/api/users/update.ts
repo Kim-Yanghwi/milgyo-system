@@ -52,7 +52,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const position = clean(payload.position, 40);
     const grade = clean(payload.grade, 20);
     const department = clean(payload.department, 60);
-    const role = payload.role === 'admin' ? 'admin' : 'user';
+    const role = payload.role === 'admin' ? 'admin' : payload.role === 'audit' ? 'audit' : 'user';
     const canApprove = !!payload.canApprove || role === 'admin';
     const active = payload.active === undefined ? true : !!payload.active;
     const newPassword = typeof payload.newPassword === 'string' ? payload.newPassword.slice(0, 200) : '';

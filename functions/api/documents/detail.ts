@@ -21,7 +21,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
     if (!readable) return json({ ok: false, message: '이 문서를 열람할 권한이 없습니다.' }, 403);
     const [approvals, approvalLines, attachments] = await Promise.all([
-      env.DB.prepare(`SELECT * FROM document_approvals WHERE document_id = ? ORDER BY created_at ASC`).bind(id).all(),
+      env.DB.prepare(`SELECT * FROM document_approvals WHERE document_id = ? ORDER BY created_at ASC, rowid ASC`).bind(id).all(),
       env.DB.prepare(`SELECT * FROM document_approval_lines WHERE document_id = ? ORDER BY line_order ASC`).bind(id).all(),
       env.DB.prepare(`SELECT id, file_name, mime_type, size_bytes, created_at FROM document_attachments WHERE document_id = ? ORDER BY created_at ASC`).bind(id).all(),
     ]);

@@ -14,24 +14,25 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
   const me = auth.user;
 
-  const visibilitySql = me.role === 'admin'
+  const canViewAll = me.role === 'admin' || me.role === 'audit';
+  const visibilitySql = canViewAll
     ? '1=1'
     : `(access_scope <> '관련자' OR drafter_user_id = ? OR reviewer_user_id = ? OR approver_user_id = ?
        OR EXISTS (SELECT 1 FROM document_approval_lines access_line WHERE access_line.document_id = documents.id AND access_line.user_id = ?))`;
-  const visibilityBindings = me.role === 'admin' ? [] : [me.id, me.id, me.id, me.id];
+  const visibilityBindings = canViewAll ? [] : [me.id, me.id, me.id, me.id];
 
   const countQueries: Array<{ key: string; sql: string; values: unknown[] }> = [
-    { key: 'draft', sql: `SELECT COUNT(*) AS count FROM documents WHERE status='임시저장' AND drafter_user_id=?`, values: [me.id] },
-    { key: 'progress', sql: `SELECT COUNT(*) AS count FROM documents WHERE status IN (${ACTIVE_STATUSES}) AND drafter_user_id=?`, values: [me.id] },
+    { key: 'draft', sql: canViewAll ? `SELECT COUNT(*) AS count FROM documents WHERE status='임시저장'` : `SELECT COUNT(*) AS count FROM documents WHERE status='임시저장' AND drafter_user_id=?`, values: canViewAll ? [] : [me.id] },
+    { key: 'progress', sql: canViewAll ? `SELECT COUNT(*) AS count FROM documents WHERE status IN (${ACTIVE_STATUSES})` : `SELECT COUNT(*) AS count FROM documents WHERE status IN (${ACTIVE_STATUSES}) AND drafter_user_id=?`, values: canViewAll ? [] : [me.id] },
     {
       key: 'pending',
-      sql: me.role === 'admin'
+      sql: canViewAll
         ? `SELECT COUNT(*) AS count FROM documents WHERE status IN (${ACTIVE_STATUSES})`
         : `SELECT COUNT(*) AS count FROM documents WHERE
             EXISTS (SELECT 1 FROM document_approval_lines pending_line WHERE pending_line.document_id = documents.id AND pending_line.status='대기' AND pending_line.user_id=?)
             OR (NOT EXISTS (SELECT 1 FROM document_approval_lines any_line WHERE any_line.document_id = documents.id)
                 AND ((status='검토대기' AND reviewer_user_id=?) OR (status IN ('결재대기','전결대기') AND approver_user_id=?)))`,
-      values: me.role === 'admin' ? [] : [me.id, me.id, me.id],
+      values: canViewAll ? [] : [me.id, me.id, me.id],
     },
     {
       key: 'send',
@@ -51,33 +52,35 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const statement = env.DB.prepare(sql);
       return values.length ? statement.bind(...values) : statement;
     });
-    const countResults = await env.DB.batch(statements);
-    const counts: Record<string, number> = {};
-    countQueries.forEach((query, index) => {
-      const row = (countResults[index]?.results?.[0] || {}) as Record<string, unknown>;
-      counts[query.key] = Number(row.count || 0);
-    });
-
     const recentDocumentsStatement = env.DB.prepare(`
       SELECT id, doc_type, title, status, drafter, department, created_at, updated_at
       FROM documents
       WHERE status <> '임시저장' AND ${visibilitySql}
       ORDER BY updated_at DESC LIMIT 8
     `);
-    const recentDocuments = visibilityBindings.length
-      ? await recentDocumentsStatement.bind(...visibilityBindings).all()
-      : await recentDocumentsStatement.all();
-
-    const recentRegistry = await env.DB.prepare(`
+    statements.push(visibilityBindings.length
+      ? recentDocumentsStatement.bind(...visibilityBindings)
+      : recentDocumentsStatement);
+    statements.push(env.DB.prepare(`
       SELECT id, direction, title, counterparty, received_at
       FROM received_documents ORDER BY created_at DESC LIMIT 6
-    `).all();
+    `));
+
+    // 홈 수량과 최근 목록을 한 번의 D1 batch로 조회해 원격 DB 왕복을 최소화합니다.
+    const results = await env.DB.batch(statements);
+    const counts: Record<string, number> = {};
+    countQueries.forEach((query, index) => {
+      const row = (results[index]?.results?.[0] || {}) as Record<string, unknown>;
+      counts[query.key] = Number(row.count || 0);
+    });
+    const recentDocuments = results[countQueries.length]?.results ?? [];
+    const recentRegistry = results[countQueries.length + 1]?.results ?? [];
 
     return json({
       ok: true,
       counts,
-      recentDocuments: recentDocuments.results ?? [],
-      recentRegistry: recentRegistry.results ?? [],
+      recentDocuments,
+      recentRegistry,
       storage: { r2Connected: !!env.FILES },
     });
   } catch (error) {

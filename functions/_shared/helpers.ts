@@ -230,7 +230,7 @@ let tablesEnsured = false;
 let tablesEnsurePromise: Promise<void> | null = null;
 let lastRateLimitCleanupAt = 0;
 const MAINTENANCE_COOLDOWN_MS = 10 * 60 * 1000;
-const SCHEMA_VERSION = '2026-07-25.7';
+const SCHEMA_VERSION = '2026-07-25.8';
 
 type TableColumnInfo = { name: string; type: string; notnull: number; dflt_value?: unknown; pk: number };
 
@@ -409,10 +409,17 @@ const runSchemaMigration = async (db: D1Database) => {
   await db.batch([
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_status ON documents (status)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_created ON documents (created_at)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_updated ON documents (updated_at DESC)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_title ON documents (title)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_status_created ON documents (status, created_at DESC)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_type_status_created ON documents (doc_type, status, created_at DESC)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_document_approvals_doc ON document_approvals (document_id, created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_document_approval_lines_doc ON document_approval_lines (document_id, line_order)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_document_approval_lines_pending ON document_approval_lines (user_id, status, document_id)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_document_approval_lines_doc_status_order ON document_approval_lines (document_id, status, line_order)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_received_documents_created ON received_documents (created_at)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_received_documents_date ON received_documents (received_at DESC, created_at DESC)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_received_documents_direction_date ON received_documents (direction, received_at DESC, created_at DESC)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_received_documents_handler ON received_documents (handled_by_user_id, created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_received_documents_related ON received_documents (related_document_id, direction)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_dispatch_links_registry ON document_dispatch_links (registry_id)`),
@@ -525,7 +532,7 @@ export type NewSystemUser = {
   position?: string | null;
   grade?: string | null;
   department?: string | null;
-  role: 'admin' | 'user';
+  role: 'admin' | 'audit' | 'user';
   canApprove: boolean;
   active?: boolean;
   createdAt?: string;
@@ -654,7 +661,7 @@ export const authenticateSession = async (
 };
 
 export const canReadDocument = (user: SessionUser, document: Record<string, unknown>) => {
-  if (user.role === 'admin') return true;
+  if (user.role === 'admin' || user.role === 'audit') return true;
   // 임시저장 문서는 열람범위와 관계없이 작성자만 볼 수 있어야 합니다.
   if (document.status === '임시저장') return String(document.drafter_user_id || '') === user.id;
   if (document.access_scope !== '관련자') return true;

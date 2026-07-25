@@ -8,9 +8,18 @@ type ListPayload = {
 
 const VIEWS = ['임시저장', '진행', '결재대기', '발송대기', '완료', '반려', '전체'];
 const SORTS: Record<string, string> = {
-  newest: 'created_at DESC', oldest: 'created_at ASC', title: 'title ASC', updated: 'updated_at DESC',
+  newest: 'created_at DESC',
+  oldest: 'created_at ASC',
+  title: 'title ASC',
+  updated: 'updated_at DESC',
 };
 const ACTIVE_STATUSES = "'검토대기','협조대기','결재대기','전결대기'";
+const nextDay = (dateText: string) => {
+  const date = new Date(`${dateText}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return '';
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+};
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
@@ -20,6 +29,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const auth = await authenticateSession(env.DB, clean(payload.token, 200));
   if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
   const me = auth.user;
+  const canViewAll = me.role === 'admin' || me.role === 'audit';
 
   const view = VIEWS.includes(clean(payload.view, 20)) ? clean(payload.view, 20) : '전체';
   const query = clean(payload.query, 100);
@@ -34,11 +44,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const filters: string[] = [];
   const bindings: unknown[] = [];
   if (view === '임시저장') {
-    filters.push(`status = '임시저장' AND drafter_user_id = ?`); bindings.push(me.id);
+    if (canViewAll) filters.push(`status = '임시저장'`);
+    else { filters.push(`status = '임시저장' AND drafter_user_id = ?`); bindings.push(me.id); }
   } else if (view === '진행') {
-    filters.push(`status IN (${ACTIVE_STATUSES}) AND drafter_user_id = ?`); bindings.push(me.id);
+    filters.push(`status IN (${ACTIVE_STATUSES})`);
+    if (!canViewAll) { filters.push(`drafter_user_id = ?`); bindings.push(me.id); }
   } else if (view === '결재대기') {
-    if (me.role === 'admin') filters.push(`status IN (${ACTIVE_STATUSES})`);
+    if (canViewAll) filters.push(`status IN (${ACTIVE_STATUSES})`);
     else {
       filters.push(`(
         EXISTS (SELECT 1 FROM document_approval_lines pending_line WHERE pending_line.document_id = documents.id AND pending_line.status = '대기' AND pending_line.user_id = ?)
@@ -51,7 +63,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
   } else if (view === '발송대기') {
     filters.push(`status = '승인' AND doc_type = '발송'`);
-    if (me.role !== 'admin') { filters.push(`drafter_user_id = ?`); bindings.push(me.id); }
+    if (!canViewAll) { filters.push(`drafter_user_id = ?`); bindings.push(me.id); }
   } else if (view === '완료') {
     filters.push(`status IN ('승인','발송완료') AND NOT (status = '승인' AND doc_type = '발송')`);
   } else if (view === '반려') {
@@ -60,7 +72,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     filters.push(`status <> '임시저장'`);
   }
 
-  if (me.role !== 'admin') {
+  if (!canViewAll) {
     filters.push(`(
       access_scope <> '관련자' OR drafter_user_id = ? OR reviewer_user_id = ? OR approver_user_id = ?
       OR EXISTS (SELECT 1 FROM document_approval_lines access_line WHERE access_line.document_id = documents.id AND access_line.user_id = ?)
@@ -72,19 +84,22 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       OR EXISTS (SELECT 1 FROM document_approval_lines search_line WHERE search_line.document_id = documents.id AND search_line.user_name LIKE ?))`);
     const keyword = `%${query}%`; bindings.push(keyword, keyword, keyword, keyword, keyword, keyword, keyword);
   }
-  if (dateFrom) { filters.push(`substr(created_at,1,10) >= ?`); bindings.push(dateFrom); }
-  if (dateTo) { filters.push(`substr(created_at,1,10) <= ?`); bindings.push(dateTo); }
+  // created_at은 ISO-8601 문자열이므로 substr() 없이 직접 범위 비교하여 인덱스를 활용합니다.
+  if (dateFrom) { filters.push(`created_at >= ?`); bindings.push(`${dateFrom}T00:00:00.000Z`); }
+  if (dateTo) {
+    const exclusiveEnd = nextDay(dateTo);
+    if (exclusiveEnd) { filters.push(`created_at < ?`); bindings.push(`${exclusiveEnd}T00:00:00.000Z`); }
+  }
   if (docType && ['기안', '발송'].includes(docType)) { filters.push(`doc_type = ?`); bindings.push(docType); }
   if (category) { filters.push(`category = ?`); bindings.push(category); }
 
   const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
   try {
     const countStatement = env.DB.prepare(`SELECT COUNT(*) AS count FROM documents ${where}`);
-    const countRow = bindings.length
-      ? await countStatement.bind(...bindings).first<{ count: number }>()
-      : await countStatement.first<{ count: number }>();
-    const total = Number(countRow?.count || 0);
+    const boundCountStatement = bindings.length ? countStatement.bind(...bindings) : countStatement;
     const offset = (page - 1) * pageSize;
+    // 현재 페이지의 문서만 조회하고, 결재선은 문서번호 인덱스를 이용한 소규모 상관조회로 가져옵니다.
+    // 페이지 전체 결재선을 먼저 집계하는 CTE 방식보다 D1/SQLite에서 안정적으로 빠릅니다.
     const statement = env.DB.prepare(`
       SELECT id, doc_type, category, title, summary, drafter, drafter_user_id, drafter_position, department,
              recipient, via, approval_track, approval_mode, status, sent_method, sent_at, created_at, updated_at,
@@ -100,11 +115,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
                WHERE cooperator_lines.document_id = documents.id AND cooperator_lines.line_type = '협조'
                ORDER BY line_order
              )), '') AS cooperator_names,
-             (SELECT user_id FROM document_approval_lines current_line WHERE current_line.document_id = documents.id AND current_line.status = '대기' ORDER BY line_order LIMIT 1) AS current_actor_user_id,
-             (SELECT line_type FROM document_approval_lines current_line WHERE current_line.document_id = documents.id AND current_line.status = '대기' ORDER BY line_order LIMIT 1) AS current_line_type
-      FROM documents ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?
+             (SELECT user_id FROM document_approval_lines current_line
+              WHERE current_line.document_id = documents.id AND current_line.status = '대기'
+              ORDER BY line_order LIMIT 1) AS current_actor_user_id,
+             (SELECT line_type FROM document_approval_lines current_line
+              WHERE current_line.document_id = documents.id AND current_line.status = '대기'
+              ORDER BY line_order LIMIT 1) AS current_line_type
+      FROM documents ${where}
+      ORDER BY ${orderBy}
+      LIMIT ? OFFSET ?
     `);
-    const result = await statement.bind(...bindings, pageSize, offset).all();
+    // 두 SELECT를 D1 batch 한 번으로 보내 네트워크 왕복을 줄입니다.
+    const [countResult, result] = await env.DB.batch([
+      boundCountStatement,
+      statement.bind(...bindings, pageSize, offset),
+    ]);
+    const countRow = (countResult.results?.[0] || {}) as Record<string, unknown>;
+    const total = Number(countRow.count || 0);
     return json({ ok: true, rows: result.results ?? [], total, page, pageSize, pages: Math.max(1, Math.ceil(total / pageSize)), me });
   } catch (error) {
     console.error('document list failed', error);

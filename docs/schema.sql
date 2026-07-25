@@ -165,6 +165,10 @@ CREATE TABLE IF NOT EXISTS org_settings (
 
 CREATE INDEX IF NOT EXISTS idx_documents_status ON documents (status);
 CREATE INDEX IF NOT EXISTS idx_documents_created ON documents (created_at);
+CREATE INDEX IF NOT EXISTS idx_documents_updated ON documents (updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_documents_title ON documents (title);
+CREATE INDEX IF NOT EXISTS idx_documents_status_created ON documents (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_documents_type_status_created ON documents (doc_type, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_documents_approver ON documents (approver_user_id, status);
 CREATE INDEX IF NOT EXISTS idx_documents_reviewer ON documents (reviewer_user_id, status);
 CREATE INDEX IF NOT EXISTS idx_documents_drafter ON documents (drafter_user_id, status);
@@ -172,7 +176,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_documents_request_id ON documents (client_
 CREATE INDEX IF NOT EXISTS idx_document_approvals_doc ON document_approvals (document_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_document_approval_lines_doc ON document_approval_lines (document_id, line_order);
 CREATE INDEX IF NOT EXISTS idx_document_approval_lines_pending ON document_approval_lines (user_id, status, document_id);
+CREATE INDEX IF NOT EXISTS idx_document_approval_lines_doc_status_order ON document_approval_lines (document_id, status, line_order);
 CREATE INDEX IF NOT EXISTS idx_received_documents_created ON received_documents (created_at);
+CREATE INDEX IF NOT EXISTS idx_received_documents_date ON received_documents (received_at DESC, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_received_documents_direction_date ON received_documents (direction, received_at DESC, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_received_documents_handler ON received_documents (handled_by_user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_received_documents_related ON received_documents (related_document_id, direction);
 CREATE INDEX IF NOT EXISTS idx_dispatch_links_registry ON document_dispatch_links (registry_id);
@@ -188,5 +195,5 @@ CREATE TABLE IF NOT EXISTS system_meta (
 );
 
 INSERT INTO system_meta (meta_key, meta_value, updated_at)
-VALUES ('schema_version', '2026-07-25.7', CURRENT_TIMESTAMP)
+VALUES ('schema_version', '2026-07-25.8', CURRENT_TIMESTAMP)
 ON CONFLICT(meta_key) DO UPDATE SET meta_value=excluded.meta_value, updated_at=excluded.updated_at;

@@ -308,7 +308,7 @@ import GovLayout from '../layouts/GovLayout.astro';
                 <div class="official-doc__emblem" data-emblem="preview"><img src="/logo.png" alt="대한불교밀교종 로고" /></div>
                 <h3 class="official-doc__orgname">사단법인 대한불교밀교종</h3>
               </div>
-              <p class="official-doc__number" data-preview-number>문서번호 : 밀교종-연도-000</p>
+              <div class="official-doc__number-row"><p class="official-doc__number" data-preview-number>문서번호 : 밀교종-연도-000</p></div>
             </div>
             <div class="official-doc__meta">
               <div class="official-doc__meta-row"><span>수신</span><strong data-preview-recipient>(내부결재)</strong></div>
@@ -349,11 +349,11 @@ import GovLayout from '../layouts/GovLayout.astro';
           <label><input type="radio" name="direction" value="접수" checked /> 접수(들어온 문서)</label>
           <label><input type="radio" name="direction" value="외부발송" /> 외부발송(문서24 등으로 내보낸 문서)</label>
         </div>
-        <div data-related-manual-row>
+        <div class="related-document-group" data-related-manual-row>
           <label for="r-related-manual">연결 내부문서 번호(선택)</label>
           <input id="r-related-manual" name="relatedDocumentId" type="text" maxlength="60" placeholder="예: 밀교종-YYYY-001" />
         </div>
-        <div data-related-select-row hidden>
+        <div class="related-document-group" data-related-select-row hidden>
           <label for="r-related-select">연결 내부문서 번호(선택)</label>
           <select id="r-related-select" name="relatedDocumentId" disabled>
             <option value="">발송대기함의 문서를 선택해 주세요</option>
@@ -435,6 +435,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           <label for="u-role">역할</label>
           <select id="u-role" name="role">
             <option value="user">일반 계정</option>
+            <option value="audit">감사(모든 문서 열람)</option>
             <option value="admin">관리자(계정관리 가능)</option>
           </select>
           <div class="account-permission-row">
@@ -545,7 +546,7 @@ import GovLayout from '../layouts/GovLayout.astro';
                 <div class="official-doc__emblem" data-emblem="detail"><img src="/logo.png" alt="대한불교밀교종 로고" /></div>
                 <h3 class="official-doc__orgname">사단법인 대한불교밀교종</h3>
               </div>
-              <p class="official-doc__number" data-detail-preview-number></p>
+              <div class="official-doc__number-row"><p class="official-doc__number" data-detail-preview-number></p></div>
             </div>
             <div class="official-doc__meta">
               <div class="official-doc__meta-row"><span>수신</span><strong data-detail-preview-recipient></strong></div>
@@ -880,7 +881,10 @@ import GovLayout from '../layouts/GovLayout.astro';
         $$('[data-page]', container).forEach((btn) => btn.addEventListener('click', () => onPage(Number(btn.dataset.page))));
       };
 
+      let documentRequestSerial=0;
       const refreshDocuments = async () => {
+        const requestSerial=++documentRequestSerial;
+        const requestView=currentView;
         statusEl.textContent = '조회 중입니다...';
         const data = await callApi('/api/documents/list', {
           token: getToken(), view: currentView, query: $('[data-query]').value.trim(), page: docPage,
@@ -888,20 +892,28 @@ import GovLayout from '../layouts/GovLayout.astro';
           dateTo: $('[data-date-to]').value, docType: $('[data-doc-type-filter]').value,
           category: categoryFilter.value, sort: $('[data-sort]').value,
         });
+        if(requestSerial!==documentRequestSerial||requestView!==currentView)return;
         if (!data.ok) { statusEl.textContent = data.message || '조회에 실패했습니다.'; return; }
         statusEl.textContent = `총 ${formatNumber(data.total)}건 · ${data.page}/${data.pages}쪽`;
         renderDocumentRows(data.rows || []);
         renderPagination($('[data-doc-pagination]'), data.page, data.pages, (page) => { docPage = page; refreshDocuments(); });
-        refreshSidebarCounts();
+        const countEl=$(`[data-count="${requestView}"]`);if(countEl)countEl.textContent=String(data.total||0);
+        refreshSidebarCounts(false).catch((error)=>console.error('대시보드 수량 갱신 실패',error));
       };
       const applyDashboardCounts = (counts = {}) => {
         const sidebarMap = { 임시저장: 'draft', 진행: 'progress', 결재대기: 'pending', 발송대기: 'send' };
         Object.entries(sidebarMap).forEach(([view, key]) => { const el = $(`[data-count="${view}"]`); if (el) el.textContent = String(counts[key] || 0); });
         $$('[data-home-count]').forEach((el) => { el.textContent = formatNumber(counts[el.dataset.homeCount] || 0); });
       };
-      const refreshDashboard = async () => {
+      let dashboardLoadedAt=0;
+      let dashboardRequest=null;
+      const refreshDashboard = async (force=false) => {
+        if(!force && dashboardRequest) return dashboardRequest;
+        if(!force && Date.now()-dashboardLoadedAt<15000) return {ok:true,cached:true};
+        dashboardRequest=(async()=>{
         const data = await callApi('/api/dashboard/summary', { token: getToken() });
         if (!data.ok) return data;
+        dashboardLoadedAt=Date.now();
         applyDashboardCounts(data.counts || {});
         const r2Warning = $('[data-r2-warning]'); if (r2Warning) r2Warning.hidden = !!data.storage?.r2Connected;
         const recentDocs = $('[data-home-recent-docs]');
@@ -911,8 +923,10 @@ import GovLayout from '../layouts/GovLayout.astro';
         recentRegistry.innerHTML = (data.recentRegistry || []).map((row) => `<button type="button" class="home-list-row" data-home-received-id="${esc(row.id)}"><span class="home-list-row__main"><strong>${esc(row.title)}</strong><small>${esc(row.id)} · ${esc(row.counterparty || '-')} · ${esc(row.received_at || '-')}</small></span><span class="registry-direction">${esc(row.direction)}</span></button>`).join('') || '<p class="muted">최근 등록 문서가 없습니다.</p>';
         $$('[data-home-received-id]', recentRegistry).forEach((button) => button.addEventListener('click', () => openReceivedDetail(button.dataset.homeReceivedId)));
         return data;
+        })();
+        try{return await dashboardRequest;}finally{dashboardRequest=null;}
       };
-      const refreshSidebarCounts = async () => refreshDashboard();
+      const refreshSidebarCounts = async (force=false) => refreshDashboard(force);
       const setTopNav = (name) => $$('[data-nav]').forEach((button) => button.classList.toggle('active', button.dataset.nav === name));
       const activateHome = () => {
         panelHome.hidden = false; panelDocuments.hidden = true; panelReceived.hidden = true;
@@ -926,7 +940,6 @@ import GovLayout from '../layouts/GovLayout.astro';
         $$('[data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
         $('[data-panel-title]').textContent = viewLabels[view] || '문서목록';
         setTopNav(view === '전체' ? 'registry' : 'approval');
-        renderDocumentRows([]);
         return refreshDocuments();
       };
       const activateReceivedView = () => {
@@ -1237,10 +1250,13 @@ import GovLayout from '../layouts/GovLayout.astro';
           payload.token=getToken(); payload.saveAsDraft=saveAsDraft; payload.formData=getTemplateValues();
           payload.reviewerUserIds=[...selectedReviewerIds]; payload.cooperatorUserIds=[...selectedCooperatorIds];
           payload.templateName=activeTemplate?.name || ''; payload.clientRequestId=$('[data-compose-request-id]').value || randomRequestId();
+          const me=getMe()||{};
+          const sameDrafterApprover=!saveAsDraft && String(payload.approverUserId||'')===String(me.id||'') && selectedReviewerIds.length===0 && selectedCooperatorIds.length===0;
+          if(sameDrafterApprover) alert('기안자와 결재자가 같을 경우 즉시 승인됩니다.');
           const result=await callApi('/api/documents/create',payload);
           if(!result.ok){statusEl.textContent=result.message||'저장에 실패했습니다.';return;}
           const uploadFailures=pendingAttachmentFiles.length?await uploadFiles('/api/documents/upload-attachment','documentId',result.id,pendingAttachmentFiles):[];
-          composeModal.hidden=true; await activateDocumentsView(saveAsDraft?'임시저장':'진행');
+          composeModal.hidden=true; await activateDocumentsView(result.nextView||(saveAsDraft?'임시저장':'진행'));
           statusEl.textContent=uploadFailures.length?`${result.id} 문서는 저장됐지만 첨부파일 일부가 실패했습니다: ${uploadFailures.join(' / ')}`:`${result.id} ${result.message}`;
         } finally { buttons.forEach((b)=>b.disabled=false); }
       });
@@ -1311,13 +1327,14 @@ import GovLayout from '../layouts/GovLayout.astro';
           positive.textContent=stage==='검토'?'검토완료':stage==='협조'?'협조완료':stage==='전결'?'전결':'승인';
           positive.dataset.action='승인';
         }
-        sendForm.hidden=!(doc.doc_type==='발송'&&doc.status==='승인');
-        $('[data-edit-draft]').hidden=doc.status!=='임시저장';$('[data-delete-draft]').hidden=doc.status!=='임시저장';
+        const canManageDocument=me.role==='admin'||doc.drafter_user_id===me.id;
+        sendForm.hidden=!(doc.doc_type==='발송'&&doc.status==='승인'&&canManageDocument);
+        $('[data-edit-draft]').hidden=!(doc.status==='임시저장'&&canManageDocument);$('[data-delete-draft]').hidden=!(doc.status==='임시저장'&&canManageDocument);
         $('[data-recall-document]').hidden=!(activeStatus&&(me.role==='admin'||doc.drafter_user_id===me.id));
         detailModal.hidden=false;
       };
       decideForm.addEventListener('submit',async(event)=>{event.preventDefault();const action=event.submitter?.dataset.action||'승인';const result=await callApi('/api/documents/decide',{token:getToken(),id:currentDetailId,action,memo:new FormData(decideForm).get('memo')});if(!result.ok){statusEl.textContent=result.message;return;}detailModal.hidden=true;statusEl.textContent=result.message;refreshDocuments();});
-      sendForm.addEventListener('submit',async(event)=>{event.preventDefault();const button=$('button[type="submit"]',sendForm);button.disabled=true;try{const result=await callApi('/api/documents/mark-sent',{token:getToken(),id:currentDetailId,sentMethod:new FormData(sendForm).get('sentMethod')});if(!result.ok){statusEl.textContent=result.message;return;}sendQueueDocuments=[];detailModal.hidden=true;statusEl.textContent=result.message;await Promise.all([refreshDocuments(),refreshDashboard(),refreshReceived()]);}finally{button.disabled=false;}});
+      sendForm.addEventListener('submit',async(event)=>{event.preventDefault();const button=$('button[type="submit"]',sendForm);button.disabled=true;try{const result=await callApi('/api/documents/mark-sent',{token:getToken(),id:currentDetailId,sentMethod:new FormData(sendForm).get('sentMethod')});if(!result.ok){statusEl.textContent=result.message;return;}sendQueueDocuments=[];detailModal.hidden=true;statusEl.textContent=result.message;await Promise.all([refreshDocuments(),refreshDashboard(true),refreshReceived()]);}finally{button.disabled=false;}});
       $('[data-delete-draft]').addEventListener('click',async()=>{if(!currentDetailId||!confirm('임시문서를 삭제하시겠습니까?'))return;const result=await callApi('/api/documents/delete-draft',{token:getToken(),id:currentDetailId});if(!result.ok){statusEl.textContent=result.message;return;}detailModal.hidden=true;statusEl.textContent=result.message;activateDocumentsView('임시저장');});
       const loadDocumentIntoCompose=async(doc,asCopy=false)=>{
         if(!doc)return;
@@ -1352,7 +1369,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         const w=window.open('','_blank','width=900,height=1000');
         if(!w)return;
         w.document.write(`<html><head><meta charset="utf-8"><title>${esc(currentDetailDoc?.title||'문서')}</title><style>
-          body{font-family:Batang,serif;padding:30px;color:#222}.official-doc{max-width:720px;margin:auto}.official-doc__masthead{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;column-gap:8px;margin-bottom:12px}.official-doc__brand{grid-column:2;display:flex;align-items:center;gap:6px;white-space:nowrap}.official-doc__number{grid-column:3;justify-self:end;white-space:nowrap;text-align:right;font-size:10px;color:#666;margin:0}.official-doc__issue,.official-doc__footer{text-align:center}.official-doc__emblem{width:32px;height:32px;flex:0 0 32px}.official-doc__emblem img{width:100%;height:100%;object-fit:contain}.official-doc__orgname{margin:0;letter-spacing:.1em}.official-doc__meta{border-top:2px solid #222;border-bottom:1px solid #222}.official-doc__meta-row{display:flex;gap:12px;padding:6px}.official-doc__meta-row>span{width:48px}.official-doc__body{min-height:300px;white-space:pre-wrap;padding:20px 0}.official-doc__approval-strip{display:flex;flex-wrap:wrap;justify-content:flex-end;width:620px;max-width:100%;margin:10px 0 0 auto}.approval-person{display:grid;grid-template-columns:34px minmax(0,1fr) 22px;flex:0 0 118px;border:1px solid #777;margin:-1px 0 0 -1px;min-height:34px;font-size:9px}.approval-person>*{display:flex;align-items:center;justify-content:center;padding:2px}.approval-person>span{background:#f4f0e6;border-right:1px solid #777}.approval-person>strong{flex-direction:column;line-height:1.15;overflow:hidden}.approval-person>em{font-style:normal;border-left:1px solid #777}.approval-person b,.approval-person i{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:normal;font-weight:400}.official-doc__issue-track--under{width:620px;max-width:100%;margin:4px 0 0 auto;text-align:right;font-size:10px}.official-doc__issue{margin-top:7px;padding-top:8px;border-top:1px solid #ddd}.official-doc__issue-name{display:inline-flex;align-items:center;gap:8px;font-weight:700}.stamp-mark{display:inline-flex;width:38px;height:38px;align-items:center;justify-content:center;border:2px solid #b22;border-radius:50%;color:#b22;font-size:9px;overflow:hidden}.stamp-mark img{width:100%;height:100%;object-fit:contain}
+          body{font-family:Batang,serif;padding:30px;color:#222}.official-doc{max-width:720px;margin:auto}.official-doc__masthead{display:flex;flex-direction:column;align-items:stretch;margin-bottom:12px;width:100%}.official-doc__brand{display:flex;align-items:center;align-self:center;justify-content:center;gap:6px;white-space:nowrap}.official-doc__number-row{display:flex;justify-content:flex-end;width:100%;min-height:18px;padding-top:8px}.official-doc__number{white-space:nowrap;text-align:right;font-size:10px;color:#666;margin:0}.official-doc__issue,.official-doc__footer{text-align:center}.official-doc__emblem{width:32px;height:32px;flex:0 0 32px}.official-doc__emblem img{width:100%;height:100%;object-fit:contain}.official-doc__orgname{margin:0;letter-spacing:.1em}.official-doc__meta{border-top:2px solid #222;border-bottom:1px solid #222}.official-doc__meta-row{display:flex;gap:12px;padding:6px}.official-doc__meta-row>span{width:48px}.official-doc__body{min-height:300px;white-space:pre-wrap;padding:20px 0}.official-doc__approval-strip{display:flex;flex-wrap:wrap;justify-content:flex-end;width:620px;max-width:100%;margin:10px 0 0 auto}.approval-person{display:grid;grid-template-columns:34px minmax(0,1fr) 22px;flex:0 0 118px;border:1px solid #777;margin:-1px 0 0 -1px;min-height:34px;font-size:9px}.approval-person>*{display:flex;align-items:center;justify-content:center;padding:2px}.approval-person>span{background:#f4f0e6;border-right:1px solid #777}.approval-person>strong{flex-direction:column;line-height:1.15;overflow:hidden}.approval-person>em{font-style:normal;border-left:1px solid #777}.approval-person b,.approval-person i{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:normal;font-weight:400}.official-doc__issue-track--under{width:620px;max-width:100%;margin:4px 0 0 auto;text-align:right;font-size:10px}.official-doc__issue{margin-top:7px;padding-top:8px;border-top:1px solid #ddd}.official-doc__issue-name{display:inline-flex;align-items:center;gap:8px;font-weight:700}.stamp-mark{display:inline-flex;width:38px;height:38px;align-items:center;justify-content:center;border:2px solid #b22;border-radius:50%;color:#b22;font-size:9px;overflow:hidden}.stamp-mark img{width:100%;height:100%;object-fit:contain}
         </style></head><body>${node.outerHTML}</body></html>`);
         w.document.close();
         w.focus();
@@ -1439,14 +1456,14 @@ import GovLayout from '../layouts/GovLayout.astro';
           const editing=!!payload.id;const result=await callApi(editing?'/api/received/update':'/api/received/create',payload);
           if(!result.ok){receivedStatus.textContent=result.message;return;}
           const uploadFailures=pendingReceivedFiles.length?await uploadFiles('/api/received/upload-attachment','receivedDocumentId',result.id,pendingReceivedFiles):[];
-          sendQueueDocuments=[];receivedModal.hidden=true;await Promise.all([refreshReceived(),refreshDashboard(),refreshDocuments()]);
+          sendQueueDocuments=[];receivedModal.hidden=true;await Promise.all([refreshReceived(),refreshDashboard(true),refreshDocuments()]);
           receivedStatus.textContent=uploadFailures.length?`${result.id}은 저장됐지만 첨부파일 일부가 실패했습니다: ${uploadFailures.join(' / ')}`:(result.message||`${result.id} 저장되었습니다.`);
         }finally{submitButton.disabled=false;}
       });
       const receivedDetailModal=$('[data-received-detail-modal]');$$('[data-close-received-detail]').forEach((b)=>b.addEventListener('click',()=>receivedDetailModal.hidden=true));
       const openReceivedDetail=async(id)=>{const data=await callApi('/api/received/detail',{token:getToken(),id});if(!data.ok){receivedStatus.textContent=data.message;return;}currentReceivedDetailId=id;currentReceivedDetailDoc=data.document;const d=data.document;const me=getMe()||{};const canManageReceived=me.role==='admin'||d.handled_by_user_id===me.id;$('[data-edit-received-detail]').hidden=!canManageReceived;$('[data-delete-received-detail]').hidden=!canManageReceived;$('[data-received-detail-title]').textContent=`${d.id} · ${d.title}`;$('[data-received-detail-meta]').innerHTML=[['구분',d.direction],['접수·발송일',d.received_at],['상대기관',d.counterparty],['전달경로',d.source_system||'-'],['상대문서번호',d.external_doc_number||'-'],['담당부서',d.department||'-'],['연결 내부문서',d.related_document_id||'-'],['등록자',d.handled_by],['메모',d.memo||'-']].map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');const list=$('[data-received-detail-attachments]');list.innerHTML=(data.attachments||[]).map((a)=>`<li class="attachment-list__item"><span>${esc(a.file_name)}</span><button type="button" class="btn btn-outline" data-download-received="${esc(a.id)}">다운로드</button></li>`).join('')||'<li class="muted">첨부파일이 없습니다.</li>';$$('[data-download-received]',list).forEach((b)=>b.addEventListener('click',()=>downloadBase64('/api/received/attachment-data',b.dataset.downloadReceived)));receivedDetailModal.hidden=false;};
       $('[data-edit-received-detail]').addEventListener('click',async()=>{const d=currentReceivedDetailDoc;if(!d)return;receivedForm.reset();receivedForm.elements.id.value=d.id;receivedForm.elements.direction.value=d.direction;receivedForm.elements.title.value=d.title||'';receivedForm.elements.counterparty.value=d.counterparty||'';receivedForm.elements.sourceSystem.value=d.source_system||'';receivedForm.elements.externalDocNumber.value=d.external_doc_number||'';receivedForm.elements.receivedAt.value=d.received_at||'';receivedForm.elements.department.value=d.department||'';receivedForm.elements.memo.value=d.memo||'';pendingReceivedFiles=[];renderReceivedPending();await syncReceivedDirection();if(d.direction==='외부발송'){renderSendQueueOptions(d.related_document_id||'',d);relatedSelect.value=d.related_document_id||'';}else{relatedManualInput.value=d.related_document_id||'';}$('[data-received-modal-title]').textContent=`접수·발송 수정 — ${d.id}`;receivedDetailModal.hidden=true;receivedModal.hidden=false;});
-      $('[data-delete-received-detail]').addEventListener('click',async()=>{if(!currentReceivedDetailId||!confirm('이 접수·발송대장 기록과 첨부파일을 삭제하시겠습니까?'))return;const result=await callApi('/api/received/delete',{token:getToken(),id:currentReceivedDetailId});if(!result.ok){receivedStatus.textContent=result.message;return;}sendQueueDocuments=[];receivedDetailModal.hidden=true;receivedStatus.textContent=result.message;await Promise.all([refreshReceived(),refreshDashboard(),refreshDocuments()]);});
+      $('[data-delete-received-detail]').addEventListener('click',async()=>{if(!currentReceivedDetailId||!confirm('이 접수·발송대장 기록과 첨부파일을 삭제하시겠습니까?'))return;const result=await callApi('/api/received/delete',{token:getToken(),id:currentReceivedDetailId});if(!result.ok){receivedStatus.textContent=result.message;return;}sendQueueDocuments=[];receivedDetailModal.hidden=true;receivedStatus.textContent=result.message;await Promise.all([refreshReceived(),refreshDashboard(true),refreshDocuments()]);});
 
       // 서식관리
       const templatesModal=$('[data-templates-modal]'),templateForm=$('[data-template-form]'),templateBuilder=$('[data-template-field-builder]');
@@ -1465,7 +1482,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       const resetUserForm=()=>{userForm.reset();userForm.elements.id.value='';$('[data-user-form-title]').textContent='계정 추가';$('[data-user-password-label]').textContent='비밀번호(8자 이상)';userForm.elements.password.required=true;$('[data-user-active-row]').hidden=true;$('[data-user-form-submit]').textContent='계정 추가';$('[data-user-form-status]').textContent='';userForm.elements.username.disabled=false;};
       $('[data-user-form-reset]').addEventListener('click',resetUserForm);
       const renderUsersTable=(rows)=>{
-        usersTable.innerHTML=`<table class="doc-table__frame doc-table__frame--users"><colgroup><col class="col-user-name" /><col class="col-user-id" /><col class="col-user-position" /><col class="col-user-grade" /><col class="col-user-department" /><col class="col-user-role" /><col class="col-user-approval" /><col class="col-user-status" /><col class="col-user-action" /></colgroup><thead><tr><th>성명</th><th>아이디</th><th>직책</th><th>직급</th><th>담당부서</th><th>역할</th><th>결재권</th><th>상태</th><th>관리</th></tr></thead><tbody>${rows.map((u)=>`<tr><td><strong>${esc(u.name)}</strong></td><td class="mono">${esc(u.username)}</td><td>${esc(u.position||'-')}</td><td>${esc(u.grade||'-')}</td><td>${esc(u.department||'-')}</td><td>${u.role==='admin'?'관리자':'일반'}</td><td><span class="status-chip ${u.can_approve?'status-chip--ok':''}">${u.can_approve?'부여':'없음'}</span></td><td><span class="status-chip ${u.active?'status-chip--ok':'status-chip--off'}">${u.active?'활성':'비활성'}</span></td><td><button type="button" class="btn btn-outline btn-sm" data-edit-user="${esc(u.id)}">수정</button></td></tr>`).join('')||'<tr class="doc-table__empty-row"><td colspan="9" class="empty"><strong>등록된 계정이 없습니다.</strong><span>오른쪽 입력영역에서 새 계정을 추가할 수 있습니다.</span></td></tr>'}</tbody></table>`;
+        usersTable.innerHTML=`<table class="doc-table__frame doc-table__frame--users"><colgroup><col class="col-user-name" /><col class="col-user-id" /><col class="col-user-position" /><col class="col-user-grade" /><col class="col-user-department" /><col class="col-user-role" /><col class="col-user-approval" /><col class="col-user-status" /><col class="col-user-action" /></colgroup><thead><tr><th>성명</th><th>아이디</th><th>직책</th><th>직급</th><th>담당부서</th><th>역할</th><th>결재권</th><th>상태</th><th>관리</th></tr></thead><tbody>${rows.map((u)=>`<tr><td><strong>${esc(u.name)}</strong></td><td class="mono">${esc(u.username)}</td><td>${esc(u.position||'-')}</td><td>${esc(u.grade||'-')}</td><td>${esc(u.department||'-')}</td><td>${u.role==='admin'?'관리자':u.role==='audit'?'감사':'일반'}</td><td><span class="status-chip ${u.can_approve?'status-chip--ok':''}">${u.can_approve?'부여':'없음'}</span></td><td><span class="status-chip ${u.active?'status-chip--ok':'status-chip--off'}">${u.active?'활성':'비활성'}</span></td><td><button type="button" class="btn btn-outline btn-sm" data-edit-user="${esc(u.id)}">수정</button></td></tr>`).join('')||'<tr class="doc-table__empty-row"><td colspan="9" class="empty"><strong>등록된 계정이 없습니다.</strong><span>오른쪽 입력영역에서 새 계정을 추가할 수 있습니다.</span></td></tr>'}</tbody></table>`;
         $$('[data-edit-user]',usersTable).forEach((b)=>b.addEventListener('click',()=>{const u=rows.find((x)=>x.id===b.dataset.editUser);if(!u)return;userForm.elements.id.value=u.id;userForm.elements.name.value=u.name;userForm.elements.username.value=u.username;userForm.elements.username.disabled=true;userForm.elements.password.required=false;userForm.elements.position.value=u.position||'';userForm.elements.grade.value=u.grade||'';userForm.elements.department.value=u.department||'';userForm.elements.role.value=u.role;userForm.elements.canApprove.checked=!!u.can_approve;userForm.elements.active.checked=!!u.active;$('[data-user-active-row]').hidden=false;$('[data-user-form-title]').textContent=`계정 수정 — ${u.name}`;$('[data-user-password-label]').textContent='새 비밀번호(변경 시에만 입력)';$('[data-user-form-submit]').textContent='수정 저장';}));
       };
       const refreshUsersTable=async()=>{const d=await callApi('/api/users/list',{token:getToken(),includeInactive:true});if(d.ok)renderUsersTable(d.rows||[]);else $('[data-user-form-status]').textContent=d.message;};
@@ -1509,7 +1526,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           $$('[data-dept]',tree).forEach((item)=>item.classList.toggle('active',item===button));
           const dept=button.dataset.dept,members=membersOf(dept);
           $('[data-orgchart-title]').textContent=`${dept} · ${members.length}명`;
-          $('[data-orgchart-members]').innerHTML=`<table class="orgchart-members-table"><colgroup><col class="org-name" /><col class="org-id" /><col class="org-position" /><col class="org-grade" /><col class="org-department" /><col class="org-role" /></colgroup><thead><tr><th>성명</th><th>아이디</th><th>직책</th><th>직급</th><th>소속</th><th>구분</th></tr></thead><tbody>${members.map((u)=>`<tr><td><strong>${esc(u.name)}</strong></td><td class="mono">${esc(u.username)}</td><td>${esc(u.position||'-')}</td><td>${esc(u.grade||'-')}</td><td>${esc(u.department||'-')}</td><td>${u.role==='admin'?'관리자':'일반'}</td></tr>`).join('')||'<tr><td colspan="6" class="empty"><strong>이 부서에 지정된 인원이 없습니다.</strong><span>계정관리에서 담당부서를 지정하면 여기에 표시됩니다.</span></td></tr>'}</tbody></table>`;
+          $('[data-orgchart-members]').innerHTML=`<table class="orgchart-members-table"><colgroup><col class="org-name" /><col class="org-id" /><col class="org-position" /><col class="org-grade" /><col class="org-department" /><col class="org-role" /></colgroup><thead><tr><th>성명</th><th>아이디</th><th>직책</th><th>직급</th><th>소속</th><th>구분</th></tr></thead><tbody>${members.map((u)=>`<tr><td><strong>${esc(u.name)}</strong></td><td class="mono">${esc(u.username)}</td><td>${esc(u.position||'-')}</td><td>${esc(u.grade||'-')}</td><td>${esc(u.department||'-')}</td><td>${u.role==='admin'?'관리자':u.role==='audit'?'감사':'일반'}</td></tr>`).join('')||'<tr><td colspan="6" class="empty"><strong>이 부서에 지정된 인원이 없습니다.</strong><span>계정관리에서 담당부서를 지정하면 여기에 표시됩니다.</span></td></tr>'}</tbody></table>`;
         };
         $$('[data-dept]',tree).forEach((b)=>b.addEventListener('click',()=>selectDepartment(b)));
         const first=$('[data-dept]',tree);if(first)selectDepartment(first);
@@ -1792,6 +1809,10 @@ import GovLayout from '../layouts/GovLayout.astro';
     .checkbox-row { display: flex; align-items: center; gap: 0.4rem; font-weight: 400 !important; margin-top: 0.6rem !important; }
 
     .compose-form { display: flex; flex-direction: column; gap: 0.9rem; }
+    .related-document-group { display: grid; gap: 0.62rem; padding: 0.34rem 0 0.54rem; }
+    .related-document-group label { display: block; margin: 0; line-height: 1.35; }
+    .related-document-group select { margin: 0; }
+    .related-document-group .hint { display: block; margin: 0.02rem 0 0; line-height: 1.5; }
     .compose-form label { font-weight: 600; font-size: 0.86rem; margin: 0; }
     .compose-form input, .compose-form select, .compose-form textarea {
       border: 1px solid var(--gov-border); border-radius: 8px; padding: 0.62rem 0.75rem; font-size: 0.92rem; background: #fff;
@@ -1910,12 +1931,12 @@ import GovLayout from '../layouts/GovLayout.astro';
       min-height: 100%;
     }
     .official-doc__masthead {
-      display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-      align-items: center; column-gap: 0.55rem; margin-bottom: 0.8rem;
+      display: flex; flex-direction: column; align-items: stretch;
+      gap: 0; margin-bottom: 0.8rem; width: 100%;
     }
     .official-doc__brand {
-      grid-column: 2; display: inline-flex; align-items: center; justify-content: center;
-      gap: 0.42rem; min-width: 0; white-space: nowrap;
+      display: inline-flex; align-items: center; justify-content: center; align-self: center;
+      gap: 0.42rem; min-width: 0; max-width: 100%; white-space: nowrap;
     }
     .official-doc__emblem {
       display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px;
@@ -1924,9 +1945,12 @@ import GovLayout from '../layouts/GovLayout.astro';
     }
     .official-doc__emblem img { width: 100%; height: 100%; object-fit: contain; }
     .official-doc__orgname { margin: 0; font-size: 1.02rem; font-weight: 700; letter-spacing: 0.1em; white-space: nowrap; }
+    .official-doc__number-row {
+      display: flex; justify-content: flex-end; align-items: center; width: 100%;
+      min-height: 1.3rem; padding-top: 0.52rem;
+    }
     .official-doc__number {
-      grid-column: 3; justify-self: end; align-self: end; text-align: right; white-space: nowrap;
-      font-size: 0.67rem; color: #7a7568; margin: 0 0 0.08rem;
+      text-align: right; white-space: nowrap; font-size: 0.67rem; color: #7a7568; margin: 0;
     }
     .official-doc__meta { border-top: 2px solid #23262b; border-bottom: 1px solid #23262b; padding: 0.2rem 0; }
     .official-doc__meta-row { display: flex; gap: 0.6rem; padding: 0.3rem 0; font-size: 0.82rem; }
@@ -1980,9 +2004,7 @@ import GovLayout from '../layouts/GovLayout.astro';
     .stamp-mark img { width: 100%; height: 100%; object-fit: contain; }
     .official-doc__footer { text-align: center; font-size: 0.66rem; color: #a39d8d; margin-top: 1.1rem; }
     @media (max-width: 560px) {
-      .official-doc__masthead { grid-template-columns: 1fr; row-gap: 0.28rem; }
-      .official-doc__brand { grid-column: 1; justify-self: center; }
-      .official-doc__number { grid-column: 1; justify-self: end; }
+      .official-doc__number-row { padding-top: 0.46rem; }
       .official-doc__orgname { font-size: 0.94rem; letter-spacing: 0.06em; }
     }
 
