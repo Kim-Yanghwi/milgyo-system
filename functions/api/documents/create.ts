@@ -184,13 +184,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const lines: ApprovalLineInput[] = [];
-  reviewerUserIds.forEach((id) => {
-    const user = userMap.get(id);
-    if (user) lines.push({ lineType: '검토', userId: user.id, userName: user.name, userPosition: user.position });
-  });
   cooperatorUserIds.forEach((id) => {
     const user = userMap.get(id);
     if (user) lines.push({ lineType: '협조', userId: user.id, userName: user.name, userPosition: user.position });
+  });
+  reviewerUserIds.forEach((id) => {
+    const user = userMap.get(id);
+    if (user) lines.push({ lineType: '검토', userId: user.id, userName: user.name, userPosition: user.position });
   });
   if (finalApprover) lines.push({
     lineType: approvalMode as '결재' | '전결',

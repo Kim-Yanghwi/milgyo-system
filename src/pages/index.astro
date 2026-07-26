@@ -67,7 +67,8 @@ import GovLayout from '../layouts/GovLayout.astro';
         <section class="sidebar-profile" aria-label="로그인 계정 정보">
           <div class="sidebar-profile__row"><span>이름</span><strong data-me-name>-</strong></div>
           <div class="sidebar-profile__row"><span>직책</span><strong data-me-position>-</strong></div>
-          <div class="sidebar-profile__row"><span>담당부서</span><strong data-me-department>-</strong></div>
+          <div class="sidebar-profile__row"><span>1차부서</span><strong data-me-department-primary>-</strong></div>
+          <div class="sidebar-profile__row sidebar-profile__row--secondary" data-me-department-secondary-row hidden><span>2차부서</span><strong data-me-department-secondary>-</strong></div>
         </section>
         <button type="button" class="btn btn-primary btn-block sidebar-compose" data-open-compose>+ 문서작성</button>
 
@@ -221,15 +222,15 @@ import GovLayout from '../layouts/GovLayout.astro';
 
             <div data-reviewer-approver-fields>
               <div class="approval-picker">
-                <div class="approval-picker__heading"><label for="c-reviewer">검토자(선택 · 복수 지정 가능)</label><small>지정 순서대로 검토합니다.</small></div>
-                <div class="approval-picker__controls"><select id="c-reviewer" data-reviewer-select></select><button type="button" class="btn btn-outline btn-sm" data-add-reviewer>추가</button></div>
-                <div class="approval-picker__list" data-reviewer-list><span class="muted">지정된 검토자가 없습니다.</span></div>
+                <div class="approval-picker__heading"><label for="c-cooperator">협조자(선택 · 복수 지정 가능)</label><small>지정 순서대로 먼저 협조합니다.</small></div>
+                <div class="approval-picker__controls"><select id="c-cooperator" data-cooperator-select></select><button type="button" class="btn btn-outline btn-sm" data-add-cooperator>추가</button></div>
+                <div class="approval-picker__list" data-cooperator-list><span class="muted">지정된 협조자가 없습니다.</span></div>
               </div>
 
               <div class="approval-picker">
-                <div class="approval-picker__heading"><label for="c-cooperator">협조자(선택 · 복수 지정 가능)</label><small>검토 후 지정 순서대로 협조합니다.</small></div>
-                <div class="approval-picker__controls"><select id="c-cooperator" data-cooperator-select></select><button type="button" class="btn btn-outline btn-sm" data-add-cooperator>추가</button></div>
-                <div class="approval-picker__list" data-cooperator-list><span class="muted">지정된 협조자가 없습니다.</span></div>
+                <div class="approval-picker__heading"><label for="c-reviewer">검토자(선택 · 복수 지정 가능)</label><small>협조 완료 후 지정 순서대로 검토합니다.</small></div>
+                <div class="approval-picker__controls"><select id="c-reviewer" data-reviewer-select></select><button type="button" class="btn btn-outline btn-sm" data-add-reviewer>추가</button></div>
+                <div class="approval-picker__list" data-reviewer-list><span class="muted">지정된 검토자가 없습니다.</span></div>
               </div>
 
               <label>최종 처리방식</label>
@@ -714,6 +715,14 @@ import GovLayout from '../layouts/GovLayout.astro';
         if (!dep.children) return `<option value="${esc(dep.name)}">${esc(dep.name)}</option>`;
         return `<optgroup label="${esc(dep.name)}"><option value="${esc(dep.name)}">${esc(dep.name)}(전체)</option>${dep.children.map((child) => `<option value="${esc(dep.name)} - ${esc(child)}">　ㄴ ${esc(child)}</option>`).join('')}</optgroup>`;
       }).join('');
+      const resolveDepartmentPath = (value) => {
+        const text = String(value || '').trim();
+        if (!text) return { primary: '-', secondary: '' };
+        const parts = text.split(/\s+-\s+/).map((part) => part.trim()).filter(Boolean);
+        if (parts.length > 1) return { primary: parts[0], secondary: parts.slice(1).join(' - ') };
+        const parent = departmentTree.find((dep) => Array.isArray(dep.children) && dep.children.includes(text));
+        return parent ? { primary: parent.name, secondary: text } : { primary: text, secondary: '' };
+      };
 
       const loginScreen = $('[data-login-screen]');
       const appShell = $('[data-app-shell]');
@@ -725,7 +734,9 @@ import GovLayout from '../layouts/GovLayout.astro';
       const meLabel = $('[data-me-label]');
       const meName = $('[data-me-name]');
       const mePosition = $('[data-me-position]');
-      const meDepartment = $('[data-me-department]');
+      const meDepartmentPrimary = $('[data-me-department-primary]');
+      const meDepartmentSecondary = $('[data-me-department-secondary]');
+      const meDepartmentSecondaryRow = $('[data-me-department-secondary-row]');
       const openUsersBtn = $('[data-open-users]');
       const openTemplatesBtn = $('[data-open-templates]');
       const openTemplatesFromComposeBtn = $('[data-open-templates-from-compose]');
@@ -749,7 +760,10 @@ import GovLayout from '../layouts/GovLayout.astro';
           meLabel.textContent = `${me.name}${me.position ? ' · ' + me.position : ''}`;
           meName.textContent = me.name || '-';
           mePosition.textContent = me.position || '-';
-          meDepartment.textContent = me.department || '-';
+          const departmentPath = resolveDepartmentPath(me.department);
+          meDepartmentPrimary.textContent = departmentPath.primary;
+          meDepartmentSecondary.textContent = departmentPath.secondary || '-';
+          meDepartmentSecondaryRow.hidden = !departmentPath.secondary;
           const admin = me.role === 'admin';
           openUsersBtn.hidden = !admin;
           openTemplatesBtn.hidden = !admin;
@@ -1182,7 +1196,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         const mode = getApprovalMode();
         trackChoice.hidden = !(important && mode === '결재');
         const route = mode === '전결' ? '전결자' : '최종 결재자';
-        trackHint.textContent = `검토자(복수 가능) → 협조자(복수 가능) → ${route} 순으로 처리됩니다. 검토자와 협조자는 생략할 수 있습니다.`;
+        trackHint.textContent = `협조자 또는 검토자(선택사항 · 복수 가능) → ${route} 순으로 처리됩니다. 둘 다 지정한 경우 협조 후 검토합니다.`;
       };
       categorySelect.innerHTML = allCategories.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
       categorySelect.addEventListener('change', () => {
@@ -1215,8 +1229,8 @@ import GovLayout from '../layouts/GovLayout.astro';
         const trackLabel = track === '이사장결재' ? '이사장 결재' : track === '이사회의결' ? '이사회 의결' : track === '일반결재' ? '일반 결재' : '전결';
         $('[data-preview-track]').textContent = `${mode}: ${trackLabel}`;
         const previewLines = [
-          ...selectedReviewerIds.map((id) => ({ type: '검토', user: findUser(id) })),
           ...selectedCooperatorIds.map((id) => ({ type: '협조', user: findUser(id) })),
+          ...selectedReviewerIds.map((id) => ({ type: '검토', user: findUser(id) })),
           { type: mode, user: findUser(data.get('approverUserId')) || (mode === '전결' ? me : null) },
         ];
         renderApprovalStrip($('[data-preview-approval-strip]'), { name: me.name || '-', position: me.position || '-' }, previewLines, false);
@@ -1398,7 +1412,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         const w=window.open('','_blank','width=900,height=1000');
         if(!w)return;
         w.document.write(`<html><head><meta charset="utf-8"><title>${esc(currentDetailDoc?.title||'문서')}</title><style>
-          body{font-family:Batang,serif;padding:30px;color:#222}.official-doc{max-width:720px;margin:auto}.official-doc__masthead{display:flex;flex-direction:column;align-items:stretch;margin-bottom:12px;width:100%}.official-doc__brand{display:flex;align-items:center;align-self:center;justify-content:center;gap:6px;white-space:nowrap}.official-doc__number-row{display:flex;justify-content:flex-end;width:100%;min-height:18px;padding-top:8px}.official-doc__number{white-space:nowrap;text-align:right;font-size:10px;color:#666;margin:0}.official-doc__issue,.official-doc__footer{text-align:center}.official-doc__emblem{width:32px;height:32px;flex:0 0 32px}.official-doc__emblem img{width:100%;height:100%;object-fit:contain}.official-doc__orgname{margin:0;letter-spacing:.1em}.official-doc__meta{border-top:2px solid #222;border-bottom:1px solid #222}.official-doc__meta-row{display:flex;gap:12px;padding:6px}.official-doc__meta-row>span{width:48px}.official-doc__body{min-height:300px;white-space:pre-wrap;padding:20px 0}.official-doc__approval-strip{display:flex;flex-wrap:wrap;justify-content:flex-end;width:620px;max-width:100%;margin:10px 0 0 auto}.approval-person{display:grid;grid-template-columns:34px minmax(0,1fr) 22px;flex:0 0 118px;border:1px solid #777;margin:-1px 0 0 -1px;min-height:34px;font-size:9px}.approval-person>*{display:flex;align-items:center;justify-content:center;padding:2px}.approval-person>span{background:#f4f0e6;border-right:1px solid #777}.approval-person>strong{flex-direction:column;line-height:1.15;overflow:hidden}.approval-person>em{font-style:normal;border-left:1px solid #777}.approval-person b,.approval-person i{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:normal;font-weight:400}.official-doc__issue-track--under{width:620px;max-width:100%;margin:4px 0 0 auto;text-align:right;font-size:10px}.official-doc__issue{margin-top:7px;padding-top:14px;border-top:1px solid #ddd}.official-doc__issue-name{position:relative;display:inline-flex;align-items:center;gap:11px;font-weight:700}.official-doc__issuer-org{position:relative;display:inline-block;line-height:1.45;padding-right:17px}.official-doc__issuer-org-text{position:relative;z-index:2;white-space:nowrap}.official-doc__issuer-signer{white-space:nowrap}.stamp-mark{position:absolute;z-index:1;right:-7px;bottom:-9px;display:inline-flex;width:40px;height:40px;align-items:center;justify-content:center;border:2px solid #b22;border-radius:50%;color:#b22;font-size:9px;overflow:hidden;transform:none}.stamp-mark--image{border:0;border-radius:0;opacity:.9;overflow:visible;transform:none;mix-blend-mode:multiply}.stamp-mark img{display:block;width:100%;height:100%;object-fit:contain}
+          body{font-family:Batang,serif;padding:30px;color:#222}.official-doc{max-width:720px;margin:auto}.official-doc__masthead{display:flex;flex-direction:column;align-items:stretch;margin-bottom:12px;width:100%}.official-doc__brand{display:flex;align-items:center;align-self:center;justify-content:center;gap:6px;white-space:nowrap}.official-doc__number-row{display:flex;justify-content:flex-end;width:100%;min-height:18px;padding-top:8px}.official-doc__number{white-space:nowrap;text-align:right;font-size:10px;color:#666;margin:0}.official-doc__issue,.official-doc__footer{text-align:center}.official-doc__emblem{width:32px;height:32px;flex:0 0 32px}.official-doc__emblem img{width:100%;height:100%;object-fit:contain}.official-doc__orgname{margin:0;letter-spacing:.1em}.official-doc__meta{border-top:2px solid #222;border-bottom:1px solid #222}.official-doc__meta-row{display:flex;gap:12px;padding:6px}.official-doc__meta-row>span{width:48px}.official-doc__body{min-height:300px;white-space:pre-wrap;padding:20px 0}.official-doc__approval-strip{display:flex;flex-wrap:wrap;justify-content:flex-end;width:620px;max-width:100%;margin:10px 0 0 auto}.approval-person{display:grid;grid-template-columns:30px minmax(70px,1fr) 20px;flex:0 0 126px;border:1px solid #777;margin:-1px 0 0 -1px;min-height:36px;font-size:8.7px}.approval-person>*{display:flex;align-items:center;justify-content:center;padding:2px}.approval-person>span{background:#f4f0e6;border-right:1px solid #777}.approval-person>strong{flex-direction:column;line-height:1.15;overflow:hidden}.approval-person>em{font-style:normal;border-left:1px solid #777}.approval-person b,.approval-person i{display:block;max-width:100%;white-space:nowrap;font-style:normal;font-weight:400}.approval-person b{overflow:visible;text-overflow:clip;font-size:8px;letter-spacing:-.04em}.approval-person i{overflow:hidden;text-overflow:ellipsis;font-size:8.5px}.official-doc__issue-track--under{width:620px;max-width:100%;margin:4px 0 0 auto;text-align:right;font-size:10px}.official-doc__issue{margin-top:7px;padding-top:14px;border-top:1px solid #ddd}.official-doc__issue-name{position:relative;display:inline-flex;flex-direction:column;align-items:flex-end;gap:12px;font-weight:700}.official-doc__issuer-org{position:relative;display:inline-block;line-height:1.45;padding-right:17px}.official-doc__issuer-org-text{position:relative;z-index:2;white-space:nowrap}.official-doc__issuer-signer{display:block;margin-right:17px;line-height:1.35;white-space:nowrap;text-align:right}.stamp-mark{position:absolute;z-index:1;right:-7px;bottom:-9px;display:inline-flex;width:40px;height:40px;align-items:center;justify-content:center;border:2px solid #b22;border-radius:50%;color:#b22;font-size:9px;overflow:hidden;transform:none}.stamp-mark--image{border:0;border-radius:0;opacity:.9;overflow:visible;transform:none;mix-blend-mode:multiply}.stamp-mark img{display:block;width:100%;height:100%;object-fit:contain}.official-doc__footer{margin-top:30px}
         </style></head><body>${node.outerHTML}</body></html>`);
         w.document.close();
         w.focus();
@@ -1693,12 +1707,13 @@ import GovLayout from '../layouts/GovLayout.astro';
       border: 1px solid #cfd8e6; border-radius: 8px; background: #f7f9fc;
       box-shadow: 0 2px 7px rgba(23, 49, 81, 0.05);
     }
-    .sidebar-profile__row { display: grid; grid-template-columns: 76px minmax(0, 1fr); min-height: 34px; border-bottom: 1px solid #e1e6ee; }
+    .sidebar-profile__row { display: grid; grid-template-columns: 70px minmax(0, 1fr); min-height: 34px; border-bottom: 1px solid #e1e6ee; }
     .sidebar-profile__row:last-child { border-bottom: 0; }
-    .sidebar-profile__row span, .sidebar-profile__row strong { display: flex; align-items: center; min-width: 0; padding: 0.38rem 0.48rem; font-size: 0.76rem; }
+    .sidebar-profile__row span, .sidebar-profile__row strong { display: flex; align-items: center; min-width: 0; padding: 0.38rem 0.44rem; font-size: 0.75rem; }
     .sidebar-profile__row span { color: #526174; background: #edf2f8; font-weight: 700; white-space: nowrap; }
     .sidebar-profile__row strong { color: var(--gov-text); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sidebar-compose { margin-bottom: 0.4rem; }
+    .sidebar-profile__row--secondary strong { font-size: 0.69rem; letter-spacing: -0.035em; text-overflow: clip; }
+    .sidebar-compose { margin-top: 0.08rem; margin-bottom: 0.4rem; }
     .sidebar-group__title { font-size: 0.78rem; color: #fff; background: #557eb1; font-weight: 700; margin: 0 0 0.25rem; padding: 0.42rem 0.55rem; border-radius: 2px; }
     .sidebar-link {
       display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left;
@@ -2023,9 +2038,9 @@ import GovLayout from '../layouts/GovLayout.astro';
       scrollbar-width: thin;
     }
     .approval-person {
-      display: grid; grid-template-columns: 34px minmax(0, 1fr) 22px; align-items: stretch;
-      flex: 0 0 118px; min-width: 118px; min-height: 34px; border-right: 1px solid #b7ac91;
-      color: #4a463c; font-size: 0.63rem;
+      display: grid; grid-template-columns: 30px minmax(72px, 1fr) 20px; align-items: stretch;
+      flex: 0 0 128px; min-width: 128px; min-height: 36px; border-right: 1px solid #b7ac91;
+      color: #4a463c; font-size: 0.61rem;
     }
     .approval-person:last-child { border-right: 0; }
     .approval-person > span, .approval-person > strong, .approval-person > em {
@@ -2033,7 +2048,9 @@ import GovLayout from '../layouts/GovLayout.astro';
     }
     .approval-person > span { background: #f4f0e6; font-weight: 700; border-right: 1px solid #b7ac91; }
     .approval-person > strong { flex-direction: column; flex-wrap: nowrap; gap: 0; font-weight: 500; overflow: hidden; line-height: 1.15; }
-    .approval-person > strong b, .approval-person > strong i { display: block; max-width: 100%; font-style: normal; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .approval-person > strong b, .approval-person > strong i { display: block; max-width: 100%; font-style: normal; font-weight: 500; white-space: nowrap; }
+    .approval-person > strong b { overflow: visible; text-overflow: clip; font-size: 0.56rem; letter-spacing: -0.04em; }
+    .approval-person > strong i { overflow: hidden; text-overflow: ellipsis; font-size: 0.59rem; }
     .approval-person > em { font-style: normal; color: #b0362f; font-weight: 700; border-left: 1px solid #b7ac91; }
     .approval-person--대기 { box-shadow: inset 0 -2px 0 #2a5797; }
     .approval-person--완료 { background: #f7fbf6; }
@@ -2042,14 +2059,16 @@ import GovLayout from '../layouts/GovLayout.astro';
     .official-doc__issue { margin-top: 0.45rem; padding-top: 0.9rem; border-top: 1px solid #e4dfd1; text-align: center; }
     .official-doc__issue-track { margin: 0 0 0.5rem; font-size: 0.74rem; color: #7a7568; }
     .official-doc__issue-name {
-      position: relative; display: inline-flex; align-items: center; gap: 0.72rem; font-size: 0.92rem; font-weight: 700;
-      letter-spacing: 0.06em;
+      position: relative; display: inline-flex; flex-direction: column; align-items: flex-end; gap: 0.75rem;
+      font-size: 0.92rem; font-weight: 700; letter-spacing: 0.06em;
     }
     .official-doc__issuer-org {
       position: relative; display: inline-block; line-height: 1.45; padding-right: 1.05rem;
     }
     .official-doc__issuer-org-text { position: relative; z-index: 2; white-space: nowrap; }
-    .official-doc__issuer-signer { white-space: nowrap; }
+    .official-doc__issuer-signer {
+      display: block; margin-right: 1.05rem; line-height: 1.35; white-space: nowrap; text-align: right;
+    }
     .stamp-mark {
       position: absolute; z-index: 1; right: -0.45rem; bottom: -0.55rem;
       display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px;
@@ -2063,7 +2082,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       mix-blend-mode: multiply;
     }
     .stamp-mark img { display: block; width: 100%; height: 100%; object-fit: contain; }
-    .official-doc__footer { text-align: center; font-size: 0.66rem; color: #a39d8d; margin-top: 1.1rem; }
+    .official-doc__footer { text-align: center; font-size: 0.66rem; color: #a39d8d; margin-top: 1.9rem; }
     @media (max-width: 560px) {
       .official-doc__number-row { padding-top: 0.46rem; }
       .official-doc__orgname { font-size: 0.94rem; letter-spacing: 0.06em; }
