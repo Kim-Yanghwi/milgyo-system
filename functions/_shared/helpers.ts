@@ -139,7 +139,7 @@ export const resolveApprovalTrack = (category: string, requestedTrack?: string) 
 export type TemplateField = {
   id: string;
   label: string;
-  type: 'text' | 'textarea' | 'number' | 'date' | 'time' | 'select' | 'checkbox';
+  type: 'text' | 'textarea' | 'number' | 'money' | 'date' | 'time' | 'select' | 'checkbox';
   required?: boolean;
   options?: string[];
   placeholder?: string;
@@ -157,7 +157,7 @@ const BUILT_IN_TEMPLATES = [
       { id: 'background', label: '추진배경', type: 'textarea', required: true, width: 'full' },
       { id: 'mainContent', label: '주요내용', type: 'textarea', required: true, width: 'full' },
       { id: 'schedule', label: '추진 일정', type: 'textarea', required: false, placeholder: '구분 / 일시 / 내용 / 담당 / 비고', width: 'full' },
-      { id: 'budgetAmount', label: '소요 예산(원)', type: 'number', required: false, defaultValue: '0', width: 'half' },
+      { id: 'budgetAmount', label: '소요 예산(원)', type: 'money', required: false, defaultValue: '0', width: 'half' },
       { id: 'budgetSource', label: '예산과목 또는 재원', type: 'text', required: false, width: 'half' },
       { id: 'basis', label: '관련 근거', type: 'textarea', required: false, width: 'full' },
       { id: 'cooperation', label: '협조사항', type: 'textarea', required: false, width: 'full' },
@@ -176,9 +176,9 @@ const BUILT_IN_TEMPLATES = [
       { id: 'purpose', label: '지출 목적·필요성', type: 'textarea', required: true, width: 'full' },
       { id: 'payee', label: '거래처·지급예정대상', type: 'text', required: true, width: 'half' },
       { id: 'paymentDate', label: '지급 예정일', type: 'date', required: true, width: 'half' },
-      { id: 'supplyAmount', label: '공급가액(원)', type: 'number', required: true, defaultValue: '0', width: 'half' },
-      { id: 'vatAmount', label: '부가세(원)', type: 'number', required: true, defaultValue: '0', width: 'half' },
-      { id: 'totalAmount', label: '합계(원)', type: 'number', required: false, defaultValue: '0', width: 'half' },
+      { id: 'supplyAmount', label: '공급가액(원)', type: 'money', required: true, defaultValue: '0', width: 'half' },
+      { id: 'vatAmount', label: '부가세(원)', type: 'money', required: true, defaultValue: '0', width: 'half' },
+      { id: 'totalAmount', label: '합계(원)', type: 'money', required: false, defaultValue: '0', width: 'half' },
       { id: 'contractType', label: '구매·계약 여부', type: 'select', required: true, options: ['단순지급', '물품구매', '용역계약', '임차', '공사', '기타'], width: 'half' },
       { id: 'priceCheck', label: '견적·가격조사 결과', type: 'textarea', required: false, width: 'full' },
       { id: 'importantAsset', label: '기본재산·중요재산 관련 여부', type: 'select', required: true, options: ['미해당', '해당'], width: 'half' },
@@ -197,9 +197,9 @@ const BUILT_IN_TEMPLATES = [
       { id: 'purpose', label: '지출 목적·필요성', type: 'textarea', required: true, width: 'full' },
       { id: 'payee', label: '거래처·지급대상', type: 'text', required: true, width: 'half' },
       { id: 'paymentDate', label: '지급일', type: 'date', required: true, width: 'half' },
-      { id: 'supplyAmount', label: '공급가액(원)', type: 'number', required: true, defaultValue: '0', width: 'half' },
-      { id: 'vatAmount', label: '부가세(원)', type: 'number', required: true, defaultValue: '0', width: 'half' },
-      { id: 'totalAmount', label: '합계(원)', type: 'number', required: false, defaultValue: '0', width: 'half' },
+      { id: 'supplyAmount', label: '공급가액(원)', type: 'money', required: true, defaultValue: '0', width: 'half' },
+      { id: 'vatAmount', label: '부가세(원)', type: 'money', required: true, defaultValue: '0', width: 'half' },
+      { id: 'totalAmount', label: '합계(원)', type: 'money', required: false, defaultValue: '0', width: 'half' },
       { id: 'paymentMethod', label: '지급방법', type: 'select', required: true, options: ['계좌이체', '법인카드', '현금', '기타'], width: 'half' },
       { id: 'contractType', label: '구매·계약 여부', type: 'select', required: true, options: ['단순지급', '물품구매', '용역계약', '임차', '공사', '기타'], width: 'half' },
       { id: 'priceCheck', label: '견적·가격조사 결과', type: 'textarea', required: false, width: 'full' },
@@ -234,7 +234,7 @@ const BUILT_IN_TEMPLATES = [
       { id: 'incomeDate', label: '수입일자', type: 'date', required: true, width: 'half' },
       { id: 'incomeType', label: '수입구분', type: 'select', required: true, options: ['회비', '참가비', '교육비', '의례비', '공양비', '실비', '후원금', '보시금', '목적지정 기부금', '불사금', '사업수입', '수익사업수입', '보조금·지원금', '기타'], width: 'half' },
       { id: 'payer', label: '납부자', type: 'text', required: true, width: 'half' },
-      { id: 'amount', label: '수입금액(원)', type: 'number', required: true, defaultValue: '0', width: 'half' },
+      { id: 'amount', label: '수입금액(원)', type: 'money', required: true, defaultValue: '0', width: 'half' },
       { id: 'incomeMethod', label: '수입방법', type: 'select', required: true, options: ['계좌입금', '현금', '카드', '기타'], width: 'half' },
       { id: 'businessName', label: '관련 사업명', type: 'text', required: false, width: 'full' },
       { id: 'designated', label: '사용목적 지정 여부', type: 'select', required: true, options: ['없음', '있음'], width: 'half' },
@@ -253,7 +253,7 @@ const BUILT_IN_TEMPLATES = [
       { id: 'requester', label: '요청자', type: 'text', required: true, width: 'half' },
       { id: 'requesterRole', label: '소속 또는 역할', type: 'text', required: true, width: 'half' },
       { id: 'payee', label: '지급대상자', type: 'text', required: true, width: 'half' },
-      { id: 'amount', label: '지급금액(원)', type: 'number', required: true, defaultValue: '0', width: 'half' },
+      { id: 'amount', label: '지급금액(원)', type: 'money', required: true, defaultValue: '0', width: 'half' },
       { id: 'paymentType', label: '지급유형', type: 'select', required: true, options: ['보수', '급여', '실비', '활동비', '직무수행비', '업무추진비', '직책활동비', '강사료', '법문료', '의례집전비', '수행지도비', '상담지도비', '원고료', '자문료', '용역비', '공양운영비', '이동경비', '체류지원비', '행사운영비', '시설관리비', '기타'], width: 'half' },
       { id: 'reason', label: '지급사유', type: 'textarea', required: true, width: 'full' },
       { id: 'businessName', label: '관련 사업명', type: 'text', required: false, width: 'half' },
@@ -278,7 +278,7 @@ const BUILT_IN_TEMPLATES = [
       { id: 'reason', label: '변경 사유', type: 'textarea', required: true, width: 'full' },
       { id: 'beforeBudget', label: '변경 전 예산', type: 'textarea', required: true, placeholder: '예산과목 / 예산액', width: 'full' },
       { id: 'afterBudget', label: '변경 후 예산', type: 'textarea', required: true, placeholder: '예산과목 / 예산액', width: 'full' },
-      { id: 'changeAmount', label: '증감액(원)', type: 'number', required: true, defaultValue: '0', width: 'half' },
+      { id: 'changeAmount', label: '증감액(원)', type: 'money', required: true, defaultValue: '0', width: 'half' },
       { id: 'businessPlanChange', label: '사업계획 변경 여부', type: 'select', required: true, options: ['없음', '있음'], width: 'half' },
       { id: 'resolutionNeed', label: '의결 필요 여부', type: 'select', required: true, options: ['없음', '이사회 필요', '총회 필요'], width: 'half' },
       { id: 'attachments', label: '첨부자료', type: 'textarea', required: false, width: 'full' },
@@ -314,7 +314,7 @@ const BUILT_IN_TEMPLATES = [
       { id: 'transactionType', label: '거래 유형', type: 'select', required: true, options: ['보수 지급', '실비 지급', '활동비 지급', '용역계약', '자문계약', '재산거래', '사용계약', '기타'], width: 'half' },
       { id: 'reason', label: '거래 또는 지급 사유', type: 'textarea', required: true, width: 'full' },
       { id: 'purposeBusiness', label: '관련 목적사업', type: 'text', required: true, width: 'full' },
-      { id: 'amount', label: '지급 또는 계약 금액(원)', type: 'number', required: true, defaultValue: '0', width: 'half' },
+      { id: 'amount', label: '지급 또는 계약 금액(원)', type: 'money', required: true, defaultValue: '0', width: 'half' },
       { id: 'calculationBasis', label: '산출근거', type: 'textarea', required: true, width: 'full' },
       { id: 'comparison', label: '비교자료 또는 적정성 검토', type: 'textarea', required: true, width: 'full' },
       { id: 'recusal', label: '이해관계인 의결 참여 제한', type: 'select', required: true, options: ['해당 없음', '해당 있음'], width: 'half' },
@@ -331,12 +331,12 @@ const BUILT_IN_TEMPLATES = [
       { id: 'subject', label: '사업명', type: 'text', required: true, width: 'full' },
       { id: 'draftDate', label: '작성일자', type: 'date', required: true, width: 'half' },
       { id: 'donationSource', label: '기부금 출처', type: 'text', required: true, placeholder: '기부자 또는 모금명', width: 'half' },
-      { id: 'donationAmount', label: '기부금액(원)', type: 'number', required: true, defaultValue: '0', width: 'half' },
+      { id: 'donationAmount', label: '기부금액(원)', type: 'money', required: true, defaultValue: '0', width: 'half' },
       { id: 'designatedPurpose', label: '지정목적', type: 'textarea', required: true, width: 'full' },
       { id: 'usePurpose', label: '사용목적', type: 'textarea', required: true, width: 'full' },
       { id: 'startDate', label: '사용 시작일', type: 'date', required: true, width: 'half' },
       { id: 'endDate', label: '사용 종료일', type: 'date', required: true, width: 'half' },
-      { id: 'plannedAmount', label: '사용예정금액(원)', type: 'number', required: true, defaultValue: '0', width: 'half' },
+      { id: 'plannedAmount', label: '사용예정금액(원)', type: 'money', required: true, defaultValue: '0', width: 'half' },
       { id: 'details', label: '세부 사용계획', type: 'textarea', required: true, width: 'full' },
       { id: 'evidence', label: '증빙 예정자료', type: 'textarea', required: true, placeholder: '견적서, 계약서, 영수증, 세금계산서 등', width: 'full' },
       { id: 'reviewItems', label: '검토사항', type: 'textarea', required: true, placeholder: '지정목적 부합, 예산 범위, 이해관계, 의결 필요 여부 등', width: 'full' },
@@ -350,9 +350,9 @@ const BUILT_IN_TEMPLATES = [
       { id: 'subject', label: '사업명', type: 'text', required: true, width: 'full' },
       { id: 'draftDate', label: '작성일자', type: 'date', required: true, width: 'half' },
       { id: 'designatedPurpose', label: '지정목적', type: 'textarea', required: true, width: 'full' },
-      { id: 'totalDonation', label: '기부금 총액(원)', type: 'number', required: true, defaultValue: '0', width: 'half' },
-      { id: 'usedAmount', label: '사용금액(원)', type: 'number', required: true, defaultValue: '0', width: 'half' },
-      { id: 'balance', label: '잔액(원)', type: 'number', required: true, defaultValue: '0', width: 'half' },
+      { id: 'totalDonation', label: '기부금 총액(원)', type: 'money', required: true, defaultValue: '0', width: 'half' },
+      { id: 'usedAmount', label: '사용금액(원)', type: 'money', required: true, defaultValue: '0', width: 'half' },
+      { id: 'balance', label: '잔액(원)', type: 'money', required: true, defaultValue: '0', width: 'half' },
       { id: 'startDate', label: '사용 시작일', type: 'date', required: true, width: 'half' },
       { id: 'endDate', label: '사용 종료일', type: 'date', required: true, width: 'half' },
       { id: 'executionDetails', label: '주요 집행내역', type: 'textarea', required: true, width: 'full' },
@@ -372,7 +372,7 @@ const BUILT_IN_TEMPLATES = [
       { id: 'startDate', label: '모금 시작일', type: 'date', required: true, width: 'half' },
       { id: 'endDate', label: '모금 종료일', type: 'date', required: true, width: 'half' },
       { id: 'target', label: '모금대상', type: 'select', required: true, options: ['회원·신도', '불특정 다수', '온라인', '행사장', '기타'], width: 'half' },
-      { id: 'expectedAmount', label: '예상금액(원)', type: 'number', required: true, defaultValue: '0', width: 'half' },
+      { id: 'expectedAmount', label: '예상금액(원)', type: 'money', required: true, defaultValue: '0', width: 'half' },
       { id: 'publicityMaterial', label: '안내문·홍보물', type: 'select', required: true, options: ['첨부', '미첨부'], width: 'half' },
       { id: 'legalReview', label: '관계 법령 검토', type: 'select', required: true, options: ['신고·등록 불필요', '신고·등록 필요', '추가검토 필요'], width: 'half' },
       { id: 'reviewOpinion', label: '검토의견', type: 'textarea', required: true, width: 'full' },
@@ -395,7 +395,7 @@ const BUILT_IN_TEMPLATES = [
       { id: 'usageStatus', label: '사용여부', type: 'select', required: true, options: ['미사용', '일부 사용', '전액 사용', '물품 사용·처분'], width: 'half' },
       { id: 'reviewOpinion', label: '검토의견', type: 'textarea', required: true, width: 'full' },
       { id: 'decision', label: '결정안', type: 'select', required: true, options: ['전액 반환', '일부 반환', '반환 불가', '이사회 부의'], width: 'half' },
-      { id: 'returnAmount', label: '반환금액(원)', type: 'number', required: false, defaultValue: '0', width: 'half' },
+      { id: 'returnAmount', label: '반환금액(원)', type: 'money', required: false, defaultValue: '0', width: 'half' },
       { id: 'returnAccount', label: '반환계좌', type: 'text', required: false, placeholder: '은행명 / 예금주 / 계좌번호', width: 'full' },
       { id: 'result', label: '반환 처리 결과', type: 'select', required: true, options: ['반환 완료', '반환 불가 통지', '일부 반환', '이사회 부의', '기타'], width: 'half' },
       { id: 'notes', label: '비고', type: 'textarea', required: false, width: 'full' },
@@ -414,7 +414,7 @@ const BUILT_IN_TEMPLATES = [
       { id: 'startDate', label: '사용 시작일', type: 'date', required: false, width: 'half' },
       { id: 'endDate', label: '사용 종료일', type: 'date', required: false, width: 'half' },
       { id: 'investmentType', label: '투자 내용', type: 'select', required: true, options: ['수리', '개보수', '증축', '설비 설치', '안전보강', '기타'], width: 'half' },
-      { id: 'plannedAmount', label: '투자 예정금액(원)', type: 'number', required: true, defaultValue: '0', width: 'half' },
+      { id: 'plannedAmount', label: '투자 예정금액(원)', type: 'money', required: true, defaultValue: '0', width: 'half' },
       { id: 'necessity', label: '투자 필요성', type: 'textarea', required: true, width: 'full' },
       { id: 'purposeRelation', label: '법인 목적사업 관련성', type: 'textarea', required: true, width: 'full' },
       { id: 'ownershipAfter', label: '공사 후 권리관계', type: 'select', required: true, options: ['법인 소유', '소유자 귀속', '협의 필요', '기타'], width: 'half' },
@@ -433,7 +433,7 @@ const BUILT_IN_TEMPLATES = [
       { id: 'reviewDate', label: '작성일자', type: 'date', required: true, width: 'half' },
       { id: 'contractType', label: '계약구분', type: 'select', required: true, options: ['공사', '구매', '용역', '설계·감리', '안전점검', '기타'], width: 'half' },
       { id: 'counterparty', label: '계약상대방', type: 'text', required: true, placeholder: '상호·성명 / 사업자등록번호 / 연락처', width: 'full' },
-      { id: 'amount', label: '계약금액(원)', type: 'number', required: true, defaultValue: '0', width: 'half' },
+      { id: 'amount', label: '계약금액(원)', type: 'money', required: true, defaultValue: '0', width: 'half' },
       { id: 'startDate', label: '계약 시작일', type: 'date', required: true, width: 'half' },
       { id: 'endDate', label: '계약 종료일', type: 'date', required: true, width: 'half' },
       { id: 'necessity', label: '계약 필요성', type: 'textarea', required: true, width: 'full' },
@@ -486,8 +486,8 @@ const BUILT_IN_TEMPLATES = [
       { id: 'company', label: '보험회사', type: 'text', required: false, width: 'half' },
       { id: 'period', label: '보험기간', type: 'text', required: false, width: 'half' },
       { id: 'coverage', label: '보장내용', type: 'textarea', required: false, width: 'full' },
-      { id: 'premium', label: '보험료(원)', type: 'number', required: false, defaultValue: '0', width: 'half' },
-      { id: 'deductible', label: '자기부담금(원)', type: 'number', required: false, defaultValue: '0', width: 'half' },
+      { id: 'premium', label: '보험료(원)', type: 'money', required: false, defaultValue: '0', width: 'half' },
+      { id: 'deductible', label: '자기부담금(원)', type: 'money', required: false, defaultValue: '0', width: 'half' },
       { id: 'exclusions', label: '면책사항', type: 'textarea', required: false, width: 'full' },
       { id: 'reviewOpinion', label: '검토의견', type: 'textarea', required: true, width: 'full' },
     ],
@@ -554,7 +554,7 @@ const BUILT_IN_TEMPLATES = [
       { id: 'content', label: '교육내용', type: 'textarea', required: true, width: 'full' },
       { id: 'completionCriteria', label: '수료기준', type: 'textarea', required: true, width: 'full' },
       { id: 'evaluation', label: '평가방법', type: 'textarea', required: false, width: 'full' },
-      { id: 'fee', label: '교육비(원)', type: 'number', required: false, defaultValue: '0', width: 'half' },
+      { id: 'fee', label: '교육비(원)', type: 'money', required: false, defaultValue: '0', width: 'half' },
       { id: 'safety', label: '안전관리 사항', type: 'textarea', required: false, width: 'full' },
       { id: 'insurance', label: '보험가입 여부', type: 'select', required: true, options: ['가입', '미가입', '해당 없음'], width: 'half' },
       { id: 'privacy', label: '개인정보 처리사항', type: 'textarea', required: false, width: 'full' },
@@ -622,7 +622,7 @@ const BUILT_IN_TEMPLATES = [
       { id: 'supplies', label: '준비물', type: 'textarea', required: false, width: 'full' },
       { id: 'feeStatus', label: '참가비·보시금·교육비 여부', type: 'select', required: true, options: ['없음', '있음'], width: 'half' },
       { id: 'feeDetails', label: '금액 또는 기준', type: 'text', required: false, width: 'half' },
-      { id: 'budget', label: '필요예산(원)', type: 'number', required: false, defaultValue: '0', width: 'half' },
+      { id: 'budget', label: '필요예산(원)', type: 'money', required: false, defaultValue: '0', width: 'half' },
       { id: 'financeManager', label: '수입·지출 관리 담당', type: 'text', required: true, width: 'half' },
       { id: 'safety', label: '안전관리 필요사항', type: 'textarea', required: false, width: 'full' },
     ],
@@ -806,7 +806,7 @@ let tablesEnsured = false;
 let tablesEnsurePromise: Promise<void> | null = null;
 let lastRateLimitCleanupAt = 0;
 const MAINTENANCE_COOLDOWN_MS = 10 * 60 * 1000;
-const SCHEMA_VERSION = '2026-07-25.9';
+const SCHEMA_VERSION = '2026-07-26.10';
 
 type TableColumnInfo = { name: string; type: string; notnull: number; dflt_value?: unknown; pk: number };
 
@@ -1244,15 +1244,17 @@ export const canReadDocument = (user: SessionUser, document: Record<string, unkn
   return [document.drafter_user_id, document.reviewer_user_id, document.approver_user_id].some((id) => String(id || '') === user.id);
 };
 
-const nextSequence = async (db: D1Database, seqKey: string, initialValue = 0) => {
-  // 문서가 이미 있는데 순번 테이블이 초기화되었거나 낮은 값으로 남은 경우에도 중복 번호가 생기지 않도록 보정합니다.
+const nextSequence = async (db: D1Database, seqKey: string, existingMax = 0, resetWhenEmpty = false) => {
+  // 실제 문서가 하나도 없으면 테스트 자료 전체 삭제 후 다시 001부터 시작할 수 있도록 순번도 0으로 맞춥니다.
+  // 문서가 남아 있으면 순번 테이블이 유실되거나 낮아져도 실제 최대 문서번호보다 작아지지 않도록 보정합니다.
   await db.prepare(`
     INSERT INTO document_sequences (seq_key, last_seq) VALUES (?, ?)
-    ON CONFLICT(seq_key) DO UPDATE SET last_seq = MAX(document_sequences.last_seq, excluded.last_seq)
-  `).bind(seqKey, initialValue).run();
+    ON CONFLICT(seq_key) DO UPDATE SET last_seq =
+      CASE WHEN ? = 1 THEN excluded.last_seq ELSE MAX(document_sequences.last_seq, excluded.last_seq) END
+  `).bind(seqKey, existingMax, resetWhenEmpty ? 1 : 0).run();
   const row = await db.prepare(`UPDATE document_sequences SET last_seq = last_seq + 1 WHERE seq_key = ? RETURNING last_seq`)
     .bind(seqKey).first<{ last_seq: number }>();
-  return Number(row?.last_seq || initialValue + 1);
+  return Number(row?.last_seq || existingMax + 1);
 };
 
 export const makeDocumentNumber = async (db: D1Database, now: Date) => {
@@ -1261,7 +1263,8 @@ export const makeDocumentNumber = async (db: D1Database, now: Date) => {
   const prefix = `밀교종-${year}-`;
   const existing = await db.prepare(`SELECT MAX(CAST(substr(id, ?) AS INTEGER)) AS max_seq FROM documents WHERE id LIKE ?`)
     .bind(prefix.length + 1, `${prefix}%`).first<{ max_seq: number | null }>();
-  const seq = await nextSequence(db, `DOC:${year}`, Number(existing?.max_seq || 0));
+  const existingMax = Number(existing?.max_seq || 0);
+  const seq = await nextSequence(db, `DOC:${year}`, existingMax, existingMax === 0);
   return `${prefix}${String(seq).padStart(3, '0')}`;
 };
 export const makeReceivedNumber = async (db: D1Database, now: Date, direction: string) => {
@@ -1270,6 +1273,7 @@ export const makeReceivedNumber = async (db: D1Database, now: Date, direction: s
   const prefix = direction === '접수' ? `접수-${year}-` : `외부발송-${year}-`;
   const existing = await db.prepare(`SELECT MAX(CAST(substr(id, ?) AS INTEGER)) AS max_seq FROM received_documents WHERE id LIKE ?`)
     .bind(prefix.length + 1, `${prefix}%`).first<{ max_seq: number | null }>();
-  const seq = await nextSequence(db, `${direction}:${year}`, Number(existing?.max_seq || 0));
+  const existingMax = Number(existing?.max_seq || 0);
+  const seq = await nextSequence(db, `${direction}:${year}`, existingMax, existingMax === 0);
   return `${prefix}${String(seq).padStart(3, '0')}`;
 };

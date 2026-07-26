@@ -52,11 +52,22 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   } else if (view === '결재대기') {
     if (canViewAll) filters.push(`status IN (${ACTIVE_STATUSES})`);
     else {
-      filters.push(`(
-        EXISTS (SELECT 1 FROM document_approval_lines pending_line WHERE pending_line.document_id = documents.id AND pending_line.status = '대기' AND pending_line.user_id = ?)
+      filters.push(`status IN (${ACTIVE_STATUSES}) AND (
+        EXISTS (
+          SELECT 1 FROM document_approval_lines pending_line
+          WHERE pending_line.document_id = documents.id
+            AND pending_line.status IN ('대기','예정')
+            AND CAST(pending_line.user_id AS TEXT) = ?
+            AND NOT EXISTS (
+              SELECT 1 FROM document_approval_lines previous_line
+              WHERE previous_line.document_id = documents.id
+                AND previous_line.line_order < pending_line.line_order
+                AND previous_line.status <> '완료'
+            )
+        )
         OR (
           NOT EXISTS (SELECT 1 FROM document_approval_lines any_line WHERE any_line.document_id = documents.id)
-          AND ((status = '검토대기' AND reviewer_user_id = ?) OR (status IN ('결재대기','전결대기') AND approver_user_id = ?))
+          AND ((status = '검토대기' AND CAST(reviewer_user_id AS TEXT) = ?) OR (status IN ('결재대기','전결대기') AND CAST(approver_user_id AS TEXT) = ?))
         )
       )`);
       bindings.push(me.id, me.id, me.id);
@@ -115,11 +126,25 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
                WHERE cooperator_lines.document_id = documents.id AND cooperator_lines.line_type = '협조'
                ORDER BY line_order
              )), '') AS cooperator_names,
-             (SELECT user_id FROM document_approval_lines current_line
-              WHERE current_line.document_id = documents.id AND current_line.status = '대기'
+             (SELECT CAST(current_line.user_id AS TEXT) FROM document_approval_lines current_line
+              WHERE current_line.document_id = documents.id
+                AND current_line.status IN ('대기','예정')
+                AND NOT EXISTS (
+                  SELECT 1 FROM document_approval_lines previous_line
+                  WHERE previous_line.document_id = documents.id
+                    AND previous_line.line_order < current_line.line_order
+                    AND previous_line.status <> '완료'
+                )
               ORDER BY line_order LIMIT 1) AS current_actor_user_id,
-             (SELECT line_type FROM document_approval_lines current_line
-              WHERE current_line.document_id = documents.id AND current_line.status = '대기'
+             (SELECT current_line.line_type FROM document_approval_lines current_line
+              WHERE current_line.document_id = documents.id
+                AND current_line.status IN ('대기','예정')
+                AND NOT EXISTS (
+                  SELECT 1 FROM document_approval_lines previous_line
+                  WHERE previous_line.document_id = documents.id
+                    AND previous_line.line_order < current_line.line_order
+                    AND previous_line.status <> '완료'
+                )
               ORDER BY line_order LIMIT 1) AS current_line_type
       FROM documents ${where}
       ORDER BY ${orderBy}

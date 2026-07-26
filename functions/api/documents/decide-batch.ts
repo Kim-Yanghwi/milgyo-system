@@ -62,7 +62,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     for (const row of documents.results ?? []) {
       const docLines = lineMap.get(row.id) || [];
-      const currentLine = docLines.find((line) => line.status === '대기');
+      // 대기 상태 갱신이 지연되었더라도 가장 앞선 미완료 결재선을 현재 처리자로 간주합니다.
+      const currentLine = docLines[0];
       if (currentLine) {
         if (me.role !== 'admin' && currentLine.user_id !== me.id) { skipped.push(row.id); continue; }
         processed.push(row.id);

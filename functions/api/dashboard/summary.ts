@@ -28,10 +28,22 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       key: 'pending',
       sql: canViewAll
         ? `SELECT COUNT(*) AS count FROM documents WHERE status IN (${ACTIVE_STATUSES})`
-        : `SELECT COUNT(*) AS count FROM documents WHERE
-            EXISTS (SELECT 1 FROM document_approval_lines pending_line WHERE pending_line.document_id = documents.id AND pending_line.status='대기' AND pending_line.user_id=?)
+        : `SELECT COUNT(*) AS count FROM documents WHERE status IN (${ACTIVE_STATUSES}) AND (
+            EXISTS (
+              SELECT 1 FROM document_approval_lines pending_line
+              WHERE pending_line.document_id = documents.id
+                AND pending_line.status IN ('대기','예정')
+                AND CAST(pending_line.user_id AS TEXT) = ?
+                AND NOT EXISTS (
+                  SELECT 1 FROM document_approval_lines previous_line
+                  WHERE previous_line.document_id = documents.id
+                    AND previous_line.line_order < pending_line.line_order
+                    AND previous_line.status <> '완료'
+                )
+            )
             OR (NOT EXISTS (SELECT 1 FROM document_approval_lines any_line WHERE any_line.document_id = documents.id)
-                AND ((status='검토대기' AND reviewer_user_id=?) OR (status IN ('결재대기','전결대기') AND approver_user_id=?)))`,
+                AND ((status='검토대기' AND CAST(reviewer_user_id AS TEXT)=?) OR (status IN ('결재대기','전결대기') AND CAST(approver_user_id AS TEXT)=?)))
+          )`,
       values: canViewAll ? [] : [me.id, me.id, me.id],
     },
     {

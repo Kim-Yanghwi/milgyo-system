@@ -5,7 +5,7 @@ type Payload = {
   token?: string; id?: string; name?: string; description?: string; docType?: string; category?: string;
   titlePrefix?: string; fields?: unknown; bodyTemplate?: string; active?: boolean;
 };
-const TYPES = ['text', 'textarea', 'number', 'date', 'time', 'select', 'checkbox'];
+const TYPES = ['text', 'textarea', 'number', 'money', 'date', 'time', 'select', 'checkbox'];
 
 const sanitizeFields = (raw: unknown): TemplateField[] | null => {
   if (!Array.isArray(raw) || raw.length > 30) return null;

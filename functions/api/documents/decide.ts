@@ -57,9 +57,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     const currentLine = await env.DB.prepare(`
       SELECT id, document_id, line_order, line_type, CAST(user_id AS TEXT) AS user_id, user_name, user_position, status
-      FROM document_approval_lines
-      WHERE document_id = ? AND status = '대기'
-      ORDER BY line_order ASC LIMIT 1
+      FROM document_approval_lines current_line
+      WHERE current_line.document_id = ?
+        AND current_line.status IN ('대기','예정')
+        AND NOT EXISTS (
+          SELECT 1 FROM document_approval_lines previous_line
+          WHERE previous_line.document_id = current_line.document_id
+            AND previous_line.line_order < current_line.line_order
+            AND previous_line.status <> '완료'
+        )
+      ORDER BY current_line.line_order ASC LIMIT 1
     `).bind(id).first<ApprovalLine>();
 
     if (currentLine) {
