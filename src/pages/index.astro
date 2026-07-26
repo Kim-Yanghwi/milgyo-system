@@ -1364,9 +1364,36 @@ import GovLayout from '../layouts/GovLayout.astro';
         const binary=atob(data.dataBase64),bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
         const url=URL.createObjectURL(new Blob([bytes],{type:data.mimeType||'application/octet-stream'}));const a=document.createElement('a');a.href=url;a.download=data.fileName||'attachment';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
       };
+      const accountingFieldLabels={resolutionNo:'결의번호',resolutionType:'결의구분',amount:'금액',accountCode:'계정과목',settlementAccountCode:'입·출금계정',bookTypeCode:'회계구분',entityId:'회계조직',fundId:'재원'};
+      const accountingTypeLabels={income:'수입결의',expense:'지출결의'};
+      const accountingBookLabels={general:'일반회계',purpose:'목적사업회계',revenue:'수익사업회계'};
+      const accountingEntityLabels={'ENTITY-HQ':'종단 본부'};
+      const accountingFundLabels={'FUND-GENERAL':'일반재원','FUND-DESIGNATED':'목적지정 기부금','FUND-GRANT':'보조금·지원금','FUND-RESERVE':'적립금·준비금'};
+      const accountingAccountLabels={'1000':'자산','1100':'현금및현금성자산','1110':'현금','1120':'보통예금','1130':'법인카드미결제','1200':'미수금','1300':'선급금','1500':'유형자산','2000':'부채','2100':'미지급금','2200':'예수금','3000':'순자산','3100':'기본순자산','3200':'이월잉여금','4000':'수입','4100':'회비수입','4200':'후원금·보시금수입','4210':'목적지정기부금수입','4300':'교육·법회·의례수입','4400':'보조금·지원금수입','4900':'기타수입','5000':'지출','5100':'인건비','5200':'임차료','5300':'공공요금·제세공과금','5400':'사무용품·소모품비','5500':'여비·교통비','5600':'회의비·업무추진비','5700':'교육·연수비','5800':'법회·의례·포교사업비','5900':'기타운영비','6100':'목적사업비','6200':'시설비·수선비','6300':'지원금·보조금지출'};
+      const accountingCodeDisplay=(value,labelMap)=>{const raw=String(value??'').trim();if(!raw)return '해당 없음';if(/\s/.test(raw))return raw;const label=labelMap[raw];return label?`${raw} ${label}`:raw};
+      const formatAccountingAmount=(value)=>{const raw=String(value??'').trim();if(!raw)return '-';if(/[₩￦$€¥£]|원|달러|유로|엔|위안|KRW|USD|EUR|JPY|CNY|GBP/i.test(raw))return raw;const number=Number(raw.replace(/,/g,''));return Number.isFinite(number)?`${number.toLocaleString('ko-KR')}원`:raw};
+      const accountingDisplayValue=(fieldId,value,values={})=>{
+        const labels=values?._accountingLabels&&typeof values._accountingLabels==='object'?values._accountingLabels:{};
+        if(labels[fieldId]!==undefined&&labels[fieldId]!==null&&String(labels[fieldId]).trim())return String(labels[fieldId]);
+        const raw=String(value??'').trim();
+        if(fieldId==='resolutionType')return accountingTypeLabels[raw]||raw||'-';
+        if(fieldId==='amount')return formatAccountingAmount(raw);
+        if(fieldId==='accountCode'||fieldId==='settlementAccountCode')return accountingCodeDisplay(raw,accountingAccountLabels);
+        if(fieldId==='bookTypeCode')return accountingBookLabels[raw]||raw||'-';
+        if(fieldId==='entityId')return accountingEntityLabels[raw]||raw||'-';
+        if(fieldId==='fundId')return accountingFundLabels[raw]||raw||'해당 없음';
+        return raw||'-';
+      };
+      const translateAccountingDocumentBody=(body,values={})=>{
+        let translated=String(body||'');
+        if(!values?._accountingResolutionId&&!/^1\.\s*결의번호:/m.test(translated))return translated;
+        const lines=[['결의번호','resolutionNo'],['결의구분','resolutionType'],['회계구분','bookTypeCode'],['회계조직','entityId'],['재원','fundId'],['계정과목','accountCode'],['금액','amount'],['입·출금계정','settlementAccountCode']];
+        lines.forEach(([lineLabel,fieldId])=>{if(values[fieldId]===undefined&&!(values?._accountingLabels||{})[fieldId])return;const pattern=new RegExp(`^(\\d+\\.\\s*${lineLabel}:\\s*).*$`,'m');translated=translated.replace(pattern,(_,prefix)=>`${prefix}${accountingDisplayValue(fieldId,values[fieldId],values)}`)});
+        return translated;
+      };
       const renderDetailFormData = (doc) => {
-        const values=doc.form_data||{},template=findTemplate(doc.template_id),fields=template?.fields||Object.keys(values).filter((id)=>!id.startsWith('_')).map((id)=>({id,label:id}));
-        $('[data-detail-form-data]').innerHTML=fields.length?`<table><tbody>${fields.map((f)=>`<tr><th>${esc(f.label)}</th><td>${esc(values[f.id]||'-')}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">서식 입력항목이 없습니다.</p>';
+        const values=doc.form_data||{},template=findTemplate(doc.template_id),fields=template?.fields||Object.keys(values).filter((id)=>!id.startsWith('_')).map((id)=>({id,label:accountingFieldLabels[id]||id}));
+        $('[data-detail-form-data]').innerHTML=fields.length?`<table><tbody>${fields.map((f)=>`<tr><th>${esc(accountingFieldLabels[f.id]||f.label)}</th><td>${esc(accountingDisplayValue(f.id,values[f.id],values))}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">서식 입력항목이 없습니다.</p>';
       };
       const legacyApprovalLines = (doc, approvals = []) => {
         const completedActions = new Set(approvals.map((item) => item.action));
@@ -1399,7 +1426,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         const attachments=$('[data-detail-attachments]');attachments.innerHTML=(data.attachments||[]).map((a)=>`<li class="attachment-list__item"><span>${esc(a.file_name)} <span class="muted">(${Math.max(1,Math.round((a.size_bytes||0)/1024))}KB)</span></span><button type="button" class="btn btn-outline" data-download-attachment="${esc(a.id)}">다운로드</button></li>`).join('')||'<li class="muted">등록된 첨부파일이 없습니다.</li>';
         $$('[data-download-attachment]',attachments).forEach((b)=>b.addEventListener('click',()=>downloadBase64('/api/documents/attachment-data',b.dataset.downloadAttachment)));
         $('[data-detail-preview-number]').textContent=`문서번호 : ${doc.id}`;$('[data-detail-preview-recipient]').textContent=doc.recipient||'(내부결재)';
-        $('[data-detail-preview-via-row]').hidden=!doc.via;$('[data-detail-preview-via]').textContent=doc.via||'-';$('[data-detail-preview-title]').textContent=doc.title;$('[data-detail-preview-body]').textContent=doc.body||'';$('[data-detail-preview-attachments]').textContent=doc.attachments_note||'—';
+        const localizedDetailBody=translateAccountingDocumentBody(doc.body||'',doc.form_data||{});doc.body=localizedDetailBody;$('[data-detail-preview-via-row]').hidden=!doc.via;$('[data-detail-preview-via]').textContent=doc.via||'-';$('[data-detail-preview-title]').textContent=doc.title;$('[data-detail-preview-body]').textContent=localizedDetailBody;$('[data-detail-preview-attachments]').textContent=doc.attachments_note||'—';
         const detailTrackLabel=doc.approval_track==='이사장결재'?'이사장 결재':doc.approval_track==='이사회의결'?'이사회 의결':doc.approval_track;
         $('[data-detail-preview-track]').textContent=`${modeLabel}: ${detailTrackLabel}`;
         renderApprovalStrip($('[data-detail-preview-approval-strip]'),{name:doc.drafter||'-',position:doc.drafter_position||'-'},currentDetailApprovalLines,true);
