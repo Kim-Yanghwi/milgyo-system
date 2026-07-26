@@ -1,6 +1,6 @@
 import { clean, randomHex, type SessionUser } from './helpers';
 
-export const ACCOUNTING_SCHEMA_VERSION = '2026-07-26.1';
+export const ACCOUNTING_SCHEMA_VERSION = '2026-07-26.2';
 
 const DEFAULT_ACCOUNTS = [
   ['1000','자산','asset','debit','',1],
@@ -117,9 +117,13 @@ export const ensureAccountingTables = async (db: D1Database) => {
     ]);
 
     const now = new Date().toISOString();
-    const year = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCFullYear();
-    await db.prepare(`INSERT OR IGNORE INTO accounting_fiscal_years (year,name,start_date,end_date,base_currency,status,created_at)
-      VALUES (?,?,?,?, 'KRW','open',?)`).bind(year, `${year} 회계연도`, `${year}-01-01`, `${year}-12-31`, now).run();
+    const currentYear = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCFullYear();
+    const firstYear = Math.min(2026, currentYear);
+    const lastYear = Math.max(2030, currentYear);
+    const fiscalYearStatements = Array.from({ length: lastYear - firstYear + 1 }, (_, index) => firstYear + index)
+      .map((year) => db.prepare(`INSERT OR IGNORE INTO accounting_fiscal_years (year,name,start_date,end_date,base_currency,status,created_at)
+        VALUES (?,?,?,?, 'KRW','open',?)`).bind(year, `${year} 회계연도`, `${year}-01-01`, `${year}-12-31`, now));
+    if (fiscalYearStatements.length) await db.batch(fiscalYearStatements);
 
     const accountStatements = DEFAULT_ACCOUNTS.map(([code,name,type,side,parent,system]) => db.prepare(`
       INSERT OR IGNORE INTO accounting_accounts
