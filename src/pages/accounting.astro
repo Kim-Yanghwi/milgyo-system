@@ -125,7 +125,7 @@ import GovLayout from '../layouts/GovLayout.astro';
 
         <section class="tab-panel" data-panel="ledger">
           <div class="page-heading"><div><p>LEDGER</p><h1>장부</h1><span>계정별 원장과 합계잔액시산표를 조회합니다.</span></div></div>
-          <div class="card"><div class="card-head"><h2>계정별 원장</h2><div class="filter-row"><select data-ledger-account></select><button class="btn btn-outline" data-load-ledger>조회</button><button class="btn btn-outline" data-export="ledger">CSV</button></div></div><div class="table-wrap"><table><thead><tr><th>일자</th><th>전표번호</th><th>적요</th><th>거래처</th><th>부서·사업</th><th>차변</th><th>대변</th><th>누계</th></tr></thead><tbody data-ledger-rows></tbody></table></div></div>
+          <div class="card"><div class="card-head"><h2>계정별 원장</h2><div class="filter-row"><select data-ledger-account></select><button class="btn btn-outline" data-load-ledger disabled>조회</button><button class="btn btn-outline" data-export="ledger">CSV</button></div></div><div class="table-wrap"><table class="ledger-table"><thead><tr><th>일자</th><th>전표번호</th><th>적요</th><th>거래처</th><th>부서·사업</th><th>차변</th><th>대변</th><th>누계</th></tr></thead><tbody data-ledger-rows><tr><td colspan="8" class="empty">계정과목을 선택하면 거래내역이 표시됩니다.</td></tr></tbody></table></div></div>
           <div class="card"><div class="card-head"><h2>합계잔액시산표</h2><button class="btn btn-outline" data-load-trial>새로고침</button></div><div class="table-wrap"><table class="trial-table"><thead><tr><th>코드</th><th>계정과목</th><th>유형</th><th>차변합계</th><th>대변합계</th><th>잔액</th></tr></thead><tbody data-trial-rows></tbody><tfoot><tr><th colspan="3">합계</th><th data-trial-debit>0</th><th data-trial-credit>0</th><th></th></tr></tfoot></table></div></div>
         </section>
 
@@ -139,7 +139,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         <section class="tab-panel" data-panel="accounts">
           <div class="page-heading"><div><p>CHART OF ACCOUNTS</p><h1>계정과목</h1><span>종단 회계에 사용하는 계정과목 체계를 관리합니다.</span></div><button class="btn btn-primary manager-only" data-toggle-form="account-form">+ 계정과목</button></div>
           <form class="card form-card manager-only" data-form="account-form" hidden><div class="form-grid five"><label>코드<input name="code" required /></label><label>계정과목명<input name="name" required /></label><label>유형<select name="accountType"><option value="asset">자산</option><option value="liability">부채</option><option value="equity">순자산</option><option value="revenue">수입</option><option value="expense">지출</option></select></label><label>정상잔액<select name="normalSide"><option value="debit">차변</option><option value="credit">대변</option></select></label><label>상위코드<input name="parentCode" /></label></div><div class="form-actions"><button class="btn btn-outline" type="button" data-close-form="account-form">취소</button><button class="btn btn-primary" type="submit">저장</button></div></form>
-          <div class="card"><div class="table-wrap"><table><thead><tr><th>코드</th><th>계정과목</th><th>유형</th><th>정상잔액</th><th>상위코드</th><th>구분</th></tr></thead><tbody data-account-rows></tbody></table></div></div>
+          <div class="card"><div class="table-wrap"><table class="accounts-table"><thead><tr><th>코드</th><th>계정과목</th><th>유형</th><th>정상잔액</th><th>상위코드</th><th>구분</th></tr></thead><tbody data-account-rows></tbody></table></div></div>
         </section>
       </main>
     </div>
@@ -195,7 +195,9 @@ import GovLayout from '../layouts/GovLayout.astro';
       const populateAccounts=()=>{
         $$('[data-expense-account]').forEach((e)=>e.innerHTML='<option value="">선택</option>'+accountOptions((a)=>a.account_type==='expense'));
         $$('[data-asset-account]').forEach((e)=>e.innerHTML=accountOptions((a)=>a.account_type==='asset'&&!['1000','1100'].includes(a.code)));
-        $('[data-ledger-account]').innerHTML='<option value="">계정과목 선택</option>'+accountOptions(()=>true);
+        const ledgerAccount=$('[data-ledger-account]');
+        ledgerAccount.innerHTML='<option value="">계정과목 선택</option>'+accountOptions(()=>true);
+        $('[data-load-ledger]').disabled=true;
         updateResolutionAccount();
       };
       const updateResolutionAccount=()=>{const form=$('[data-form="resolution-form"]');const type=form.elements.resolutionType.value;form.elements.accountCode.innerHTML='<option value="">선택</option>'+accountOptions((a)=>a.account_type===(type==='income'?'revenue':'expense'));};
@@ -248,7 +250,26 @@ import GovLayout from '../layouts/GovLayout.astro';
       const loadJournals=async()=>{try{const d=await api('/api/accounting/query',{action:'journals',year:state.year,query:$('[data-journal-search]').value});$('[data-journal-rows]').innerHTML=(d.rows||[]).length?d.rows.map((r)=>`<tr><td>${esc(r.journal_no)}</td><td>${esc(r.journal_date)}</td><td>${esc(r.source_type==='resolution'?'결의자동':r.source_type==='reversal'?'역분개':'수동')}</td><td class="left">${esc(r.description)}</td><td class="num">${won(r.debit_total)}</td><td class="num">${won(r.credit_total)}</td><td>${esc(r.document_id||'-')}</td><td>${statusLabel(r.status)}</td><td>${state.permissions.manager&&r.status==='posted'?`<button class="mini-btn" data-reverse="${esc(r.id)}">취소</button>`:''}</td></tr>`).join(''):'<tr><td colspan="9" class="empty">전표가 없습니다.</td></tr>';$$('[data-reverse]').forEach((b)=>b.onclick=async()=>{if(!confirm('원전표를 삭제하지 않고 반대 분개로 취소하시겠습니까?'))return;try{const x=await api('/api/accounting/action',{action:'reverse-journal',id:b.dataset.reverse});notice(x.message);loadJournals();loadInit()}catch(err){notice(err.message,'error')}})}catch(e){notice(e.message,'error')}};
       $('[data-load-journals]').addEventListener('click',loadJournals);
 
-      const loadLedger=async()=>{const code=$('[data-ledger-account]').value;if(!code)return notice('계정과목을 선택해 주세요.','error');try{const d=await api('/api/accounting/query',{action:'ledger',year:state.year,accountCode:code});state.ledgerRows=d.rows||[];$('[data-ledger-rows]').innerHTML=state.ledgerRows.length?state.ledgerRows.map((r)=>`<tr><td>${esc(r.journal_date)}</td><td>${esc(r.journal_no)}</td><td class="left">${esc(r.description)}</td><td>${esc(r.counterparty||'-')}</td><td>${esc([r.department,r.project].filter(Boolean).join(' / ')||'-')}</td><td class="num">${won(r.debit)}</td><td class="num">${won(r.credit)}</td><td class="num">${won(r.running_balance)}</td></tr>`).join(''):'<tr><td colspan="8" class="empty">거래내역이 없습니다.</td></tr>'}catch(e){notice(e.message,'error')}};
+      const loadLedger=async()=>{
+        const code=$('[data-ledger-account]').value;
+        if(!code){
+          state.ledgerRows=[];
+          $('[data-ledger-rows]').innerHTML='<tr><td colspan="8" class="empty">계정과목을 선택하면 거래내역이 표시됩니다.</td></tr>';
+          return;
+        }
+        try{
+          const d=await api('/api/accounting/query',{action:'ledger',year:state.year,accountCode:code});
+          state.ledgerRows=d.rows||[];
+          $('[data-ledger-rows]').innerHTML=state.ledgerRows.length?state.ledgerRows.map((r)=>`<tr><td>${esc(r.journal_date)}</td><td>${esc(r.journal_no)}</td><td>${esc(r.description)}</td><td>${esc(r.counterparty||'-')}</td><td>${esc([r.department,r.project].filter(Boolean).join(' / ')||'-')}</td><td class="num">${won(r.debit)}</td><td class="num">${won(r.credit)}</td><td class="num">${won(r.running_balance)}</td></tr>`).join(''):'<tr><td colspan="8" class="empty">선택한 계정과목의 거래내역이 없습니다.</td></tr>';
+        }catch(e){notice(e.message,'error')}
+      };
+      $('[data-ledger-account]').addEventListener('change',(e)=>{
+        $('[data-load-ledger]').disabled=!e.currentTarget.value;
+        if(!e.currentTarget.value){
+          state.ledgerRows=[];
+          $('[data-ledger-rows]').innerHTML='<tr><td colspan="8" class="empty">계정과목을 선택하면 거래내역이 표시됩니다.</td></tr>';
+        }
+      });
       $('[data-load-ledger]').addEventListener('click',loadLedger);
       const loadTrial=async()=>{try{const d=await api('/api/accounting/query',{action:'trial-balance',year:state.year});const rows=d.rows||[];$('[data-trial-rows]').innerHTML=rows.map((r)=>`<tr><td>${esc(r.code)}</td><td class="left">${esc(r.name)}</td><td>${typeLabel(r.account_type)}</td><td class="num">${won(r.debit)}</td><td class="num">${won(r.credit)}</td><td class="num">${won(r.balance)}</td></tr>`).join('');$('[data-trial-debit]').textContent=won(rows.reduce((s,r)=>s+Number(r.debit),0));$('[data-trial-credit]').textContent=won(rows.reduce((s,r)=>s+Number(r.credit),0))}catch(e){notice(e.message,'error')}};
       $('[data-load-trial]').addEventListener('click',loadTrial);
@@ -256,7 +277,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       const renderMonths=(closedRows)=>{const map=new Map(closedRows.map((r)=>[Number(r.period_month),r]));$('[data-month-grid]').innerHTML=Array.from({length:12},(_,i)=>i+1).map((m)=>{const row=map.get(m),closed=!!row;return `<tr class="${closed?'month-row--closed':''}"><td><strong>${m}월</strong></td><td><span class="month-status ${closed?'month-status--closed':'month-status--open'}">${closed?'마감':'진행 중'}</span></td><td>${state.permissions.manager?`<button class="mini-btn" data-period-action="${closed?'reopen-period':'close-period'}" data-month="${m}">${closed?'마감해제':'마감'}</button>`:'-'}</td></tr>`}).join('');$$('[data-period-action]').forEach((b)=>b.onclick=async()=>{const msg=b.dataset.periodAction==='close-period'?`${state.year}년 ${b.dataset.month}월을 마감하시겠습니까?`:'마감을 해제하시겠습니까?';if(!confirm(msg))return;try{const d=await api('/api/accounting/action',{action:b.dataset.periodAction,year:state.year,month:Number(b.dataset.month)});notice(d.message);loadClosing()}catch(e){notice(e.message,'error')}})};
       const loadClosing=async()=>{try{const [c,s]=await Promise.all([api('/api/accounting/query',{action:'closings',year:state.year}),api('/api/accounting/query',{action:'statement',year:state.year})]);renderMonths(c.rows||[]);state.statementRows=s.rows||[];$('[data-statement-rows]').innerHTML=state.statementRows.filter((r)=>Number(r.balance)!==0).map((r)=>`<tr><td>${typeLabel(r.account_type)}</td><td>${esc(r.code)}</td><td class="left">${esc(r.name)}</td><td class="num">${won(r.balance)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">결산 내역이 없습니다.</td></tr>'}catch(e){notice(e.message,'error')}};
 
-      const renderAccounts=()=>{$('[data-account-rows]').innerHTML=state.accounts.map((a)=>`<tr><td>${esc(a.code)}</td><td class="left">${esc(a.name)}</td><td>${typeLabel(a.account_type)}</td><td>${typeLabel(a.normal_side)}</td><td>${esc(a.parent_code||'-')}</td><td>${a.system_account?'기본':'사용자'}</td></tr>`).join('')};
+      const renderAccounts=()=>{$('[data-account-rows]').innerHTML=state.accounts.map((a)=>`<tr><td>${esc(a.code)}</td><td>${esc(a.name)}</td><td>${typeLabel(a.account_type)}</td><td>${typeLabel(a.normal_side)}</td><td>${esc(a.parent_code||'-')}</td><td>${a.system_account?'기본':'사용자'}</td></tr>`).join('')};
       $('[data-form="account-form"]').addEventListener('submit',async(e)=>{e.preventDefault();const f=e.currentTarget;try{await api('/api/accounting/action',{action:'save-account',code:f.code.value,name:f.name.value,accountType:f.accountType.value,normalSide:f.normalSide.value,parentCode:f.parentCode.value});notice('계정과목을 저장했습니다.');f.hidden=true;f.reset();await loadInit()}catch(err){notice(err.message,'error')}});
 
       const csv=(name,headers,rows)=>{const quote=(v)=>`"${String(v??'').replace(/"/g,'""')}"`;const content='\uFEFF'+[headers,...rows].map((r)=>r.map(quote).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:'text/csv;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
@@ -292,18 +313,23 @@ import GovLayout from '../layouts/GovLayout.astro';
     .btn{border:1px solid transparent;border-radius:5px;padding:9px 13px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.btn-primary{background:#315f9f;color:#fff}.btn-outline{background:#fff;color:#304b70;border-color:#bfcada}.link-btn{border:0;background:none;color:#315f9f;font-weight:700}
     .form-card{border-top:3px solid #315f9f}.form-grid{display:grid;gap:12px}.form-grid.two{grid-template-columns:repeat(2,1fr)}.form-grid.three{grid-template-columns:repeat(3,1fr)}.form-grid.four{grid-template-columns:repeat(4,1fr)}.form-grid.five{grid-template-columns:repeat(5,1fr)}.span-2{grid-column:span 2}.span-3{grid-column:span 3}
     label{display:block;font-size:12px;font-weight:700;color:#465162}input,select,textarea{width:100%;border:1px solid #c8d1df;border-radius:5px;padding:9px 10px;margin-top:6px;background:#fff;color:#20252c}select[multiple]{padding:4px}fieldset{border:1px solid #d8e0eb;border-radius:7px;margin:16px 0;padding:12px}legend{font-size:13px;font-weight:700;color:#315f9f}.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:15px}.inline-check{display:flex;gap:8px;align-items:center}.inline-check input{width:auto;margin:0}
-    .table-wrap{overflow:auto;border:1px solid #c9d3df;border-radius:6px;background:#fff}
+    .table-wrap{overflow:auto;border:1px solid #b7c3d1;border-radius:6px;background:#fff}
     table{width:100%;border-collapse:collapse;font-size:12px;min-width:760px}
-    th,td{padding:10px 9px;border:1px solid #c9d3df;text-align:center;white-space:nowrap;vertical-align:middle}
+    th,td{padding:10px 9px;border:1px solid #b7c3d1;text-align:center;white-space:nowrap;vertical-align:middle}
     th{background:#edf3fa;font-weight:700;color:#344255}
     td.left{text-align:center;white-space:normal}td.left small{display:block;color:#7a8495;margin-top:3px}.num{text-align:center;font-variant-numeric:tabular-nums}.empty{height:110px;color:#7b8492}.negative{color:#c43c3c!important}
-    .trial-table th:nth-child(-n+3),.trial-table td:nth-child(-n+3){text-align:center!important}
-    .trial-table th:nth-child(n+4),.trial-table td:nth-child(n+4),.trial-table tfoot th:nth-child(n+2){text-align:right!important;font-variant-numeric:tabular-nums}
+    .trial-table thead th{text-align:center!important}
+    .trial-table tbody td:nth-child(-n+3){text-align:center!important}
+    .trial-table tbody td:nth-child(n+4){text-align:right!important;font-variant-numeric:tabular-nums}
     .trial-table tfoot th[colspan]{text-align:center!important}
+    .trial-table tfoot th:not([colspan]){text-align:right!important;font-variant-numeric:tabular-nums}
+    .accounts-table thead th,.accounts-table tbody td{text-align:center!important}
+    .ledger-table thead th,.ledger-table tbody td{text-align:center!important}
+    .ledger-table tbody td:nth-child(n+6){text-align:right!important;font-variant-numeric:tabular-nums}
     .status{display:inline-block;border-radius:20px;padding:4px 8px;background:#edf2f7}.status-posted{background:#e4f5e8;color:#24713b}.status-approval_pending{background:#fff2ce;color:#8b6400}.status-rejected,.status-cancelled{background:#fde7e7;color:#a92e2e}
     .filter-row{display:flex;align-items:center;gap:7px}.filter-row input,.filter-row select{margin:0;width:auto;min-width:150px}.notice{position:fixed;top:75px;right:20px;z-index:50;max-width:420px;padding:13px 16px;border-radius:7px;background:#e7f4ea;color:#236b36;box-shadow:0 5px 20px #0002}.notice.error{background:#fee9e9;color:#a12b2b}
     .journal-entry-grid{width:100%;overflow-x:auto;margin:14px 0 10px}.journal-lines{display:grid;gap:7px;width:100%}.journal-line{width:100%;min-width:1120px;display:grid;grid-template-columns:minmax(210px,1.45fr) minmax(130px,.85fr) minmax(130px,.85fr) minmax(180px,1.15fr) minmax(170px,1.1fr) minmax(180px,1.15fr) 42px;gap:8px;align-items:center}.journal-line--header{margin-bottom:7px;background:#edf3fa;border:1px solid #d5deea;border-radius:5px;color:#344255;font-weight:700;text-align:center}.journal-line--header span{padding:9px 6px}.journal-line input,.journal-line select{min-width:0;margin:0}.icon-btn,.mini-btn{border:1px solid #c7d0dc;background:#fff;border-radius:4px;color:#42516a}.icon-btn{height:38px}.mini-btn{padding:5px 8px}.journal-total{display:flex;gap:22px;justify-content:flex-end;align-items:center;background:#f5f7fa;padding:10px;margin-top:10px}
-    .month-table-wrap{width:100%;max-width:none;margin:0}.month-table{width:100%;min-width:0;table-layout:fixed;font-size:14px}.month-table th,.month-table td{text-align:right!important;padding:12px 16px}.month-table th:nth-child(1),.month-table td:nth-child(1){width:20%}.month-table th:nth-child(2),.month-table td:nth-child(2){width:40%}.month-table th:nth-child(3),.month-table td:nth-child(3){width:40%}.month-row--closed{background:#f3f9f4}.month-status{display:inline-block;min-width:78px;padding:5px 12px;border-radius:999px;font-weight:700;text-align:center}.month-status--open{background:#edf2f7;color:#526176}.month-status--closed{background:#e4f5e8;color:#24713b}.month-table .mini-btn{font-size:13px;padding:6px 12px}
+    .month-table-wrap{width:100%;max-width:none;margin:0}.month-table{width:100%;min-width:0;table-layout:fixed;font-size:14px}.month-table th,.month-table td{text-align:center!important;padding:12px 16px}.month-table th:nth-child(1),.month-table td:nth-child(1){width:20%}.month-table th:nth-child(2),.month-table td:nth-child(2){width:40%}.month-table th:nth-child(3),.month-table td:nth-child(3){width:40%}.month-row--closed{background:#f3f9f4}.month-status{display:inline-block;min-width:78px;padding:5px 12px;border-radius:999px;font-weight:700;text-align:center}.month-status--open{background:#edf2f7;color:#526176}.month-status--closed{background:#e4f5e8;color:#24713b}.month-table .mini-btn{font-size:13px;padding:6px 12px}
     .muted{font-size:12px;color:#737d8b}
     @media(max-width:1100px){.acc-shell{grid-template-columns:180px minmax(0,1fr)}.summary-grid{grid-template-columns:repeat(2,1fr)}.form-grid.four,.form-grid.five{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:760px){.acc-topbar{height:auto;padding:10px;align-items:flex-start;gap:.7rem;flex-wrap:wrap}.acc-brand{max-width:calc(100% - 10px)}.acc-brand__wordmark{width:132px;max-height:22px}.acc-brand__system-name{font-size:.88rem}.acc-topbar__right{width:100%;flex-wrap:wrap}.acc-topbar__right>span{display:none}.acc-shell{display:block}.acc-sidebar{border-right:0;border-bottom:1px solid #d4dce7}.acc-sidebar nav{grid-template-columns:repeat(2,1fr)}.acc-sidebar__note{display:none}.acc-main{padding:12px}.page-heading{align-items:flex-start}.summary-grid,.form-grid.two,.form-grid.three,.form-grid.four,.form-grid.five{grid-template-columns:1fr}.span-2,.span-3{grid-column:auto}.month-table-wrap{max-width:none}}
