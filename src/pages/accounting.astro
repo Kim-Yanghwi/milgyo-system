@@ -51,6 +51,11 @@ import GovLayout from '../layouts/GovLayout.astro';
             <article><span>수지차액</span><strong data-summary-balance>0원</strong></article>
             <article><span>차변·대변 검증</span><strong data-summary-check>일치</strong></article>
           </div>
+          <div class="card integration-card manager-only" data-integration-card hidden>
+            <div class="card-head"><h2>전자결재·회계 연계 상태</h2><button class="btn btn-outline" type="button" data-retry-integration>실패 건 재처리</button></div>
+            <div class="integration-summary"><span>대기 <b data-integration-pending>0건</b></span><span>처리 중 <b data-integration-processing>0건</b></span><span>실패 <b data-integration-failed>0건</b></span><span>완료 <b data-integration-succeeded>0건</b></span></div>
+            <p class="muted" data-integration-message>연계 상태를 확인하고 있습니다.</p>
+          </div>
           <div class="card">
             <div class="card-head"><h2>최근 결의서</h2><button class="link-btn" data-go-tab="resolution">전체보기</button></div>
             <div class="table-wrap"><table><thead><tr><th>결의번호</th><th>구분</th><th>일자</th><th>제목</th><th>금액</th><th>상태</th></tr></thead><tbody data-recent-resolutions></tbody></table></div>
@@ -232,6 +237,18 @@ import GovLayout from '../layouts/GovLayout.astro';
       };
       const renderSummary=()=>{const s=state.summary;const income=Number(s.income||0),expense=Number(s.expense||0);$('[data-summary-income]').textContent=won(income);$('[data-summary-expense]').textContent=won(expense);$('[data-summary-balance]').textContent=won(income-expense);$('[data-summary-check]').textContent=Number(s.total_debit||0)===Number(s.total_credit||0)?'일치':'불일치';$('[data-closing-income]').textContent=won(income);$('[data-closing-expense]').textContent=won(expense);$('[data-closing-balance]').textContent=won(income-expense);$('[data-closing-check]').textContent=Number(s.total_debit||0)===Number(s.total_credit||0)?'일치':'불일치';};
       const renderRecent=(rows)=>{$('[data-recent-resolutions]').innerHTML=rows.length?rows.map((r)=>`<tr><td>${esc(r.resolution_no)}</td><td>${typeLabel(r.resolution_type)}</td><td>${esc(r.resolution_date)}</td><td class="left">${esc(r.title)}</td><td class="num">${won(r.amount)}</td><td><span class="status status-${esc(r.status)}">${statusLabel(r.status)}</span></td></tr>`).join(''):'<tr><td colspan="6" class="empty">등록된 결의서가 없습니다.</td></tr>'};
+      const renderIntegration=(integration)=>{
+        const card=$('[data-integration-card]');
+        if(!card||!state.permissions.manager){if(card)card.hidden=true;return;}
+        card.hidden=false;
+        const summary=integration?.summary||{};
+        $('[data-integration-pending]').textContent=`${Number(summary.pending||0)}건`;
+        $('[data-integration-processing]').textContent=`${Number(summary.processing||0)}건`;
+        $('[data-integration-failed]').textContent=`${Number(summary.failed||0)}건`;
+        $('[data-integration-succeeded]').textContent=`${Number(summary.succeeded||0)}건`;
+        const problem=Number(summary.pending||0)+Number(summary.processing||0)+Number(summary.failed||0);
+        $('[data-integration-message]').textContent=problem?`회계 반영 대기 또는 실패 자료가 ${problem}건 있습니다. 재처리 후 상태를 확인해 주세요.`:'전자결재와 회계 DB 연계가 정상입니다.';
+      };
       const loadInit=async()=>{try{
         const needsUsers=!state.users.length;
         const [d,u]=await Promise.all([
@@ -243,9 +260,15 @@ import GovLayout from '../layouts/GovLayout.astro';
         renderYearOptions(d.fiscalYears||[]);
         populateAccounts();populateDepartments();populateDimensions();
         if(!$('[data-journal-lines]').children.length){addJournalLine({accountCode:'5400',department:me.department||''});addJournalLine({accountCode:'1120',department:me.department||''});}
-        renderSummary();renderRecent(d.recentResolutions);setPermissions();populateUsers();renderAccounts();renderMonths(d.closings||[]);
+        renderSummary();renderRecent(d.recentResolutions);setPermissions();renderIntegration(d.integration);populateUsers();renderAccounts();renderMonths(d.closings||[]);
       }catch(e){notice(e.message,'error')}};
       $('[data-global-year]').addEventListener('change',async(e)=>{state.year=Number(e.target.value);await loadInit();showTab($('.acc-nav.active').dataset.tab)});
+      const retryIntegrationButton=$('[data-retry-integration]');
+      if(retryIntegrationButton)retryIntegrationButton.addEventListener('click',async()=>{
+        retryIntegrationButton.disabled=true;
+        try{const d=await api('/api/accounting/action',{action:'retry-integration'});notice(d.message||'회계 연계를 재처리했습니다.');await loadInit();}
+        catch(e){notice(e.message,'error')}finally{retryIntegrationButton.disabled=false}
+      });
 
       $$('.money-input').forEach((input)=>{input.addEventListener('blur',()=>{const n=moneyValue(input.value);if(input.value.trim())input.value=n.toLocaleString('ko-KR')});});
 
@@ -325,6 +348,7 @@ import GovLayout from '../layouts/GovLayout.astro';
     .page-heading{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px}.page-heading p{margin:0;color:#b08d3f;font-size:11px;font-weight:800;letter-spacing:.15em}.page-heading h1{margin:3px 0;font-size:24px}.page-heading span{font-size:13px;color:#6b7280}
     .summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.summary-grid article{background:#fff;border:1px solid #d7deea;border-radius:10px;padding:18px}.summary-grid span{display:block;color:#6b7280;font-size:12px;margin-bottom:8px}.summary-grid strong{font-size:22px;color:#1f4f88}
     .card{background:#fff;border:1px solid #d6deea;border-radius:10px;margin-bottom:16px;padding:16px;box-shadow:0 1px 2px #00000008}.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.card h2{font-size:17px;margin:0}
+    .integration-card{border-left:4px solid #315f9f}.integration-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.integration-summary span{padding:10px 12px;border:1px solid #d8e0eb;border-radius:6px;background:#f7f9fc;color:#5c6778;text-align:center}.integration-summary b{display:block;margin-top:4px;color:#1f4f88;font-size:17px}
     .btn{border:1px solid transparent;border-radius:5px;padding:9px 13px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.btn-primary{background:#315f9f;color:#fff}.btn-outline{background:#fff;color:#304b70;border-color:#bfcada}.link-btn{border:0;background:none;color:#315f9f;font-weight:700}
     .form-card{border-top:3px solid #315f9f}.form-grid{display:grid;gap:12px}.form-grid.two{grid-template-columns:repeat(2,1fr)}.form-grid.three{grid-template-columns:repeat(3,1fr)}.form-grid.four{grid-template-columns:repeat(4,1fr)}.form-grid.five{grid-template-columns:repeat(5,1fr)}.span-2{grid-column:span 2}.span-3{grid-column:span 3}
     label{display:block;font-size:12px;font-weight:700;color:#465162}input,select,textarea{width:100%;border:1px solid #c8d1df;border-radius:5px;padding:9px 10px;margin-top:6px;background:#fff;color:#20252c}select[multiple]{padding:4px}fieldset{border:1px solid #d8e0eb;border-radius:7px;margin:16px 0;padding:12px}legend{font-size:13px;font-weight:700;color:#315f9f}.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:15px}.inline-check{display:flex;gap:8px;align-items:center}.inline-check input{width:auto;margin:0}

@@ -195,127 +195,23 @@ CREATE TABLE IF NOT EXISTS system_meta (
 );
 
 INSERT INTO system_meta (meta_key, meta_value, updated_at)
-VALUES ('schema_version', '2026-07-25.8', CURRENT_TIMESTAMP)
+VALUES ('schema_version', '2026-07-26.10', CURRENT_TIMESTAMP)
 ON CONFLICT(meta_key) DO UPDATE SET meta_value=excluded.meta_value, updated_at=excluded.updated_at;
 
--- v20 종단 회계관리 모듈
-CREATE TABLE IF NOT EXISTS accounting_fiscal_years (
-  year INTEGER PRIMARY KEY,
-  name TEXT NOT NULL,
-  start_date TEXT NOT NULL,
-  end_date TEXT NOT NULL,
-  base_currency TEXT NOT NULL DEFAULT 'KRW',
-  status TEXT NOT NULL DEFAULT 'open',
-  created_by TEXT,
+-- v26 회계 전용 DB 연계 대기열
+CREATE TABLE IF NOT EXISTS accounting_outbox (
+  id TEXT PRIMARY KEY,
+  event_key TEXT NOT NULL UNIQUE,
+  event_type TEXT NOT NULL,
+  document_id TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at TEXT,
+  last_error TEXT,
   created_at TEXT NOT NULL,
-  closed_by TEXT,
-  closed_at TEXT
-);
-CREATE TABLE IF NOT EXISTS accounting_accounts (
-  code TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  account_type TEXT NOT NULL,
-  normal_side TEXT NOT NULL,
-  parent_code TEXT,
-  active INTEGER NOT NULL DEFAULT 1,
-  system_account INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL,
+  processed_at TEXT,
   updated_at TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS accounting_budgets (
-  id TEXT PRIMARY KEY,
-  fiscal_year INTEGER NOT NULL,
-  department TEXT NOT NULL DEFAULT '',
-  project TEXT NOT NULL DEFAULT '',
-  account_code TEXT NOT NULL,
-  original_amount INTEGER NOT NULL DEFAULT 0,
-  supplementary_amount INTEGER NOT NULL DEFAULT 0,
-  transfer_in INTEGER NOT NULL DEFAULT 0,
-  transfer_out INTEGER NOT NULL DEFAULT 0,
-  memo TEXT,
-  created_by TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  UNIQUE(fiscal_year, department, project, account_code)
-);
-CREATE TABLE IF NOT EXISTS accounting_resolutions (
-  id TEXT PRIMARY KEY,
-  resolution_no TEXT NOT NULL UNIQUE,
-  resolution_type TEXT NOT NULL,
-  fiscal_year INTEGER NOT NULL,
-  resolution_date TEXT NOT NULL,
-  title TEXT NOT NULL,
-  department TEXT NOT NULL DEFAULT '',
-  project TEXT NOT NULL DEFAULT '',
-  counterparty TEXT NOT NULL DEFAULT '',
-  account_code TEXT NOT NULL,
-  settlement_account_code TEXT NOT NULL,
-  amount INTEGER NOT NULL,
-  tax_amount INTEGER NOT NULL DEFAULT 0,
-  payment_method TEXT,
-  memo TEXT,
-  document_id TEXT UNIQUE,
-  status TEXT NOT NULL DEFAULT 'draft',
-  journal_id TEXT,
-  created_by_user_id TEXT NOT NULL,
-  created_by_name TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS accounting_journals (
-  id TEXT PRIMARY KEY,
-  journal_no TEXT NOT NULL UNIQUE,
-  fiscal_year INTEGER NOT NULL,
-  journal_date TEXT NOT NULL,
-  source_type TEXT NOT NULL,
-  source_id TEXT,
-  description TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'posted',
-  document_id TEXT,
-  reversed_journal_id TEXT,
-  created_by TEXT,
-  approved_by TEXT,
-  created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS accounting_journal_lines (
-  id TEXT PRIMARY KEY,
-  journal_id TEXT NOT NULL,
-  line_no INTEGER NOT NULL,
-  account_code TEXT NOT NULL,
-  debit INTEGER NOT NULL DEFAULT 0,
-  credit INTEGER NOT NULL DEFAULT 0,
-  department TEXT NOT NULL DEFAULT '',
-  project TEXT NOT NULL DEFAULT '',
-  counterparty TEXT NOT NULL DEFAULT '',
-  memo TEXT,
-  UNIQUE(journal_id, line_no)
-);
-CREATE TABLE IF NOT EXISTS accounting_closings (
-  id TEXT PRIMARY KEY,
-  fiscal_year INTEGER NOT NULL,
-  period_month INTEGER NOT NULL,
-  status TEXT NOT NULL DEFAULT 'closed',
-  closed_by TEXT NOT NULL,
-  closed_at TEXT NOT NULL,
-  memo TEXT,
-  UNIQUE(fiscal_year, period_month)
-);
-CREATE TABLE IF NOT EXISTS accounting_audit_logs (
-  id TEXT PRIMARY KEY,
-  action TEXT NOT NULL,
-  entity_type TEXT NOT NULL,
-  entity_id TEXT,
-  actor_user_id TEXT,
-  actor_name TEXT,
-  detail_json TEXT NOT NULL DEFAULT '{}',
-  created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS accounting_sequences (
-  seq_key TEXT PRIMARY KEY,
-  last_seq INTEGER NOT NULL DEFAULT 0
-);
-CREATE TABLE IF NOT EXISTS accounting_meta (
-  meta_key TEXT PRIMARY KEY,
-  meta_value TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
+CREATE INDEX IF NOT EXISTS idx_accounting_outbox_pending ON accounting_outbox(status,next_attempt_at,created_at);
+CREATE INDEX IF NOT EXISTS idx_accounting_outbox_document ON accounting_outbox(document_id,created_at);

@@ -1,6 +1,11 @@
 import { authenticateSession, clean, ensureTables, json, randomHex } from '../../_shared/helpers';
-import { ensureAccountingTables, prepareResolutionPosting } from '../../_shared/accounting';
-interface Env { DB: D1Database; }
+import {
+  accountingEventStatement,
+  ensureAccountingIntegrationSchema,
+  processAccountingOutbox,
+} from '../../_shared/accounting-integration';
+
+interface Env { DB: D1Database; ACCOUNTING_DB?: D1Database; }
 type DecidePayload = { token?: string; id?: string; action?: string; memo?: string };
 const VALID_ACTIONS = ['승인', '반려', '검토완료', '협조완료', '전결'];
 
@@ -21,12 +26,27 @@ const statusForLineType = (lineType: ApprovalLine['line_type']) => {
   if (lineType === '전결') return '전결대기';
   return '결재대기';
 };
-
 const completedActionForLine = (lineType: ApprovalLine['line_type']) => {
   if (lineType === '검토') return '검토완료';
   if (lineType === '협조') return '협조완료';
   if (lineType === '전결') return '전결';
   return '승인';
+};
+const isAccountingDocument = async (db: D1Database, documentId: string) => {
+  const row = await db.prepare(`SELECT 1 AS yes FROM accounting_outbox
+    WHERE document_id=? AND event_type='resolution.create' LIMIT 1`).bind(documentId).first<{ yes: number }>();
+  return !!row;
+};
+const processIntegration = async (env: Env, enqueued: boolean) => {
+  if (!enqueued) return { pending: false, failed: false };
+  if (!env.ACCOUNTING_DB) return { pending: true, failed: true };
+  try {
+    const result = await processAccountingOutbox(env.DB, env.ACCOUNTING_DB, { limit: 20, ignoreSchedule: true });
+    return { pending: result.failed > 0, failed: result.failed > 0 };
+  } catch (error) {
+    console.error('accounting outbox processing after document decision failed', error);
+    return { pending: true, failed: true };
+  }
 };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -34,7 +54,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let payload: DecidePayload;
   try { payload = await request.json(); } catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
   await ensureTables(env.DB);
-  await ensureAccountingTables(env.DB);
+  await ensureAccountingIntegrationSchema(env.DB);
   const auth = await authenticateSession(env.DB, clean(payload.token, 200));
   if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
   const me = auth.user;
@@ -45,86 +65,77 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!VALID_ACTIONS.includes(action)) return json({ ok: false, message: '처리 구분이 올바르지 않습니다.' }, 400);
 
   try {
-    const document = await env.DB.prepare(`
-      SELECT id, status, approval_track, approval_mode, CAST(reviewer_user_id AS TEXT) AS reviewer_user_id, CAST(approver_user_id AS TEXT) AS approver_user_id FROM documents WHERE id = ?
-    `).bind(id).first<{
-      id: string;
-      status: string;
-      approval_track: string;
-      approval_mode: string;
-      reviewer_user_id: string | null;
-      approver_user_id: string | null;
+    const document = await env.DB.prepare(`SELECT id,status,approval_track,approval_mode,
+      CAST(reviewer_user_id AS TEXT) AS reviewer_user_id,CAST(approver_user_id AS TEXT) AS approver_user_id
+      FROM documents WHERE id=?`).bind(id).first<{
+      id: string; status: string; approval_track: string; approval_mode: string;
+      reviewer_user_id: string | null; approver_user_id: string | null;
     }>();
     if (!document) return json({ ok: false, message: '해당 문서를 찾을 수 없습니다.' }, 404);
 
-    const currentLine = await env.DB.prepare(`
-      SELECT id, document_id, line_order, line_type, CAST(user_id AS TEXT) AS user_id, user_name, user_position, status
+    const currentLine = await env.DB.prepare(`SELECT id,document_id,line_order,line_type,
+      CAST(user_id AS TEXT) AS user_id,user_name,user_position,status
       FROM document_approval_lines current_line
-      WHERE current_line.document_id = ?
-        AND current_line.status IN ('대기','예정')
-        AND NOT EXISTS (
-          SELECT 1 FROM document_approval_lines previous_line
-          WHERE previous_line.document_id = current_line.document_id
-            AND previous_line.line_order < current_line.line_order
-            AND previous_line.status <> '완료'
-        )
-      ORDER BY current_line.line_order ASC LIMIT 1
-    `).bind(id).first<ApprovalLine>();
+      WHERE current_line.document_id=? AND current_line.status IN ('대기','예정')
+        AND NOT EXISTS (SELECT 1 FROM document_approval_lines previous_line
+          WHERE previous_line.document_id=current_line.document_id
+            AND previous_line.line_order<current_line.line_order AND previous_line.status<>'완료')
+      ORDER BY current_line.line_order ASC LIMIT 1`).bind(id).first<ApprovalLine>();
 
     if (currentLine) {
       if (me.role !== 'admin' && currentLine.user_id !== me.id) {
         return json({ ok: false, message: `지정된 ${currentLine.line_type}자만 처리할 수 있습니다.` }, 403);
       }
+      const now = new Date().toISOString();
+      const linked = await isAccountingDocument(env.DB, id);
+      let integrationEnqueued = false;
+
       if (action === '반려') {
-        const now = new Date().toISOString();
-        await env.DB.batch([
-          env.DB.prepare(`UPDATE document_approval_lines SET status='반려', acted_at=?, memo=? WHERE id=?`)
-            .bind(now, memo || null, currentLine.id),
-          env.DB.prepare(`UPDATE documents SET status='반려', completed_at=?, updated_at=? WHERE id=?`)
-            .bind(now, now, id),
-          env.DB.prepare(`UPDATE accounting_resolutions SET status='rejected', updated_at=? WHERE document_id=? AND status IN ('approval_pending','approved')`)
-            .bind(now, id),
-          env.DB.prepare(`INSERT INTO document_approvals (id, document_id, action, approver_name, approver_role, memo, created_at) VALUES (?, ?, '반려', ?, ?, ?, ?)`)
-            .bind(`AP-${randomHex(20)}`, id, me.name, `${currentLine.line_type}자`, memo || null, now),
-        ]);
-        return json({ ok: true, status: '반려', action: '반려', message: '문서가 반려 처리되었습니다.' });
+        const statements: D1PreparedStatement[] = [
+          env.DB.prepare(`UPDATE document_approval_lines SET status='반려',acted_at=?,memo=? WHERE id=?`).bind(now, memo || null, currentLine.id),
+          env.DB.prepare(`UPDATE documents SET status='반려',completed_at=?,updated_at=? WHERE id=?`).bind(now, now, id),
+          env.DB.prepare(`INSERT INTO document_approvals (id,document_id,action,approver_name,approver_role,memo,created_at)
+            VALUES (?,?,'반려',?,?,?,?)`).bind(`AP-${randomHex(20)}`, id, me.name, `${currentLine.line_type}자`, memo || null, now),
+        ];
+        if (linked) {
+          statements.push(accountingEventStatement(env.DB, 'resolution.reject', id,
+            { documentId: id, rejectedBy: me.name, memo, occurredAt: now }, `resolution.reject:${id}`, now));
+          integrationEnqueued = true;
+        }
+        await env.DB.batch(statements);
+        const integration = await processIntegration(env, integrationEnqueued);
+        return json({ ok: true, status: '반려', action: '반려', integrationPending: integration.pending,
+          message: integration.pending ? '문서는 반려되었으며 회계 반영은 재처리 대기 중입니다.' : '문서가 반려 처리되었습니다.' });
       }
 
       const recordedAction = completedActionForLine(currentLine.line_type);
-      const now = new Date().toISOString();
-      const nextLine = await env.DB.prepare(`
-        SELECT id, document_id, line_order, line_type, user_id, user_name, user_position, status
-        FROM document_approval_lines
-        WHERE document_id = ? AND line_order > ? AND status = '예정'
-        ORDER BY line_order ASC LIMIT 1
-      `).bind(id, currentLine.line_order).first<ApprovalLine>();
+      const nextLine = await env.DB.prepare(`SELECT id,document_id,line_order,line_type,user_id,user_name,user_position,status
+        FROM document_approval_lines WHERE document_id=? AND line_order>? AND status='예정'
+        ORDER BY line_order ASC LIMIT 1`).bind(id, currentLine.line_order).first<ApprovalLine>();
       const nextStatus = nextLine ? statusForLineType(nextLine.line_type) : '승인';
       const statements: D1PreparedStatement[] = [
-        env.DB.prepare(`UPDATE document_approval_lines SET status='완료', acted_at=?, memo=? WHERE id=?`)
-          .bind(now, memo || null, currentLine.id),
-        env.DB.prepare(`UPDATE documents SET status=?, completed_at=CASE WHEN ?='승인' THEN ? ELSE NULL END, updated_at=? WHERE id=?`)
+        env.DB.prepare(`UPDATE document_approval_lines SET status='완료',acted_at=?,memo=? WHERE id=?`).bind(now, memo || null, currentLine.id),
+        env.DB.prepare(`UPDATE documents SET status=?,completed_at=CASE WHEN ?='승인' THEN ? ELSE NULL END,updated_at=? WHERE id=?`)
           .bind(nextStatus, nextStatus, now, now, id),
-        env.DB.prepare(`INSERT INTO document_approvals (id, document_id, action, approver_name, approver_role, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-          .bind(`AP-${randomHex(20)}`, id, recordedAction, me.name, `${currentLine.line_type}자`, memo || null, now),
+        env.DB.prepare(`INSERT INTO document_approvals (id,document_id,action,approver_name,approver_role,memo,created_at)
+          VALUES (?,?,?,?,?,?,?)`).bind(`AP-${randomHex(20)}`, id, recordedAction, me.name, `${currentLine.line_type}자`, memo || null, now),
       ];
       if (nextLine) statements.push(env.DB.prepare(`UPDATE document_approval_lines SET status='대기' WHERE id=?`).bind(nextLine.id));
-      if (nextStatus === '승인') {
-        const resolution = await env.DB.prepare(`SELECT * FROM accounting_resolutions WHERE document_id=? AND status IN ('approval_pending','approved') LIMIT 1`)
-          .bind(id).first<any>();
-        if (resolution) {
-          statements.push(env.DB.prepare(`UPDATE accounting_resolutions SET status='approved', updated_at=? WHERE id=?`).bind(now, resolution.id));
-          const posting = await prepareResolutionPosting(env.DB, resolution, me.name);
-          statements.push(...posting.statements);
-        }
+      if (nextStatus === '승인' && linked) {
+        statements.push(accountingEventStatement(env.DB, 'resolution.approve', id,
+          { documentId: id, approvedBy: me.name, occurredAt: now }, `resolution.approve:${id}`, now));
+        integrationEnqueued = true;
       }
       await env.DB.batch(statements);
-      const message = nextLine
+      const integration = await processIntegration(env, integrationEnqueued);
+      const baseMessage = nextLine
         ? `${recordedAction} 처리되어 다음 ${nextLine.line_type}자에게 전달되었습니다.`
         : currentLine.line_type === '전결' ? '문서가 전결 처리되었습니다.' : '문서가 최종 승인되었습니다.';
-      return json({ ok: true, status: nextStatus, action: recordedAction, message });
+      return json({ ok: true, status: nextStatus, action: recordedAction, integrationPending: integration.pending,
+        message: integration.pending ? `${baseMessage} 회계 반영은 재처리 대기 중입니다.` : baseMessage });
     }
 
-    // 구버전 문서 호환: 결재선 테이블이 없는 기존 진행문서는 기존 단일 결재 방식으로 처리합니다.
+    // 결재선 테이블 도입 전 작성된 문서를 위한 호환 처리입니다.
     let newStatus = '';
     let recordedAction = action;
     if (document.status === '검토대기') {
@@ -134,38 +145,33 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       newStatus = recordedAction === '반려' ? '반려' : '결재대기';
     } else if (document.status === '결재대기' || document.status === '전결대기') {
       if (me.role !== 'admin' && document.approver_user_id !== me.id) return json({ ok: false, message: '지정된 최종 처리자만 처리할 수 있습니다.' }, 403);
-      if (action === '반려') {
-        recordedAction = '반려';
-        newStatus = '반려';
-      } else {
-        recordedAction = document.status === '전결대기' || document.approval_mode === '전결' ? '전결' : '승인';
-        newStatus = '승인';
-      }
-    } else {
-      return json({ ok: false, message: `이미 "${document.status}" 상태로 처리된 문서입니다.` }, 400);
-    }
+      if (action === '반려') { recordedAction = '반려'; newStatus = '반려'; }
+      else { recordedAction = document.status === '전결대기' || document.approval_mode === '전결' ? '전결' : '승인'; newStatus = '승인'; }
+    } else return json({ ok: false, message: `이미 "${document.status}" 상태로 처리된 문서입니다.` }, 400);
 
     const now = new Date().toISOString();
-    const legacyStatements: D1PreparedStatement[] = [
-      env.DB.prepare(`UPDATE documents SET status = ?, completed_at = CASE WHEN ? IN ('승인','반려') THEN ? ELSE completed_at END, updated_at = ? WHERE id = ?`)
+    const linked = await isAccountingDocument(env.DB, id);
+    let integrationEnqueued = false;
+    const statements: D1PreparedStatement[] = [
+      env.DB.prepare(`UPDATE documents SET status=?,completed_at=CASE WHEN ? IN ('승인','반려') THEN ? ELSE completed_at END,updated_at=? WHERE id=?`)
         .bind(newStatus, newStatus, now, now, id),
-      env.DB.prepare(`
-        INSERT INTO document_approvals (id, document_id, action, approver_name, approver_role, memo, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).bind(`AP-${randomHex(20)}`, id, recordedAction, me.name, me.position || '처리자', memo || null, now),
+      env.DB.prepare(`INSERT INTO document_approvals (id,document_id,action,approver_name,approver_role,memo,created_at)
+        VALUES (?,?,?,?,?,?,?)`).bind(`AP-${randomHex(20)}`, id, recordedAction, me.name, me.position || '처리자', memo || null, now),
     ];
-    if (newStatus === '반려') {
-      legacyStatements.push(env.DB.prepare(`UPDATE accounting_resolutions SET status='rejected', updated_at=? WHERE document_id=? AND status IN ('approval_pending','approved')`).bind(now,id));
-    } else if (newStatus === '승인') {
-      const resolution = await env.DB.prepare(`SELECT * FROM accounting_resolutions WHERE document_id=? AND status IN ('approval_pending','approved') LIMIT 1`).bind(id).first<any>();
-      if (resolution) {
-        legacyStatements.push(env.DB.prepare(`UPDATE accounting_resolutions SET status='approved', updated_at=? WHERE id=?`).bind(now,resolution.id));
-        const posting=await prepareResolutionPosting(env.DB,resolution,me.name);
-        legacyStatements.push(...posting.statements);
-      }
+    if (linked && newStatus === '반려') {
+      statements.push(accountingEventStatement(env.DB, 'resolution.reject', id,
+        { documentId: id, rejectedBy: me.name, memo, occurredAt: now }, `resolution.reject:${id}`, now));
+      integrationEnqueued = true;
+    } else if (linked && newStatus === '승인') {
+      statements.push(accountingEventStatement(env.DB, 'resolution.approve', id,
+        { documentId: id, approvedBy: me.name, occurredAt: now }, `resolution.approve:${id}`, now));
+      integrationEnqueued = true;
     }
-    await env.DB.batch(legacyStatements);
-    return json({ ok: true, status: newStatus, action: recordedAction, message: recordedAction === '검토완료' ? '검토가 완료되어 최종 결재자에게 전달되었습니다.' : `문서가 ${recordedAction} 처리되었습니다.` });
+    await env.DB.batch(statements);
+    const integration = await processIntegration(env, integrationEnqueued);
+    const baseMessage = recordedAction === '검토완료' ? '검토가 완료되어 최종 결재자에게 전달되었습니다.' : `문서가 ${recordedAction} 처리되었습니다.`;
+    return json({ ok: true, status: newStatus, action: recordedAction, integrationPending: integration.pending,
+      message: integration.pending ? `${baseMessage} 회계 반영은 재처리 대기 중입니다.` : baseMessage });
   } catch (error) {
     console.error('document decide failed', error);
     return json({ ok: false, message: '결재 처리 중 오류가 발생했습니다.' }, 500);

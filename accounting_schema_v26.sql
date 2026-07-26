@@ -352,6 +352,21 @@ CREATE TABLE IF NOT EXISTS accounting_special_sequences (
   last_seq INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS accounting_monthly_summary (
+  fiscal_year INTEGER NOT NULL,
+  period_month INTEGER NOT NULL,
+  book_type_code TEXT NOT NULL DEFAULT 'general',
+  entity_id TEXT NOT NULL DEFAULT 'ENTITY-HQ',
+  fund_id TEXT NOT NULL DEFAULT '',
+  account_code TEXT NOT NULL,
+  department TEXT NOT NULL DEFAULT '',
+  project TEXT NOT NULL DEFAULT '',
+  debit_total INTEGER NOT NULL DEFAULT 0,
+  credit_total INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (fiscal_year,period_month,book_type_code,entity_id,fund_id,account_code,department,project)
+);
+
 CREATE INDEX IF NOT EXISTS idx_acc_budget_year
   ON accounting_budgets (fiscal_year, department, account_code);
 CREATE INDEX IF NOT EXISTS idx_acc_resolution_status
@@ -449,5 +464,5 @@ VALUES
 ('FUND-RESERVE','FUND-RESERVE','적립금·준비금','reserve','장래 사업과 시설을 위한 적립 재원',1,1,'system',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP);
 
 INSERT INTO accounting_meta (meta_key, meta_value, updated_at)
-VALUES ('schema_version', '2026-07-26.3', CURRENT_TIMESTAMP)
+VALUES ('schema_version', '2026-07-26.4', CURRENT_TIMESTAMP)
 ON CONFLICT(meta_key) DO UPDATE SET meta_value=excluded.meta_value, updated_at=excluded.updated_at;

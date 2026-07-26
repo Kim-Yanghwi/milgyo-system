@@ -10,6 +10,7 @@ pages_build_output_dir = "dist"
 binding = "DB"
 database_name = "milgyo-system-db"
 database_id = "8c130839-aca2-4d85-8495-10460e07bbc5"
+migrations_dir = "migrations/main"
 
 [[d1_databases]]
 binding = "ACCOUNTING_DB"
