@@ -1,0 +1,66 @@
+---
+export interface Props {
+  title?: string;
+}
+const { title = '대한불교밀교종 종단관리시스템' } = Astro.props;
+---
+<!doctype html>
+<html lang="ko" class="auth-boot">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>{title}</title>
+  <link rel="icon" type="image/png" href="/favicon.png" id="site-favicon" />
+  <link rel="apple-touch-icon" href="/favicon.png" />
+  <script is:inline>
+    try {
+      let raw = localStorage.getItem('milgyo-system-session');
+      if (!raw) {
+        const legacyRaw = sessionStorage.getItem('milgyo-system-session');
+        if (legacyRaw) {
+          const legacy = JSON.parse(legacyRaw);
+          raw = JSON.stringify({ ...legacy, savedAt: Date.now() });
+          localStorage.setItem('milgyo-system-session', raw);
+          sessionStorage.removeItem('milgyo-system-session');
+        }
+      }
+      const session = raw ? JSON.parse(raw) : null;
+      const savedAt = Number(session?.savedAt || 0);
+      const valid = !!session?.token && !!session?.user && savedAt > 0 && (Date.now() - savedAt) < 12 * 60 * 60 * 1000;
+      if (!valid && raw) localStorage.removeItem('milgyo-system-session');
+      document.documentElement.dataset.authHint = valid ? 'session' : 'login';
+    } catch {
+      document.documentElement.dataset.authHint = 'login';
+    }
+  </script>
+</head>
+<body>
+  <slot />
+  <style is:global>
+    :root {
+      --gov-navy: #37649b;
+      --gov-navy-dark: #244d80;
+      --gov-accent: #315f9f;
+      --gov-bg: #e9edf3;
+      --gov-border: #cbd3df;
+      --gov-text: #23262b;
+      --gov-muted: #6a7180;
+      --gov-gold: #b08d3f;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--gov-bg);
+      color: var(--gov-text);
+      font-family: "Pretendard", "Malgun Gothic", -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    html.auth-boot[data-auth-hint="session"] .login-screen { display: none !important; }
+    html.auth-boot[data-auth-hint="login"] .app-shell { display: none !important; }
+    button { font-family: inherit; cursor: pointer; }
+    :focus-visible { outline: 3px solid rgba(49,95,159,.35); outline-offset: 2px; }
+    input, select, textarea { font-family: inherit; }
+  </style>
+</body>
+</html>
