@@ -11,6 +11,12 @@ binding = "DB"
 database_name = "milgyo-system-db"
 database_id = "8c130839-aca2-4d85-8495-10460e07bbc5"
 
+[[d1_databases]]
+binding = "ACCOUNTING_DB"
+database_name = "milgyo-accounting-db"
+database_id = "48393ad7-8a7c-4a24-a9a9-5dbd685fd108"
+migrations_dir = "migrations/accounting"
+
 # 첨부파일은 D1의 2MB 행 제한을 피하기 위해 R2 사용을 권장합니다.
 # Cloudflare Pages 대시보드에서 R2 버킷을 만든 뒤 변수명 FILES로 바인딩하세요.
 # 대시보드 바인딩을 사용하면 아래 설정은 추가하지 않아도 됩니다.
