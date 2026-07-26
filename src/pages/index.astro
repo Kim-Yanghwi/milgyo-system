@@ -101,6 +101,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         <div class="sidebar-group">
           <p class="sidebar-group__title">접수·외부발송(문서24 등)</p>
           <button type="button" class="sidebar-link" data-received-view="전체">접수·발송대장</button>
+          <a class="sidebar-link sidebar-external-link" href="https://docu.gdoc.go.kr/" target="_blank" rel="noopener noreferrer">문서24 바로가기</a>
           <button type="button" class="btn btn-outline btn-block" data-open-received>+ 접수·발송 등록</button>
         </div>
       </aside>
@@ -1775,6 +1776,8 @@ import GovLayout from '../layouts/GovLayout.astro';
       background: transparent; border: none; border-radius: 2px; padding: 0.58rem 0.65rem; font-size: 0.9rem; color: var(--gov-text);
     }
     .sidebar-link:hover { background: #f2f4f7; }
+    .sidebar-external-link { justify-content: flex-start; color: var(--gov-text); text-decoration: none; }
+    .sidebar-external-link:focus-visible { outline: 2px solid var(--gov-accent); outline-offset: -2px; }
     .sidebar-link.active { background: #e8effe; color: var(--gov-accent); font-weight: 700; }
     .sidebar-link__count {
       background: var(--gov-border); color: var(--gov-muted); border-radius: 999px; font-size: 0.72rem; padding: 0.05rem 0.5rem;
