@@ -1,6 +1,7 @@
 import { clean, randomHex, type SessionUser } from './helpers';
+import { ensureAccountingSpecialTables, getResolutionDimensions } from './accounting-special';
 
-export const ACCOUNTING_SCHEMA_VERSION = '2026-07-26.2';
+export const ACCOUNTING_SCHEMA_VERSION = '2026-07-26.3';
 
 const DEFAULT_ACCOUNTS = [
   ['1000','자산','asset','debit','',1],
@@ -144,6 +145,7 @@ export const ensureAccountingTables = async (db: D1Database) => {
     await db.prepare(`INSERT INTO accounting_meta (meta_key,meta_value,updated_at) VALUES ('schema_version',?,?)
       ON CONFLICT(meta_key) DO UPDATE SET meta_value=excluded.meta_value, updated_at=excluded.updated_at`)
       .bind(ACCOUNTING_SCHEMA_VERSION, now).run();
+    await ensureAccountingSpecialTables(db);
     accountingReady = true;
   })().catch((error) => { accountingPromise = null; throw error; });
   await accountingPromise;
@@ -186,6 +188,9 @@ export const prepareResolutionPosting = async (
   const journalId = `JRN-${randomHex(24)}`;
   const journalNo = await nextAccountingNumber(db, 'journal', resolution.fiscal_year);
   const now = new Date().toISOString();
+  const dimensions = await getResolutionDimensions(db, resolution.id);
+  const line1Id = `JL-${randomHex(20)}`;
+  const line2Id = `JL-${randomHex(20)}`;
   const amount = Math.abs(Number(resolution.amount || 0));
   if (!amount) throw new Error('결의금액이 0원입니다.');
   const isIncome = resolution.resolution_type === 'income';
@@ -200,11 +205,17 @@ export const prepareResolutionPosting = async (
     db.prepare(`INSERT INTO accounting_journal_lines
       (id,journal_id,line_no,account_code,debit,credit,department,project,counterparty,memo)
       VALUES (?,?,?,?,?,0,?,?,?,?)`)
-      .bind(`JL-${randomHex(20)}`,journalId,1,debitAccount,amount,...common),
+      .bind(line1Id,journalId,1,debitAccount,amount,...common),
     db.prepare(`INSERT INTO accounting_journal_lines
       (id,journal_id,line_no,account_code,debit,credit,department,project,counterparty,memo)
       VALUES (?,?,?,?,0,?, ?,?,?,?)`)
-      .bind(`JL-${randomHex(20)}`,journalId,2,creditAccount,amount,...common),
+      .bind(line2Id,journalId,2,creditAccount,amount,...common),
+    db.prepare(`INSERT INTO accounting_journal_line_dimensions
+      (journal_line_id,book_type_code,entity_id,fund_id,created_at) VALUES (?,?,?,?,?)`)
+      .bind(line1Id,dimensions.bookTypeCode,dimensions.entityId,dimensions.fundId,now),
+    db.prepare(`INSERT INTO accounting_journal_line_dimensions
+      (journal_line_id,book_type_code,entity_id,fund_id,created_at) VALUES (?,?,?,?,?)`)
+      .bind(line2Id,dimensions.bookTypeCode,dimensions.entityId,dimensions.fundId,now),
     db.prepare(`UPDATE accounting_resolutions SET status='posted', journal_id=?, updated_at=? WHERE id=?`)
       .bind(journalId,now,resolution.id),
     db.prepare(`INSERT INTO accounting_audit_logs (id,action,entity_type,entity_id,actor_name,detail_json,created_at)

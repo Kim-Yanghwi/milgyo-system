@@ -9,6 +9,7 @@ import {
   parseMoney,
   prepareResolutionPosting,
 } from '../../_shared/accounting';
+import { validateDimensions } from '../../_shared/accounting-special';
 
 interface Env { DB: D1Database; }
 type Payload = Record<string, unknown> & { token?: string; action?: string };
@@ -65,19 +66,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if(!manager)return json({ok:false,message:'예산 편성 권한이 없습니다.'},403);
       const year=Number(payload.year);const accountCode=clean(payload.accountCode,20);const department=clean(payload.department,80);const project=clean(payload.project,100);
       if(!Number.isInteger(year)||!accountCode)return json({ok:false,message:'회계연도와 예산 계정과목을 선택해 주세요.'},400);
+      const dimensions=await validateDimensions(env.DB,payload);
       const account=await env.DB.prepare(`SELECT account_type FROM accounting_accounts WHERE code=? AND active=1`).bind(accountCode).first<{account_type:string}>();
       if(!account||account.account_type!=='expense')return json({ok:false,message:'예산은 지출 계정과목으로 편성해 주세요.'},400);
       const now=new Date().toISOString();const id=`BUD-${year}-${randomHex(14)}`;
       const amounts={original:parseMoney(payload.originalAmount),supplementary:parseMoney(payload.supplementaryAmount),transferIn:parseMoney(payload.transferIn),transferOut:parseMoney(payload.transferOut)};
       if(Object.values(amounts).some((v)=>v<0))return json({ok:false,message:'예산 금액은 0원 이상으로 입력해 주세요.'},400);
       await env.DB.batch([
-        env.DB.prepare(`INSERT INTO accounting_budgets
-          (id,fiscal_year,department,project,account_code,original_amount,supplementary_amount,transfer_in,transfer_out,memo,created_by,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
-          ON CONFLICT(fiscal_year,department,project,account_code) DO UPDATE SET
-          original_amount=excluded.original_amount,supplementary_amount=excluded.supplementary_amount,transfer_in=excluded.transfer_in,transfer_out=excluded.transfer_out,memo=excluded.memo,updated_at=excluded.updated_at`)
-          .bind(id,year,department,project,accountCode,amounts.original,amounts.supplementary,amounts.transferIn,amounts.transferOut,clean(payload.memo,1000)||null,me.name,now,now),
-        auditStatement(env.DB,'save','budget',`${year}:${department}:${project}:${accountCode}`,me.id,me.name,amounts,now),
+        env.DB.prepare(`INSERT INTO accounting_budget_plans
+          (id,fiscal_year,book_type_code,entity_id,fund_id,department,project,account_code,
+           original_amount,supplementary_amount,transfer_in,transfer_out,memo,created_by,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          ON CONFLICT(fiscal_year,book_type_code,entity_id,fund_id,department,project,account_code) DO UPDATE SET
+          original_amount=excluded.original_amount,supplementary_amount=excluded.supplementary_amount,
+          transfer_in=excluded.transfer_in,transfer_out=excluded.transfer_out,memo=excluded.memo,updated_at=excluded.updated_at`)
+          .bind(id,year,dimensions.bookTypeCode,dimensions.entityId,dimensions.fundId,department,project,accountCode,
+            amounts.original,amounts.supplementary,amounts.transferIn,amounts.transferOut,clean(payload.memo,1000)||null,me.name,now,now),
+        auditStatement(env.DB,'save','budget',`${year}:${dimensions.bookTypeCode}:${dimensions.entityId}:${dimensions.fundId}:${department}:${project}:${accountCode}`,me.id,me.name,{...amounts,...dimensions},now),
       ]);
       return json({ok:true,message:'예산을 저장했습니다.'});
     }
@@ -93,13 +98,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const accountMap=new Map((accounts.results||[]).map((a)=>[a.code,a.account_type]));
       if(accountMap.get(accountCode)!==(type==='income'?'revenue':'expense'))return json({ok:false,message:type==='income'?'수입 계정과목을 선택해 주세요.':'지출 계정과목을 선택해 주세요.'},400);
       if(accountMap.get(settlement)!=='asset')return json({ok:false,message:'입·출금 계정은 현금·예금 등 자산 계정으로 선택해 주세요.'},400);
+      const dimensions=await validateDimensions(env.DB,payload);
 
       if(type==='expense'){
-        const budget=await env.DB.prepare(`SELECT (original_amount+supplementary_amount+transfer_in-transfer_out) AS revised FROM accounting_budgets WHERE fiscal_year=? AND department=? AND project=? AND account_code=?`)
-          .bind(year,clean(payload.department,80),clean(payload.project,100),accountCode).first<{revised:number}>();
+        const budget=await env.DB.prepare(`SELECT (original_amount+supplementary_amount+transfer_in-transfer_out) AS revised
+          FROM accounting_budget_plans WHERE fiscal_year=? AND book_type_code=? AND entity_id=? AND fund_id=?
+          AND department=? AND project=? AND account_code=?`)
+          .bind(year,dimensions.bookTypeCode,dimensions.entityId,dimensions.fundId,
+            clean(payload.department,80),clean(payload.project,100),accountCode).first<{revised:number}>();
         if(budget){
-          const used=await env.DB.prepare(`SELECT COALESCE(SUM(l.debit-l.credit),0) AS used FROM accounting_journal_lines l JOIN accounting_journals j ON j.id=l.journal_id WHERE j.status IN ('posted','reversed') AND j.fiscal_year=? AND l.account_code=? AND l.department=? AND l.project=?`)
-            .bind(year,accountCode,clean(payload.department,80),clean(payload.project,100)).first<{used:number}>();
+          const used=await env.DB.prepare(`SELECT COALESCE(SUM(l.debit-l.credit),0) AS used
+            FROM accounting_journal_lines l JOIN accounting_journals j ON j.id=l.journal_id
+            LEFT JOIN accounting_journal_line_dimensions d ON d.journal_line_id=l.id
+            WHERE j.status IN ('posted','reversed') AND j.fiscal_year=? AND l.account_code=?
+            AND l.department=? AND l.project=? AND COALESCE(d.book_type_code,'general')=?
+            AND COALESCE(d.entity_id,'ENTITY-HQ')=? AND COALESCE(d.fund_id,'')=?`)
+            .bind(year,accountCode,clean(payload.department,80),clean(payload.project,100),
+              dimensions.bookTypeCode,dimensions.entityId,dimensions.fundId).first<{used:number}>();
           const available=Number(budget.revised||0)-Number(used?.used||0);
           if(amount>available && !(manager&&payload.allowOverBudget===true))return json({ok:false,message:`예산 잔액(${available.toLocaleString('ko-KR')}원)을 초과합니다. 회계담당자가 초과집행 여부를 확인해 주세요.`,budgetWarning:true,available},400);
         }
@@ -122,13 +137,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const department=clean(payload.department,80)||me.department||'';const project=clean(payload.project,100);const counterparty=clean(payload.counterparty,120);
       const memo=clean(payload.memo,2000);const payment=clean(payload.paymentMethod,40);
       const typeLabel=type==='income'?'수입결의':'지출결의';
-      const body=`1. 결의번호: ${resolutionNo}\n2. 결의일자: ${date}\n3. 회계구분: ${typeLabel}\n4. 계정과목: ${accountCode}\n5. 금액: ${amount.toLocaleString('ko-KR')}원\n6. 거래처·납부자: ${counterparty||'-'}\n7. 담당부서 / 사업: ${department||'-'} / ${project||'-'}\n8. 입·출금계정: ${settlement}\n9. 지급·수납방법: ${payment||'-'}\n10. 비고\n${memo||'없음'}`;
-      const formData={_accountingResolutionId:resolutionId,resolutionNo,resolutionType:type,amount:String(amount),accountCode,settlementAccountCode:settlement};
+      const body=`1. 결의번호: ${resolutionNo}\n2. 결의일자: ${date}\n3. 결의구분: ${typeLabel}\n4. 회계구분: ${dimensions.bookTypeCode}\n5. 회계조직: ${dimensions.entityId}\n6. 재원: ${dimensions.fundId||'-'}\n7. 계정과목: ${accountCode}\n8. 금액: ${amount.toLocaleString('ko-KR')}원\n9. 거래처·납부자: ${counterparty||'-'}\n10. 담당부서 / 사업: ${department||'-'} / ${project||'-'}\n11. 입·출금계정: ${settlement}\n12. 지급·수납방법: ${payment||'-'}\n13. 비고\n${memo||'없음'}`;
+      const formData={_accountingResolutionId:resolutionId,resolutionNo,resolutionType:type,amount:String(amount),accountCode,
+        settlementAccountCode:settlement,bookTypeCode:dimensions.bookTypeCode,entityId:dimensions.entityId,fundId:dimensions.fundId};
       const statements:D1PreparedStatement[]=[
         env.DB.prepare(`INSERT INTO accounting_resolutions
           (id,resolution_no,resolution_type,fiscal_year,resolution_date,title,department,project,counterparty,account_code,settlement_account_code,amount,tax_amount,payment_method,memo,document_id,status,created_by_user_id,created_by_name,created_at,updated_at)
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
           .bind(resolutionId,resolutionNo,type,year,date,title,department,project,counterparty,accountCode,settlement,amount,parseMoney(payload.taxAmount),payment||null,memo||null,documentId,selfImmediate?'approved':'approval_pending',me.id,me.name,nowIso,nowIso),
+        env.DB.prepare(`INSERT INTO accounting_resolution_dimensions
+          (resolution_id,book_type_code,entity_id,fund_id,source_category,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?)`)
+          .bind(resolutionId,dimensions.bookTypeCode,dimensions.entityId,dimensions.fundId,clean(payload.sourceCategory,60),nowIso,nowIso),
         env.DB.prepare(`INSERT INTO documents
           (id,doc_type,category,title,summary,body,attachments_note,drafter,drafter_user_id,drafter_position,reviewer_user_id,reviewer_name,reviewer_position,approver_user_id,approver_name,approver_position,department,recipient,via,approval_track,approval_mode,status,template_id,template_name,form_data_json,access_scope,submitted_at,completed_at,created_at,updated_at)
           VALUES (?, '기안','예산·결산·사업계획·사업실적 관련 문서',?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,NULL,'이사장결재','결재',?,NULL,?,?, '관련자',?,?,?,?)`)
@@ -163,13 +183,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const uniqueAccounts=[...new Set(lines.map((l)=>l.accountCode))];
       const validAccounts=await env.DB.prepare(`SELECT code FROM accounting_accounts WHERE active=1 AND code IN (${uniqueAccounts.map(()=>'?').join(',')})`).bind(...uniqueAccounts).all<{code:string}>();
       if((validAccounts.results||[]).length!==uniqueAccounts.length)return json({ok:false,message:'사용할 수 없는 계정과목이 포함되어 있습니다.'},400);
+      const dimensions=await validateDimensions(env.DB,payload);
       const year=Number(date.slice(0,4)),id=`JRN-${randomHex(24)}`,journalNo=await nextAccountingNumber(env.DB,'journal',year),now=new Date().toISOString();
       const statements:D1PreparedStatement[]=[env.DB.prepare(`INSERT INTO accounting_journals
         (id,journal_no,fiscal_year,journal_date,source_type,description,status,created_by,approved_by,created_at) VALUES (?,?,?,?, 'manual',?,'posted',?,?,?)`)
         .bind(id,journalNo,year,date,clean(payload.description,300)||'수동전표',me.name,me.name,now)];
-      lines.forEach((l,i)=>statements.push(env.DB.prepare(`INSERT INTO accounting_journal_lines
-        (id,journal_id,line_no,account_code,debit,credit,department,project,counterparty,memo) VALUES (?,?,?,?,?,?,?,?,?,?)`)
-        .bind(`JL-${randomHex(20)}`,id,i+1,l.accountCode,l.debit,l.credit,l.department,l.project,l.counterparty,l.memo||null)));
+      lines.forEach((l,i)=>{const lineId=`JL-${randomHex(20)}`;statements.push(
+        env.DB.prepare(`INSERT INTO accounting_journal_lines
+          (id,journal_id,line_no,account_code,debit,credit,department,project,counterparty,memo) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+          .bind(lineId,id,i+1,l.accountCode,l.debit,l.credit,l.department,l.project,l.counterparty,l.memo||null),
+        env.DB.prepare(`INSERT INTO accounting_journal_line_dimensions
+          (journal_line_id,book_type_code,entity_id,fund_id,created_at) VALUES (?,?,?,?,?)`)
+          .bind(lineId,dimensions.bookTypeCode,dimensions.entityId,dimensions.fundId,now)
+      );});
       statements.push(auditStatement(env.DB,'post','journal',id,me.id,me.name,{journalNo,debit,lines:lines.length},now));await env.DB.batch(statements);
       return json({ok:true,id,journalNo,message:'수동전표를 등록했습니다.'});
     }
@@ -180,16 +206,21 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if(!source)return json({ok:false,message:'취소할 전표를 찾을 수 없습니다.'},404);
       if(source.source_type==='reversal')return json({ok:false,message:'역분개 전표는 다시 취소할 수 없습니다. 원전표와 함께 회계담당자가 확인해 주세요.'},400);
       if(await isPeriodClosed(env.DB,source.journal_date))return json({ok:false,message:'마감된 회계기간의 전표는 취소할 수 없습니다.'},400);
-      const lines=await env.DB.prepare(`SELECT * FROM accounting_journal_lines WHERE journal_id=? ORDER BY line_no`).bind(sourceId).all<any>();
+      const lines=await env.DB.prepare(`SELECT l.*,COALESCE(d.book_type_code,'general') AS book_type_code,COALESCE(d.entity_id,'ENTITY-HQ') AS entity_id,COALESCE(d.fund_id,'') AS fund_id FROM accounting_journal_lines l LEFT JOIN accounting_journal_line_dimensions d ON d.journal_line_id=l.id WHERE l.journal_id=? ORDER BY l.line_no`).bind(sourceId).all<any>();
       const id=`JRN-${randomHex(24)}`,no=await nextAccountingNumber(env.DB,'journal',source.fiscal_year),now=new Date().toISOString();
       const statements:D1PreparedStatement[]=[
         env.DB.prepare(`INSERT INTO accounting_journals (id,journal_no,fiscal_year,journal_date,source_type,source_id,description,status,reversed_journal_id,created_by,approved_by,created_at)
           VALUES (?,?,?,?, 'reversal',?,?, 'posted',?,?,?,?)`).bind(id,no,source.fiscal_year,source.journal_date,sourceId,`[취소] ${source.description}`,sourceId,me.name,me.name,now),
         env.DB.prepare(`UPDATE accounting_journals SET status='reversed',reversed_journal_id=? WHERE id=?`).bind(id,sourceId),
       ];
-      (lines.results||[]).forEach((l:any,i:number)=>statements.push(env.DB.prepare(`INSERT INTO accounting_journal_lines
-        (id,journal_id,line_no,account_code,debit,credit,department,project,counterparty,memo) VALUES (?,?,?,?,?,?,?,?,?,?)`)
-        .bind(`JL-${randomHex(20)}`,id,i+1,l.account_code,l.credit,l.debit,l.department,l.project,l.counterparty,`원전표 ${source.journal_no} 취소`)));
+      (lines.results||[]).forEach((l:any,i:number)=>{const lineId=`JL-${randomHex(20)}`;statements.push(
+        env.DB.prepare(`INSERT INTO accounting_journal_lines
+          (id,journal_id,line_no,account_code,debit,credit,department,project,counterparty,memo) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+          .bind(lineId,id,i+1,l.account_code,l.credit,l.debit,l.department,l.project,l.counterparty,`원전표 ${source.journal_no} 취소`),
+        env.DB.prepare(`INSERT INTO accounting_journal_line_dimensions
+          (journal_line_id,book_type_code,entity_id,fund_id,created_at) VALUES (?,?,?,?,?)`)
+          .bind(lineId,l.book_type_code,l.entity_id,l.fund_id,now)
+      );});
       if(source.source_type==='resolution'&&source.source_id)statements.push(env.DB.prepare(`UPDATE accounting_resolutions SET status='cancelled',updated_at=? WHERE id=?`).bind(now,source.source_id));
       statements.push(auditStatement(env.DB,'reverse','journal',sourceId,me.id,me.name,{reversalNo:no},now));await env.DB.batch(statements);
       return json({ok:true,message:'원전표를 삭제하지 않고 역분개 전표로 취소했습니다.',reversalNo:no});

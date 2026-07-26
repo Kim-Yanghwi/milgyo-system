@@ -1,8 +1,9 @@
 import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
 import { canViewAllAccounting, ensureAccountingTables, isAccountingManager } from '../../_shared/accounting';
+import { getDimensionMaster } from '../../_shared/accounting-special';
 
 interface Env { DB: D1Database; }
-type Payload = { token?: string; action?: string; year?: number; month?: number; accountCode?: string; id?: string; status?: string; department?: string; project?: string; query?: string };
+type Payload = { token?: string; action?: string; year?: number; month?: number; accountCode?: string; id?: string; status?: string; department?: string; project?: string; query?: string; bookTypeCode?: string; entityId?: string; fundId?: string };
 
 const toYear = (value: unknown) => {
   const current = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCFullYear();
@@ -48,10 +49,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         env.DB.prepare(`SELECT period_month,status,closed_by,closed_at,memo FROM accounting_closings WHERE fiscal_year=? ORDER BY period_month`).bind(year),
       ]);
       const summary = summaryRows.results?.[0] || {income:0,expense:0,total_debit:0,total_credit:0};
+      const dimensions=await getDimensionMaster(env.DB);
       return json({
         ok:true, me, permissions:{manager,canViewAll,audit:me.role==='audit'}, year,
         fiscalYears:fiscal.results||[], accounts:accounts.results||[], summary,
-        recentResolutions:recentRows.results||[], closings:closingRows.results||[],
+        recentResolutions:recentRows.results||[], closings:closingRows.results||[],...dimensions,
       });
     }
 
@@ -64,18 +66,32 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (action === 'budgets' || action === 'budget-execution') {
       const department = clean(payload.department,80);
       const project = clean(payload.project,100);
+      const bookTypeCode=clean(payload.bookTypeCode,30);
+      const entityId=clean(payload.entityId,80);
+      const fundId=clean(payload.fundId,80);
       const conditions = ['b.fiscal_year=?']; const values: unknown[] = [year];
       if (department) { conditions.push('b.department=?'); values.push(department); }
       if (project) { conditions.push('b.project=?'); values.push(project); }
+      if (bookTypeCode) { conditions.push('b.book_type_code=?'); values.push(bookTypeCode); }
+      if (entityId) { conditions.push('b.entity_id=?'); values.push(entityId); }
+      if (fundId) { conditions.push('b.fund_id=?'); values.push(fundId); }
       const statement = env.DB.prepare(`SELECT b.*, a.name AS account_name,
+        bt.name AS book_type_name,e.name AS entity_name,f.name AS fund_name,
         (b.original_amount+b.supplementary_amount+b.transfer_in-b.transfer_out) AS revised_amount,
         COALESCE((SELECT SUM(l.debit-l.credit) FROM accounting_journal_lines l
           JOIN accounting_journals j ON j.id=l.journal_id
+          LEFT JOIN accounting_journal_line_dimensions d ON d.journal_line_id=l.id
           WHERE j.status IN ('posted','reversed') AND j.fiscal_year=b.fiscal_year AND l.account_code=b.account_code
-            AND l.department=b.department AND l.project=b.project),0) AS executed_amount
-        FROM accounting_budgets b JOIN accounting_accounts a ON a.code=b.account_code
-        WHERE ${conditions.join(' AND ')} ORDER BY b.department,b.project,b.account_code`);
-      const rows = values.length ? await statement.bind(...values).all() : await statement.all();
+            AND l.department=b.department AND l.project=b.project
+            AND COALESCE(d.book_type_code,'general')=b.book_type_code
+            AND COALESCE(d.entity_id,'ENTITY-HQ')=b.entity_id
+            AND COALESCE(d.fund_id,'')=b.fund_id),0) AS executed_amount
+        FROM accounting_budget_plans b JOIN accounting_accounts a ON a.code=b.account_code
+        LEFT JOIN accounting_book_types bt ON bt.code=b.book_type_code
+        LEFT JOIN accounting_entities e ON e.id=b.entity_id
+        LEFT JOIN accounting_funds f ON f.id=b.fund_id
+        WHERE ${conditions.join(' AND ')} ORDER BY b.book_type_code,e.name,f.name,b.department,b.project,b.account_code`);
+      const rows = await statement.bind(...values).all();
       return json({ok:true,rows:rows.results||[]});
     }
 
@@ -85,11 +101,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const status = clean(payload.status,30); if (status) { conditions.push('r.status=?'); values.push(status); }
       const q = clean(payload.query,120); if (q) { conditions.push(`(r.title LIKE ? OR r.counterparty LIKE ? OR r.resolution_no LIKE ?)`); values.push(`%${q}%`,`%${q}%`,`%${q}%`); }
       const rows = await env.DB.prepare(`SELECT r.*, a.name AS account_name, s.name AS settlement_account_name,
-          d.status AS document_status
+          d.status AS document_status,COALESCE(rd.book_type_code,'general') AS book_type_code,
+          COALESCE(rd.entity_id,'ENTITY-HQ') AS entity_id,COALESCE(rd.fund_id,'') AS fund_id,
+          bt.name AS book_type_name,e.name AS entity_name,f.name AS fund_name
         FROM accounting_resolutions r
         LEFT JOIN accounting_accounts a ON a.code=r.account_code
         LEFT JOIN accounting_accounts s ON s.code=r.settlement_account_code
         LEFT JOIN documents d ON d.id=r.document_id
+        LEFT JOIN accounting_resolution_dimensions rd ON rd.resolution_id=r.id
+        LEFT JOIN accounting_book_types bt ON bt.code=COALESCE(rd.book_type_code,'general')
+        LEFT JOIN accounting_entities e ON e.id=COALESCE(rd.entity_id,'ENTITY-HQ')
+        LEFT JOIN accounting_funds f ON f.id=rd.fund_id
         WHERE ${conditions.join(' AND ')} ORDER BY r.resolution_date DESC,r.created_at DESC LIMIT 500`).bind(...values).all();
       return json({ok:true,rows:rows.results||[]});
     }
@@ -111,7 +133,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const id=clean(payload.id,80);
       const [journal,lines] = await env.DB.batch([
         env.DB.prepare(`SELECT * FROM accounting_journals WHERE id=?`).bind(id),
-        env.DB.prepare(`SELECT l.*,a.name AS account_name FROM accounting_journal_lines l JOIN accounting_accounts a ON a.code=l.account_code WHERE l.journal_id=? ORDER BY l.line_no`).bind(id),
+        env.DB.prepare(`SELECT l.*,a.name AS account_name,COALESCE(d.book_type_code,'general') AS book_type_code,COALESCE(d.entity_id,'ENTITY-HQ') AS entity_id,COALESCE(d.fund_id,'') AS fund_id FROM accounting_journal_lines l JOIN accounting_accounts a ON a.code=l.account_code LEFT JOIN accounting_journal_line_dimensions d ON d.journal_line_id=l.id WHERE l.journal_id=? ORDER BY l.line_no`).bind(id),
       ]);
       return json({ok:true,journal:journal.results?.[0]||null,lines:lines.results||[]});
     }
