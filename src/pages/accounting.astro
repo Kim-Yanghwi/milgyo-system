@@ -4,7 +4,7 @@ import GovLayout from '../layouts/GovLayout.astro';
 <GovLayout title="종단 회계관리 | 대한불교밀교종">
   <div class="accounting-app" data-app hidden>
     <header class="acc-topbar">
-      <a href="/" class="acc-brand" aria-label="종단관리시스템 홈">
+      <a href="/accounting/" class="acc-brand" aria-label="종단 회계관리 홈">
         <img class="acc-brand__logo" src="/logo.png" alt="대한불교밀교종 로고" />
         <span class="acc-brand__title">
           <img class="acc-brand__wordmark" src="/brand-wordmark.png" alt="대한불교밀교종" />
@@ -34,7 +34,8 @@ import GovLayout from '../layouts/GovLayout.astro';
           <button class="acc-nav" data-tab="accounts">계정과목</button>
         </nav>
         <div class="acc-sidebar__note">
-          승인된 결의서만 장부에 반영됩니다.<br />확정 전표는 삭제하지 않고 역분개합니다.
+          <span>승인된 결의서만 장부에 반영됩니다.</span>
+          <span>확정 전표는 삭제하지 않고 역분개합니다.</span>
         </div>
       </aside>
 
@@ -125,7 +126,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         <section class="tab-panel" data-panel="ledger">
           <div class="page-heading"><div><p>LEDGER</p><h1>장부</h1><span>계정별 원장과 합계잔액시산표를 조회합니다.</span></div></div>
           <div class="card"><div class="card-head"><h2>계정별 원장</h2><div class="filter-row"><select data-ledger-account></select><button class="btn btn-outline" data-load-ledger>조회</button><button class="btn btn-outline" data-export="ledger">CSV</button></div></div><div class="table-wrap"><table><thead><tr><th>일자</th><th>전표번호</th><th>적요</th><th>거래처</th><th>부서·사업</th><th>차변</th><th>대변</th><th>누계</th></tr></thead><tbody data-ledger-rows></tbody></table></div></div>
-          <div class="card"><div class="card-head"><h2>합계잔액시산표</h2><button class="btn btn-outline" data-load-trial>새로고침</button></div><div class="table-wrap"><table><thead><tr><th>코드</th><th>계정과목</th><th>유형</th><th>차변합계</th><th>대변합계</th><th>잔액</th></tr></thead><tbody data-trial-rows></tbody><tfoot><tr><th colspan="3">합계</th><th data-trial-debit>0</th><th data-trial-credit>0</th><th></th></tr></tfoot></table></div></div>
+          <div class="card"><div class="card-head"><h2>합계잔액시산표</h2><button class="btn btn-outline" data-load-trial>새로고침</button></div><div class="table-wrap"><table class="trial-table"><thead><tr><th>코드</th><th>계정과목</th><th>유형</th><th>차변합계</th><th>대변합계</th><th>잔액</th></tr></thead><tbody data-trial-rows></tbody><tfoot><tr><th colspan="3">합계</th><th data-trial-debit>0</th><th data-trial-credit>0</th><th></th></tr></tfoot></table></div></div>
         </section>
 
         <section class="tab-panel" data-panel="closing">
@@ -156,7 +157,18 @@ import GovLayout from '../layouts/GovLayout.astro';
       const won=(v)=>`${Number(v||0).toLocaleString('ko-KR')}원`;
       const moneyValue=(v)=>{const t=String(v??'').trim();const n=Number(t.replace(/[^0-9.-]/g,''));return Number.isFinite(n)?Math.round(n):0};
       const today=()=>new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
-      let state={year:Number(today().slice(0,4)),accounts:[],permissions:{},summary:{},users:[],budgetRows:[],ledgerRows:[],statementRows:[]};
+      const currentFiscalYear=Number(today().slice(0,4));
+      let state={year:currentFiscalYear,accounts:[],permissions:{},summary:{},users:[],budgetRows:[],ledgerRows:[],statementRows:[]};
+      const baseFiscalYears=()=>Array.from({length:Math.max(2030,currentFiscalYear)-Math.min(2026,currentFiscalYear)+1},(_,index)=>Math.min(2026,currentFiscalYear)+index);
+      const renderYearOptions=(fiscalYears=[])=>{
+        const fiscalMap=new Map((fiscalYears||[]).map((y)=>[Number(y.year),y]));
+        baseFiscalYears().forEach((year)=>{if(!fiscalMap.has(year))fiscalMap.set(year,{year,name:`${year} 회계연도`});});
+        const years=[...fiscalMap.values()].sort((a,b)=>Number(a.year)-Number(b.year));
+        const yearSel=$('[data-global-year]');
+        yearSel.innerHTML=years.map((y)=>`<option value="${y.year}">${esc(y.name)}</option>`).join('');
+        yearSel.value=String(state.year);
+        if(!yearSel.value){state.year=currentFiscalYear;yearSel.value=String(currentFiscalYear);}
+      };
       const departmentTree=[
         {name:'이사장'},{name:'이사회'},{name:'감사'},{name:'종정'},
         {name:'사무국',children:['재정·회계','준법·윤리','대외협력·사회공헌','문화·홍보']},
@@ -176,6 +188,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       $$('[data-toggle-form]').forEach((b)=>b.addEventListener('click',()=>{const f=$(`[data-form="${b.dataset.toggleForm}"]`);f.hidden=!f.hidden}));$$('[data-close-form]').forEach((b)=>b.addEventListener('click',()=>{$(`[data-form="${b.dataset.closeForm}"]`).hidden=true}));
       $('[data-logout]').addEventListener('click',()=>{localStorage.removeItem(STORAGE_KEY);location.replace('/')});
       $('[data-user-label]').textContent=`${me.name} · ${me.position||'구성원'}`;
+      renderYearOptions();
       $('[data-app]').hidden=false;
 
       const accountOptions=(filter)=>state.accounts.filter(filter).map((a)=>`<option value="${esc(a.code)}">${esc(a.code)} ${esc(a.name)}</option>`).join('');
@@ -202,7 +215,19 @@ import GovLayout from '../layouts/GovLayout.astro';
       };
       const renderSummary=()=>{const s=state.summary;const income=Number(s.income||0),expense=Number(s.expense||0);$('[data-summary-income]').textContent=won(income);$('[data-summary-expense]').textContent=won(expense);$('[data-summary-balance]').textContent=won(income-expense);$('[data-summary-check]').textContent=Number(s.total_debit||0)===Number(s.total_credit||0)?'일치':'불일치';$('[data-closing-income]').textContent=won(income);$('[data-closing-expense]').textContent=won(expense);$('[data-closing-balance]').textContent=won(income-expense);$('[data-closing-check]').textContent=Number(s.total_debit||0)===Number(s.total_credit||0)?'일치':'불일치';};
       const renderRecent=(rows)=>{$('[data-recent-resolutions]').innerHTML=rows.length?rows.map((r)=>`<tr><td>${esc(r.resolution_no)}</td><td>${typeLabel(r.resolution_type)}</td><td>${esc(r.resolution_date)}</td><td class="left">${esc(r.title)}</td><td class="num">${won(r.amount)}</td><td><span class="status status-${esc(r.status)}">${statusLabel(r.status)}</span></td></tr>`).join(''):'<tr><td colspan="6" class="empty">등록된 결의서가 없습니다.</td></tr>'};
-      const loadInit=async()=>{try{const d=await api('/api/accounting/query',{action:'init',year:state.year});state={...state,...d,year:d.year};const fiscalMap=new Map((d.fiscalYears||[]).map((y)=>[Number(y.year),y]));for(let year=2026;year<=2030;year+=1){if(!fiscalMap.has(year))fiscalMap.set(year,{year,name:`${year} 회계연도`});}const years=[...fiscalMap.values()].sort((a,b)=>Number(a.year)-Number(b.year));const yearSel=$('[data-global-year]');yearSel.innerHTML=years.map((y)=>`<option value="${y.year}">${esc(y.name)}</option>`).join('');yearSel.value=String(state.year);populateAccounts();populateDepartments();if(!$('[data-journal-lines]').children.length){addJournalLine({accountCode:'5400',department:me.department||''});addJournalLine({accountCode:'1120',department:me.department||''});}renderSummary();renderRecent(d.recentResolutions);setPermissions();const u=await api('/api/users/list',{});state.users=u.rows||[];populateUsers();renderAccounts();renderMonths(d.closings||[]);}catch(e){notice(e.message,'error')}};
+      const loadInit=async()=>{try{
+        const needsUsers=!state.users.length;
+        const [d,u]=await Promise.all([
+          api('/api/accounting/query',{action:'init',year:state.year}),
+          needsUsers?api('/api/users/list',{}):Promise.resolve(null),
+        ]);
+        state={...state,...d,year:Number(d.year||state.year)};
+        if(u)state.users=u.rows||[];
+        renderYearOptions(d.fiscalYears||[]);
+        populateAccounts();populateDepartments();
+        if(!$('[data-journal-lines]').children.length){addJournalLine({accountCode:'5400',department:me.department||''});addJournalLine({accountCode:'1120',department:me.department||''});}
+        renderSummary();renderRecent(d.recentResolutions);setPermissions();populateUsers();renderAccounts();renderMonths(d.closings||[]);
+      }catch(e){notice(e.message,'error')}};
       $('[data-global-year]').addEventListener('change',async(e)=>{state.year=Number(e.target.value);await loadInit();showTab($('.acc-nav.active').dataset.tab)});
 
       $$('.money-input').forEach((input)=>{input.addEventListener('blur',()=>{const n=moneyValue(input.value);if(input.value.trim())input.value=n.toLocaleString('ko-KR')});});
@@ -258,7 +283,8 @@ import GovLayout from '../layouts/GovLayout.astro';
     .acc-sidebar nav{display:grid;gap:4px}
     .acc-nav{border:0;background:transparent;text-align:left;padding:11px 13px;border-radius:6px;font-weight:600;color:#374151}
     .acc-nav:hover{background:#edf3fa}.acc-nav.active{background:#315f9f;color:#fff}
-    .acc-sidebar__note{margin-top:auto;padding:12px;font-size:11px;line-height:1.6;color:#687386;border-top:1px solid #e2e8f0}
+    .acc-sidebar__note{margin-top:auto;padding:12px 6px;font-size:10px;line-height:1.55;letter-spacing:-.035em;color:#687386;border-top:1px solid #e2e8f0}
+    .acc-sidebar__note span{display:block;white-space:nowrap}
     .acc-main{padding:22px;min-width:0}.tab-panel{display:none}.tab-panel.active{display:block}
     .page-heading{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px}.page-heading p{margin:0;color:#b08d3f;font-size:11px;font-weight:800;letter-spacing:.15em}.page-heading h1{margin:3px 0;font-size:24px}.page-heading span{font-size:13px;color:#6b7280}
     .summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.summary-grid article{background:#fff;border:1px solid #d7deea;border-radius:10px;padding:18px}.summary-grid span{display:block;color:#6b7280;font-size:12px;margin-bottom:8px}.summary-grid strong{font-size:22px;color:#1f4f88}
@@ -266,11 +292,18 @@ import GovLayout from '../layouts/GovLayout.astro';
     .btn{border:1px solid transparent;border-radius:5px;padding:9px 13px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.btn-primary{background:#315f9f;color:#fff}.btn-outline{background:#fff;color:#304b70;border-color:#bfcada}.link-btn{border:0;background:none;color:#315f9f;font-weight:700}
     .form-card{border-top:3px solid #315f9f}.form-grid{display:grid;gap:12px}.form-grid.two{grid-template-columns:repeat(2,1fr)}.form-grid.three{grid-template-columns:repeat(3,1fr)}.form-grid.four{grid-template-columns:repeat(4,1fr)}.form-grid.five{grid-template-columns:repeat(5,1fr)}.span-2{grid-column:span 2}.span-3{grid-column:span 3}
     label{display:block;font-size:12px;font-weight:700;color:#465162}input,select,textarea{width:100%;border:1px solid #c8d1df;border-radius:5px;padding:9px 10px;margin-top:6px;background:#fff;color:#20252c}select[multiple]{padding:4px}fieldset{border:1px solid #d8e0eb;border-radius:7px;margin:16px 0;padding:12px}legend{font-size:13px;font-weight:700;color:#315f9f}.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:15px}.inline-check{display:flex;gap:8px;align-items:center}.inline-check input{width:auto;margin:0}
-    .table-wrap{overflow:auto;border:1px solid #d5deea;border-radius:6px}table{width:100%;border-collapse:collapse;font-size:12px;min-width:760px}th,td{padding:10px 9px;border-bottom:1px solid #e1e6ee;text-align:center;white-space:nowrap;vertical-align:middle}th{background:#edf3fa;font-weight:700;color:#344255}td.left{text-align:center;white-space:normal}td.left small{display:block;color:#7a8495;margin-top:3px}.num{text-align:center;font-variant-numeric:tabular-nums}.empty{height:110px;color:#7b8492}.negative{color:#c43c3c!important}
+    .table-wrap{overflow:auto;border:1px solid #c9d3df;border-radius:6px;background:#fff}
+    table{width:100%;border-collapse:collapse;font-size:12px;min-width:760px}
+    th,td{padding:10px 9px;border:1px solid #c9d3df;text-align:center;white-space:nowrap;vertical-align:middle}
+    th{background:#edf3fa;font-weight:700;color:#344255}
+    td.left{text-align:center;white-space:normal}td.left small{display:block;color:#7a8495;margin-top:3px}.num{text-align:center;font-variant-numeric:tabular-nums}.empty{height:110px;color:#7b8492}.negative{color:#c43c3c!important}
+    .trial-table th:nth-child(-n+3),.trial-table td:nth-child(-n+3){text-align:center!important}
+    .trial-table th:nth-child(n+4),.trial-table td:nth-child(n+4),.trial-table tfoot th:nth-child(n+2){text-align:right!important;font-variant-numeric:tabular-nums}
+    .trial-table tfoot th[colspan]{text-align:center!important}
     .status{display:inline-block;border-radius:20px;padding:4px 8px;background:#edf2f7}.status-posted{background:#e4f5e8;color:#24713b}.status-approval_pending{background:#fff2ce;color:#8b6400}.status-rejected,.status-cancelled{background:#fde7e7;color:#a92e2e}
     .filter-row{display:flex;align-items:center;gap:7px}.filter-row input,.filter-row select{margin:0;width:auto;min-width:150px}.notice{position:fixed;top:75px;right:20px;z-index:50;max-width:420px;padding:13px 16px;border-radius:7px;background:#e7f4ea;color:#236b36;box-shadow:0 5px 20px #0002}.notice.error{background:#fee9e9;color:#a12b2b}
     .journal-entry-grid{width:100%;overflow-x:auto;margin:14px 0 10px}.journal-lines{display:grid;gap:7px;width:100%}.journal-line{width:100%;min-width:1120px;display:grid;grid-template-columns:minmax(210px,1.45fr) minmax(130px,.85fr) minmax(130px,.85fr) minmax(180px,1.15fr) minmax(170px,1.1fr) minmax(180px,1.15fr) 42px;gap:8px;align-items:center}.journal-line--header{margin-bottom:7px;background:#edf3fa;border:1px solid #d5deea;border-radius:5px;color:#344255;font-weight:700;text-align:center}.journal-line--header span{padding:9px 6px}.journal-line input,.journal-line select{min-width:0;margin:0}.icon-btn,.mini-btn{border:1px solid #c7d0dc;background:#fff;border-radius:4px;color:#42516a}.icon-btn{height:38px}.mini-btn{padding:5px 8px}.journal-total{display:flex;gap:22px;justify-content:flex-end;align-items:center;background:#f5f7fa;padding:10px;margin-top:10px}
-    .month-table-wrap{max-width:760px;margin:0 auto}.month-table{min-width:0;table-layout:fixed}.month-table th:nth-child(1),.month-table td:nth-child(1){width:24%}.month-table th:nth-child(2),.month-table td:nth-child(2){width:38%}.month-table th:nth-child(3),.month-table td:nth-child(3){width:38%}.month-row--closed{background:#f3f9f4}.month-status{display:inline-block;min-width:70px;padding:4px 10px;border-radius:999px;font-weight:700}.month-status--open{background:#edf2f7;color:#526176}.month-status--closed{background:#e4f5e8;color:#24713b}
+    .month-table-wrap{width:100%;max-width:none;margin:0}.month-table{width:100%;min-width:0;table-layout:fixed;font-size:14px}.month-table th,.month-table td{text-align:right!important;padding:12px 16px}.month-table th:nth-child(1),.month-table td:nth-child(1){width:20%}.month-table th:nth-child(2),.month-table td:nth-child(2){width:40%}.month-table th:nth-child(3),.month-table td:nth-child(3){width:40%}.month-row--closed{background:#f3f9f4}.month-status{display:inline-block;min-width:78px;padding:5px 12px;border-radius:999px;font-weight:700;text-align:center}.month-status--open{background:#edf2f7;color:#526176}.month-status--closed{background:#e4f5e8;color:#24713b}.month-table .mini-btn{font-size:13px;padding:6px 12px}
     .muted{font-size:12px;color:#737d8b}
     @media(max-width:1100px){.acc-shell{grid-template-columns:180px minmax(0,1fr)}.summary-grid{grid-template-columns:repeat(2,1fr)}.form-grid.four,.form-grid.five{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:760px){.acc-topbar{height:auto;padding:10px;align-items:flex-start;gap:.7rem;flex-wrap:wrap}.acc-brand{max-width:calc(100% - 10px)}.acc-brand__wordmark{width:132px;max-height:22px}.acc-brand__system-name{font-size:.88rem}.acc-topbar__right{width:100%;flex-wrap:wrap}.acc-topbar__right>span{display:none}.acc-shell{display:block}.acc-sidebar{border-right:0;border-bottom:1px solid #d4dce7}.acc-sidebar nav{grid-template-columns:repeat(2,1fr)}.acc-sidebar__note{display:none}.acc-main{padding:12px}.page-heading{align-items:flex-start}.summary-grid,.form-grid.two,.form-grid.three,.form-grid.four,.form-grid.five{grid-template-columns:1fr}.span-2,.span-3{grid-column:auto}.month-table-wrap{max-width:none}}
