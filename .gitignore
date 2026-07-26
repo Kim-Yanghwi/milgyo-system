@@ -1,4 +1,4 @@
 node_modules/
 backup/
 .wrangler/
-**/wrangler-account.json
+**/wrangler-account.jsondist/
