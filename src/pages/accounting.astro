@@ -1,0 +1,231 @@
+---
+import GovLayout from '../layouts/GovLayout.astro';
+---
+<GovLayout title="종단 회계관리 | 대한불교밀교종">
+  <div class="accounting-app" data-app hidden>
+    <header class="acc-topbar">
+      <a href="/" class="acc-brand" aria-label="종단관리시스템 홈">
+        <img src="/logo.png" alt="대한불교밀교종 로고" />
+        <span><b>대한불교밀교종</b><small>종단 회계관리</small></span>
+      </a>
+      <div class="acc-topbar__right">
+        <span data-user-label></span>
+        <a href="/" class="btn btn-outline">전자문서</a>
+        <button type="button" class="btn btn-outline" data-logout>로그아웃</button>
+      </div>
+    </header>
+
+    <div class="acc-shell">
+      <aside class="acc-sidebar">
+        <div class="acc-year-box">
+          <label for="global-year">회계연도</label>
+          <select id="global-year" data-global-year></select>
+        </div>
+        <nav>
+          <button class="acc-nav active" data-tab="dashboard">회계 대시보드</button>
+          <button class="acc-nav" data-tab="budget">예산관리</button>
+          <button class="acc-nav" data-tab="resolution">수입·지출결의</button>
+          <button class="acc-nav" data-tab="journal">전표관리</button>
+          <button class="acc-nav" data-tab="ledger">장부</button>
+          <button class="acc-nav" data-tab="closing">결산·마감</button>
+          <button class="acc-nav" data-tab="accounts">계정과목</button>
+        </nav>
+        <div class="acc-sidebar__note">
+          승인된 결의서만 장부에 반영됩니다.<br />확정 전표는 삭제하지 않고 역분개합니다.
+        </div>
+      </aside>
+
+      <main class="acc-main">
+        <div class="notice" data-notice hidden></div>
+
+        <section class="tab-panel active" data-panel="dashboard">
+          <div class="page-heading"><div><p>ACCOUNTING</p><h1>종단 회계 현황</h1><span>예산·결의·전표·장부·결산을 전자결재와 연결합니다.</span></div><button class="btn btn-primary" data-go-tab="resolution">+ 결의서 작성</button></div>
+          <div class="summary-grid">
+            <article><span>수입 누계</span><strong data-summary-income>0원</strong></article>
+            <article><span>지출 누계</span><strong data-summary-expense>0원</strong></article>
+            <article><span>수지차액</span><strong data-summary-balance>0원</strong></article>
+            <article><span>차변·대변 검증</span><strong data-summary-check>일치</strong></article>
+          </div>
+          <div class="card">
+            <div class="card-head"><h2>최근 결의서</h2><button class="link-btn" data-go-tab="resolution">전체보기</button></div>
+            <div class="table-wrap"><table><thead><tr><th>결의번호</th><th>구분</th><th>일자</th><th>제목</th><th>금액</th><th>상태</th></tr></thead><tbody data-recent-resolutions></tbody></table></div>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-panel="budget">
+          <div class="page-heading"><div><p>BUDGET</p><h1>예산관리</h1><span>부서·사업·지출계정별 본예산, 추경, 전용과 집행현황을 관리합니다.</span></div><button class="btn btn-primary manager-only" data-toggle-form="budget-form">+ 예산 편성</button></div>
+          <form class="card form-card manager-only" data-form="budget-form" hidden>
+            <div class="form-grid four">
+              <label>담당부서<input name="department" placeholder="예: 사무국 - 재정·회계" /></label>
+              <label>사업명<input name="project" placeholder="공통예산은 비워둘 수 있습니다" /></label>
+              <label>지출 계정과목<select name="accountCode" data-expense-account required></select></label>
+              <label>본예산<input name="originalAmount" class="money-input" inputmode="decimal" placeholder="0" /></label>
+              <label>추경<input name="supplementaryAmount" class="money-input" inputmode="decimal" placeholder="0" /></label>
+              <label>전용 증가<input name="transferIn" class="money-input" inputmode="decimal" placeholder="0" /></label>
+              <label>전용 감소<input name="transferOut" class="money-input" inputmode="decimal" placeholder="0" /></label>
+              <label>메모<input name="memo" /></label>
+            </div>
+            <div class="form-actions"><button class="btn btn-outline" type="button" data-close-form="budget-form">취소</button><button class="btn btn-primary" type="submit">예산 저장</button></div>
+          </form>
+          <div class="card">
+            <div class="card-head"><h2>예산 집행현황</h2><button class="btn btn-outline" data-export="budget">CSV</button></div>
+            <div class="table-wrap"><table><thead><tr><th>부서</th><th>사업</th><th>계정과목</th><th>본예산</th><th>추경·전용</th><th>현예산</th><th>집행액</th><th>잔액</th><th>집행률</th></tr></thead><tbody data-budget-rows></tbody></table></div>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-panel="resolution">
+          <div class="page-heading"><div><p>RESOLUTION</p><h1>수입·지출결의</h1><span>결의서를 작성해 기존 전자결재로 상신하고 승인 시 자동 전표 처리합니다.</span></div><button class="btn btn-primary" data-toggle-form="resolution-form">+ 결의서 작성</button></div>
+          <form class="card form-card" data-form="resolution-form" hidden>
+            <div class="form-grid three">
+              <label>구분<select name="resolutionType" required><option value="expense">지출결의</option><option value="income">수입결의</option></select></label>
+              <label>결의일자<input name="resolutionDate" type="date" required /></label>
+              <label>금액<input name="amount" class="money-input" inputmode="decimal" placeholder="₩0, $0 등 입력 가능" required /></label>
+              <label class="span-2">제목<input name="title" maxlength="200" required /></label>
+              <label>거래처·납부자<input name="counterparty" maxlength="120" /></label>
+              <label>담당부서<input name="department" maxlength="80" /></label>
+              <label>사업명<input name="project" maxlength="100" /></label>
+              <label>수입·지출 계정<select name="accountCode" data-resolution-account required></select></label>
+              <label>입·출금 계정<select name="settlementAccountCode" data-asset-account required></select></label>
+              <label>지급·수납방법<select name="paymentMethod"><option>계좌이체</option><option>법인카드</option><option>현금</option><option>기타</option></select></label>
+              <label>세액(선택)<input name="taxAmount" class="money-input" inputmode="decimal" placeholder="0" /></label>
+              <label class="span-3">비고<textarea name="memo" rows="3"></textarea></label>
+            </div>
+            <fieldset><legend>전자결재선</legend><div class="form-grid three">
+              <label>협조자(복수)<select name="cooperatorUserIds" data-users-multiple multiple size="4"></select></label>
+              <label>검토자(복수)<select name="reviewerUserIds" data-users-multiple multiple size="4"></select></label>
+              <label>최종 결재자<select name="approverUserId" data-approvers required></select></label>
+            </div></fieldset>
+            <label class="manager-only inline-check"><input type="checkbox" name="allowOverBudget" /> 예산 초과집행을 확인하고 상신</label>
+            <div class="form-actions"><button class="btn btn-outline" type="button" data-close-form="resolution-form">취소</button><button class="btn btn-primary" type="submit">전자결재 상신</button></div>
+          </form>
+          <div class="card">
+            <div class="card-head"><h2>결의서 목록</h2><div class="filter-row"><select data-resolution-status><option value="">전체 상태</option><option value="approval_pending">결재진행</option><option value="posted">전표처리</option><option value="rejected">반려</option><option value="cancelled">취소</option></select><input data-resolution-search placeholder="번호·제목·거래처 검색" /><button class="btn btn-outline" data-load-resolutions>조회</button></div></div>
+            <div class="table-wrap"><table><thead><tr><th>결의번호</th><th>구분</th><th>일자</th><th>제목</th><th>계정</th><th>금액</th><th>전자문서</th><th>상태</th></tr></thead><tbody data-resolution-rows></tbody></table></div>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-panel="journal">
+          <div class="page-heading"><div><p>JOURNAL</p><h1>전표관리</h1><span>승인된 결의서의 복식전표와 회계담당자가 입력한 수동전표를 관리합니다.</span></div><button class="btn btn-primary manager-only" data-toggle-form="journal-form">+ 수동전표</button></div>
+          <form class="card form-card manager-only" data-form="journal-form" hidden>
+            <div class="form-grid two"><label>전표일자<input name="journalDate" type="date" required /></label><label>적요<input name="description" required /></label></div>
+            <div class="journal-lines" data-journal-lines></div>
+            <button type="button" class="btn btn-outline" data-add-journal-line>+ 분개행 추가</button>
+            <div class="journal-total"><span>차변 <b data-debit-total>0원</b></span><span>대변 <b data-credit-total>0원</b></span><strong data-journal-balance>일치</strong></div>
+            <div class="form-actions"><button class="btn btn-outline" type="button" data-close-form="journal-form">취소</button><button class="btn btn-primary" type="submit">전표 등록</button></div>
+          </form>
+          <div class="card"><div class="card-head"><h2>전표 목록</h2><div class="filter-row"><input data-journal-search placeholder="전표번호·적요 검색" /><button class="btn btn-outline" data-load-journals>조회</button></div></div><div class="table-wrap"><table><thead><tr><th>전표번호</th><th>일자</th><th>구분</th><th>적요</th><th>차변</th><th>대변</th><th>문서번호</th><th>상태</th><th></th></tr></thead><tbody data-journal-rows></tbody></table></div></div>
+        </section>
+
+        <section class="tab-panel" data-panel="ledger">
+          <div class="page-heading"><div><p>LEDGER</p><h1>장부</h1><span>계정별 원장과 합계잔액시산표를 조회합니다.</span></div></div>
+          <div class="card"><div class="card-head"><h2>계정별 원장</h2><div class="filter-row"><select data-ledger-account></select><button class="btn btn-outline" data-load-ledger>조회</button><button class="btn btn-outline" data-export="ledger">CSV</button></div></div><div class="table-wrap"><table><thead><tr><th>일자</th><th>전표번호</th><th>적요</th><th>거래처</th><th>부서·사업</th><th>차변</th><th>대변</th><th>누계</th></tr></thead><tbody data-ledger-rows></tbody></table></div></div>
+          <div class="card"><div class="card-head"><h2>합계잔액시산표</h2><button class="btn btn-outline" data-load-trial>새로고침</button></div><div class="table-wrap"><table><thead><tr><th>코드</th><th>계정과목</th><th>유형</th><th>차변합계</th><th>대변합계</th><th>잔액</th></tr></thead><tbody data-trial-rows></tbody><tfoot><tr><th colspan="3">합계</th><th data-trial-debit>0</th><th data-trial-credit>0</th><th></th></tr></tfoot></table></div></div>
+        </section>
+
+        <section class="tab-panel" data-panel="closing">
+          <div class="page-heading"><div><p>CLOSING</p><h1>결산·마감</h1><span>월 마감, 수입·지출 결산과 기간 잠금을 관리합니다.</span></div></div>
+          <div class="summary-grid"><article><span>수입</span><strong data-closing-income>0원</strong></article><article><span>지출</span><strong data-closing-expense>0원</strong></article><article><span>당기 수지</span><strong data-closing-balance>0원</strong></article><article><span>분개 검증</span><strong data-closing-check>일치</strong></article></div>
+          <div class="card"><div class="card-head"><h2>월별 마감</h2><span class="muted">마감 후 해당 월의 결의·전표 입력과 취소가 제한됩니다.</span></div><div class="month-grid" data-month-grid></div></div>
+          <div class="card"><div class="card-head"><h2>수입·지출 결산서</h2><button class="btn btn-outline" data-export="statement">CSV</button></div><div class="table-wrap"><table><thead><tr><th>구분</th><th>코드</th><th>계정과목</th><th>금액</th></tr></thead><tbody data-statement-rows></tbody></table></div></div>
+        </section>
+
+        <section class="tab-panel" data-panel="accounts">
+          <div class="page-heading"><div><p>CHART OF ACCOUNTS</p><h1>계정과목</h1><span>종단 회계에 사용하는 계정과목 체계를 관리합니다.</span></div><button class="btn btn-primary manager-only" data-toggle-form="account-form">+ 계정과목</button></div>
+          <form class="card form-card manager-only" data-form="account-form" hidden><div class="form-grid five"><label>코드<input name="code" required /></label><label>계정과목명<input name="name" required /></label><label>유형<select name="accountType"><option value="asset">자산</option><option value="liability">부채</option><option value="equity">순자산</option><option value="revenue">수입</option><option value="expense">지출</option></select></label><label>정상잔액<select name="normalSide"><option value="debit">차변</option><option value="credit">대변</option></select></label><label>상위코드<input name="parentCode" /></label></div><div class="form-actions"><button class="btn btn-outline" type="button" data-close-form="account-form">취소</button><button class="btn btn-primary" type="submit">저장</button></div></form>
+          <div class="card"><div class="table-wrap"><table><thead><tr><th>코드</th><th>계정과목</th><th>유형</th><th>정상잔액</th><th>상위코드</th><th>구분</th></tr></thead><tbody data-account-rows></tbody></table></div></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script is:inline>
+    (()=>{
+      'use strict';
+      const STORAGE_KEY='milgyo-system-session';
+      const session=(()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')}catch{return null}})();
+      if(!session?.token||!session?.user){location.replace('/');return;}
+      const token=session.token,me=session.user;
+      const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+      const esc=(v)=>String(v??'').replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      const won=(v)=>`${Number(v||0).toLocaleString('ko-KR')}원`;
+      const moneyValue=(v)=>{const t=String(v??'').trim();const n=Number(t.replace(/[^0-9.-]/g,''));return Number.isFinite(n)?Math.round(n):0};
+      const today=()=>new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
+      let state={year:Number(today().slice(0,4)),accounts:[],permissions:{},summary:{},users:[],budgetRows:[],ledgerRows:[],statementRows:[]};
+      const api=async(path,body)=>{const res=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,token})});const text=await res.text();let data;try{data=JSON.parse(text)}catch{data={ok:false,message:`서버 응답 오류(HTTP ${res.status})`}}if(!data.ok)throw Object.assign(new Error(data.message||'처리 중 오류가 발생했습니다.'),{data});return data};
+      const notice=(message,type='ok')=>{const el=$('[data-notice]');el.textContent=message;el.className=`notice ${type}`;el.hidden=false;clearTimeout(notice.timer);notice.timer=setTimeout(()=>el.hidden=true,5000)};
+      const statusLabel=(s)=>({draft:'작성중',approval_pending:'결재진행',approved:'승인',posted:'전표처리',rejected:'반려',cancelled:'취소',reversed:'역분개'}[s]||s||'-');
+      const typeLabel=(t)=>({income:'수입',expense:'지출',asset:'자산',liability:'부채',equity:'순자산',revenue:'수입',expense:'지출',debit:'차변',credit:'대변'}[t]||t||'-');
+      const showTab=(name)=>{$$('.acc-nav').forEach((b)=>b.classList.toggle('active',b.dataset.tab===name));$$('.tab-panel').forEach((p)=>p.classList.toggle('active',p.dataset.panel===name));if(name==='budget')loadBudgets();if(name==='resolution')loadResolutions();if(name==='journal')loadJournals();if(name==='ledger'){loadTrial();}if(name==='closing')loadClosing();if(name==='accounts')renderAccounts();};
+      $$('.acc-nav').forEach((b)=>b.addEventListener('click',()=>showTab(b.dataset.tab)));$$('[data-go-tab]').forEach((b)=>b.addEventListener('click',()=>showTab(b.dataset.goTab)));
+      $$('[data-toggle-form]').forEach((b)=>b.addEventListener('click',()=>{const f=$(`[data-form="${b.dataset.toggleForm}"]`);f.hidden=!f.hidden}));$$('[data-close-form]').forEach((b)=>b.addEventListener('click',()=>{$(`[data-form="${b.dataset.closeForm}"]`).hidden=true}));
+      $('[data-logout]').addEventListener('click',()=>{localStorage.removeItem(STORAGE_KEY);location.replace('/')});
+      $('[data-user-label]').textContent=`${me.name} · ${me.position||'구성원'}`;
+      $('[data-app]').hidden=false;
+
+      const accountOptions=(filter)=>state.accounts.filter(filter).map((a)=>`<option value="${esc(a.code)}">${esc(a.code)} ${esc(a.name)}</option>`).join('');
+      const populateAccounts=()=>{
+        $$('[data-expense-account]').forEach((e)=>e.innerHTML='<option value="">선택</option>'+accountOptions((a)=>a.account_type==='expense'));
+        $$('[data-asset-account]').forEach((e)=>e.innerHTML=accountOptions((a)=>a.account_type==='asset'&&!['1000','1100'].includes(a.code)));
+        $('[data-ledger-account]').innerHTML='<option value="">계정과목 선택</option>'+accountOptions(()=>true);
+        updateResolutionAccount();
+      };
+      const updateResolutionAccount=()=>{const form=$('[data-form="resolution-form"]');const type=form.elements.resolutionType.value;form.elements.accountCode.innerHTML='<option value="">선택</option>'+accountOptions((a)=>a.account_type===(type==='income'?'revenue':'expense'));};
+      $('[data-form="resolution-form"]').elements.resolutionType.addEventListener('change',updateResolutionAccount);
+      const populateUsers=()=>{const all=state.users.map((u)=>`<option value="${esc(u.id)}">${esc(u.name)} · ${esc(u.position||'-')} · ${esc(u.department||'-')}</option>`).join('');$$('[data-users-multiple]').forEach((e)=>e.innerHTML=all);$('[data-approvers]').innerHTML='<option value="">결재자 선택</option>'+state.users.filter((u)=>u.can_approve).map((u)=>`<option value="${esc(u.id)}">${esc(u.name)} · ${esc(u.position||'-')}</option>`).join('');};
+      const setPermissions=()=>{
+        $$('.manager-only').forEach((e)=>{
+          if(!state.permissions.manager)e.hidden=true;
+          else if(!e.matches('[data-form]'))e.hidden=false;
+        });
+        const restricted=!state.permissions.canViewAll;
+        ['journal','ledger','closing','accounts'].forEach((tab)=>{const b=$(`.acc-nav[data-tab="${tab}"]`);if(b)b.hidden=restricted;});
+        if(state.permissions.audit){
+          const dashboardCreate=$('[data-go-tab="resolution"]');if(dashboardCreate)dashboardCreate.hidden=true;
+          const resolutionCreate=$('[data-toggle-form="resolution-form"]');if(resolutionCreate)resolutionCreate.hidden=true;
+        }
+      };
+      const renderSummary=()=>{const s=state.summary;const income=Number(s.income||0),expense=Number(s.expense||0);$('[data-summary-income]').textContent=won(income);$('[data-summary-expense]').textContent=won(expense);$('[data-summary-balance]').textContent=won(income-expense);$('[data-summary-check]').textContent=Number(s.total_debit||0)===Number(s.total_credit||0)?'일치':'불일치';$('[data-closing-income]').textContent=won(income);$('[data-closing-expense]').textContent=won(expense);$('[data-closing-balance]').textContent=won(income-expense);$('[data-closing-check]').textContent=Number(s.total_debit||0)===Number(s.total_credit||0)?'일치':'불일치';};
+      const renderRecent=(rows)=>{$('[data-recent-resolutions]').innerHTML=rows.length?rows.map((r)=>`<tr><td>${esc(r.resolution_no)}</td><td>${typeLabel(r.resolution_type)}</td><td>${esc(r.resolution_date)}</td><td class="left">${esc(r.title)}</td><td class="num">${won(r.amount)}</td><td><span class="status status-${esc(r.status)}">${statusLabel(r.status)}</span></td></tr>`).join(''):'<tr><td colspan="6" class="empty">등록된 결의서가 없습니다.</td></tr>'};
+      const loadInit=async()=>{try{const d=await api('/api/accounting/query',{action:'init',year:state.year});state={...state,...d,year:d.year};const yearSel=$('[data-global-year]');yearSel.innerHTML=(d.fiscalYears.length?d.fiscalYears:[{year:state.year,name:`${state.year} 회계연도`}]).map((y)=>`<option value="${y.year}">${esc(y.name)}</option>`).join('');yearSel.value=String(state.year);populateAccounts();renderSummary();renderRecent(d.recentResolutions);setPermissions();const u=await api('/api/users/list',{});state.users=u.rows||[];populateUsers();renderAccounts();renderMonths(d.closings||[]);}catch(e){notice(e.message,'error')}};
+      $('[data-global-year]').addEventListener('change',async(e)=>{state.year=Number(e.target.value);await loadInit();showTab($('.acc-nav.active').dataset.tab)});
+
+      $$('.money-input').forEach((input)=>{input.addEventListener('blur',()=>{const n=moneyValue(input.value);if(input.value.trim())input.value=n.toLocaleString('ko-KR')});});
+
+      const loadBudgets=async()=>{try{const d=await api('/api/accounting/query',{action:'budgets',year:state.year});state.budgetRows=d.rows||[];const body=$('[data-budget-rows]');body.innerHTML=state.budgetRows.length?state.budgetRows.map((r)=>{const revised=Number(r.revised_amount||0),executed=Number(r.executed_amount||0),balance=revised-executed,rate=revised?executed/revised*100:0;return `<tr><td>${esc(r.department||'-')}</td><td>${esc(r.project||'-')}</td><td class="left">${esc(r.account_code)} ${esc(r.account_name)}</td><td class="num">${won(r.original_amount)}</td><td class="num">${won(Number(r.supplementary_amount)+Number(r.transfer_in)-Number(r.transfer_out))}</td><td class="num">${won(revised)}</td><td class="num">${won(executed)}</td><td class="num ${balance<0?'negative':''}">${won(balance)}</td><td>${rate.toFixed(1)}%</td></tr>`}).join(''):'<tr><td colspan="9" class="empty">편성된 예산이 없습니다.</td></tr>'}catch(e){notice(e.message,'error')}};
+      $('[data-form="budget-form"]').addEventListener('submit',async(e)=>{e.preventDefault();const f=e.currentTarget;try{await api('/api/accounting/action',{action:'save-budget',year:state.year,department:f.department.value,project:f.project.value,accountCode:f.accountCode.value,originalAmount:f.originalAmount.value,supplementaryAmount:f.supplementaryAmount.value,transferIn:f.transferIn.value,transferOut:f.transferOut.value,memo:f.memo.value});notice('예산을 저장했습니다.');f.hidden=true;loadBudgets()}catch(err){notice(err.message,'error')}});
+
+      const loadResolutions=async()=>{try{const d=await api('/api/accounting/query',{action:'resolutions',year:state.year,status:$('[data-resolution-status]').value,query:$('[data-resolution-search]').value});const rows=d.rows||[];$('[data-resolution-rows]').innerHTML=rows.length?rows.map((r)=>`<tr><td>${esc(r.resolution_no)}</td><td>${typeLabel(r.resolution_type)}</td><td>${esc(r.resolution_date)}</td><td class="left">${esc(r.title)}<small>${esc(r.counterparty||'')}</small></td><td class="left">${esc(r.account_code)} ${esc(r.account_name||'')}</td><td class="num">${won(r.amount)}</td><td>${esc(r.document_id||'-')}</td><td><span class="status status-${esc(r.status)}">${statusLabel(r.status)}</span></td></tr>`).join(''):'<tr><td colspan="8" class="empty">결의서가 없습니다.</td></tr>'}catch(e){notice(e.message,'error')}};
+      $('[data-load-resolutions]').addEventListener('click',loadResolutions);
+      const resolutionForm=$('[data-form="resolution-form"]');resolutionForm.elements.resolutionDate.value=today();resolutionForm.elements.department.value=me.department||'';
+      resolutionForm.addEventListener('submit',async(e)=>{e.preventDefault();const f=e.currentTarget;const selected=(el)=>Array.from(el.selectedOptions).map((o)=>o.value);try{const d=await api('/api/accounting/action',{action:'create-resolution',resolutionType:f.resolutionType.value,resolutionDate:f.resolutionDate.value,title:f.title.value,amount:f.amount.value,taxAmount:f.taxAmount.value,counterparty:f.counterparty.value,department:f.department.value,project:f.project.value,accountCode:f.accountCode.value,settlementAccountCode:f.settlementAccountCode.value,paymentMethod:f.paymentMethod.value,memo:f.memo.value,cooperatorUserIds:selected(f.cooperatorUserIds),reviewerUserIds:selected(f.reviewerUserIds),approverUserId:f.approverUserId.value,allowOverBudget:f.allowOverBudget?.checked});notice(d.message);f.reset();f.resolutionDate.value=today();f.department.value=me.department||'';f.hidden=true;updateResolutionAccount();await loadInit();loadResolutions()}catch(err){notice(err.message,'error')}});
+
+      const addJournalLine=(values={})=>{const row=document.createElement('div');row.className='journal-line';row.innerHTML=`<select data-line-account>${accountOptions(()=>true)}</select><input data-line-debit class="money-input" inputmode="decimal" placeholder="차변"><input data-line-credit class="money-input" inputmode="decimal" placeholder="대변"><input data-line-department placeholder="부서"><input data-line-project placeholder="사업"><input data-line-counterparty placeholder="거래처"><button type="button" class="icon-btn" title="삭제">×</button>`;row.querySelector('[data-line-account]').value=values.accountCode||'';row.querySelector('[data-line-debit]').value=values.debit||'';row.querySelector('[data-line-credit]').value=values.credit||'';row.querySelector('.icon-btn').onclick=()=>{row.remove();syncJournalTotal()};row.querySelectorAll('input').forEach((i)=>i.addEventListener('input',syncJournalTotal));$('[data-journal-lines]').append(row);};
+      const syncJournalTotal=()=>{let d=0,c=0;$$('.journal-line').forEach((r)=>{d+=moneyValue(r.querySelector('[data-line-debit]').value);c+=moneyValue(r.querySelector('[data-line-credit]').value)});$('[data-debit-total]').textContent=won(d);$('[data-credit-total]').textContent=won(c);const b=$('[data-journal-balance]');b.textContent=d===c&&d>0?'일치':`차이 ${won(d-c)}`;b.classList.toggle('negative',d!==c)};
+      $('[data-add-journal-line]').addEventListener('click',()=>addJournalLine());addJournalLine({accountCode:'5400'});addJournalLine({accountCode:'1120'});
+      $('[data-form="journal-form"]').elements.journalDate.value=today();
+      $('[data-form="journal-form"]').addEventListener('submit',async(e)=>{e.preventDefault();const f=e.currentTarget;const lines=$$('.journal-line').map((r)=>({accountCode:r.querySelector('[data-line-account]').value,debit:r.querySelector('[data-line-debit]').value,credit:r.querySelector('[data-line-credit]').value,department:r.querySelector('[data-line-department]').value,project:r.querySelector('[data-line-project]').value,counterparty:r.querySelector('[data-line-counterparty]').value}));try{const d=await api('/api/accounting/action',{action:'create-manual-journal',journalDate:f.journalDate.value,description:f.description.value,lines});notice(`${d.journalNo} 전표를 등록했습니다.`);f.hidden=true;f.reset();f.journalDate.value=today();$('[data-journal-lines]').innerHTML='';addJournalLine({accountCode:'5400'});addJournalLine({accountCode:'1120'});await loadInit();loadJournals()}catch(err){notice(err.message,'error')}});
+      const loadJournals=async()=>{try{const d=await api('/api/accounting/query',{action:'journals',year:state.year,query:$('[data-journal-search]').value});$('[data-journal-rows]').innerHTML=(d.rows||[]).length?d.rows.map((r)=>`<tr><td>${esc(r.journal_no)}</td><td>${esc(r.journal_date)}</td><td>${esc(r.source_type==='resolution'?'결의자동':r.source_type==='reversal'?'역분개':'수동')}</td><td class="left">${esc(r.description)}</td><td class="num">${won(r.debit_total)}</td><td class="num">${won(r.credit_total)}</td><td>${esc(r.document_id||'-')}</td><td>${statusLabel(r.status)}</td><td>${state.permissions.manager&&r.status==='posted'?`<button class="mini-btn" data-reverse="${esc(r.id)}">취소</button>`:''}</td></tr>`).join(''):'<tr><td colspan="9" class="empty">전표가 없습니다.</td></tr>';$$('[data-reverse]').forEach((b)=>b.onclick=async()=>{if(!confirm('원전표를 삭제하지 않고 반대 분개로 취소하시겠습니까?'))return;try{const x=await api('/api/accounting/action',{action:'reverse-journal',id:b.dataset.reverse});notice(x.message);loadJournals();loadInit()}catch(err){notice(err.message,'error')}})}catch(e){notice(e.message,'error')}};
+      $('[data-load-journals]').addEventListener('click',loadJournals);
+
+      const loadLedger=async()=>{const code=$('[data-ledger-account]').value;if(!code)return notice('계정과목을 선택해 주세요.','error');try{const d=await api('/api/accounting/query',{action:'ledger',year:state.year,accountCode:code});state.ledgerRows=d.rows||[];$('[data-ledger-rows]').innerHTML=state.ledgerRows.length?state.ledgerRows.map((r)=>`<tr><td>${esc(r.journal_date)}</td><td>${esc(r.journal_no)}</td><td class="left">${esc(r.description)}</td><td>${esc(r.counterparty||'-')}</td><td>${esc([r.department,r.project].filter(Boolean).join(' / ')||'-')}</td><td class="num">${won(r.debit)}</td><td class="num">${won(r.credit)}</td><td class="num">${won(r.running_balance)}</td></tr>`).join(''):'<tr><td colspan="8" class="empty">거래내역이 없습니다.</td></tr>'}catch(e){notice(e.message,'error')}};
+      $('[data-load-ledger]').addEventListener('click',loadLedger);
+      const loadTrial=async()=>{try{const d=await api('/api/accounting/query',{action:'trial-balance',year:state.year});const rows=d.rows||[];$('[data-trial-rows]').innerHTML=rows.map((r)=>`<tr><td>${esc(r.code)}</td><td class="left">${esc(r.name)}</td><td>${typeLabel(r.account_type)}</td><td class="num">${won(r.debit)}</td><td class="num">${won(r.credit)}</td><td class="num">${won(r.balance)}</td></tr>`).join('');$('[data-trial-debit]').textContent=won(rows.reduce((s,r)=>s+Number(r.debit),0));$('[data-trial-credit]').textContent=won(rows.reduce((s,r)=>s+Number(r.credit),0))}catch(e){notice(e.message,'error')}};
+      $('[data-load-trial]').addEventListener('click',loadTrial);
+
+      const renderMonths=(closedRows)=>{const map=new Map(closedRows.map((r)=>[Number(r.period_month),r]));$('[data-month-grid]').innerHTML=Array.from({length:12},(_,i)=>i+1).map((m)=>{const row=map.get(m),closed=!!row;return `<div class="month-card ${closed?'closed':''}"><b>${m}월</b><span>${closed?'마감':'진행 중'}</span>${state.permissions.manager?`<button class="mini-btn" data-period-action="${closed?'reopen-period':'close-period'}" data-month="${m}">${closed?'마감해제':'마감'}</button>`:''}</div>`}).join('');$$('[data-period-action]').forEach((b)=>b.onclick=async()=>{const msg=b.dataset.periodAction==='close-period'?`${state.year}년 ${b.dataset.month}월을 마감하시겠습니까?`:'마감을 해제하시겠습니까?';if(!confirm(msg))return;try{const d=await api('/api/accounting/action',{action:b.dataset.periodAction,year:state.year,month:Number(b.dataset.month)});notice(d.message);loadClosing()}catch(e){notice(e.message,'error')}})};
+      const loadClosing=async()=>{try{const [c,s]=await Promise.all([api('/api/accounting/query',{action:'closings',year:state.year}),api('/api/accounting/query',{action:'statement',year:state.year})]);renderMonths(c.rows||[]);state.statementRows=s.rows||[];$('[data-statement-rows]').innerHTML=state.statementRows.filter((r)=>Number(r.balance)!==0).map((r)=>`<tr><td>${typeLabel(r.account_type)}</td><td>${esc(r.code)}</td><td class="left">${esc(r.name)}</td><td class="num">${won(r.balance)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">결산 내역이 없습니다.</td></tr>'}catch(e){notice(e.message,'error')}};
+
+      const renderAccounts=()=>{$('[data-account-rows]').innerHTML=state.accounts.map((a)=>`<tr><td>${esc(a.code)}</td><td class="left">${esc(a.name)}</td><td>${typeLabel(a.account_type)}</td><td>${typeLabel(a.normal_side)}</td><td>${esc(a.parent_code||'-')}</td><td>${a.system_account?'기본':'사용자'}</td></tr>`).join('')};
+      $('[data-form="account-form"]').addEventListener('submit',async(e)=>{e.preventDefault();const f=e.currentTarget;try{await api('/api/accounting/action',{action:'save-account',code:f.code.value,name:f.name.value,accountType:f.accountType.value,normalSide:f.normalSide.value,parentCode:f.parentCode.value});notice('계정과목을 저장했습니다.');f.hidden=true;f.reset();await loadInit()}catch(err){notice(err.message,'error')}});
+
+      const csv=(name,headers,rows)=>{const quote=(v)=>`"${String(v??'').replace(/"/g,'""')}"`;const content='\uFEFF'+[headers,...rows].map((r)=>r.map(quote).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:'text/csv;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
+      $$('[data-export]').forEach((b)=>b.onclick=()=>{if(b.dataset.export==='budget')csv(`예산집행_${state.year}.csv`,['부서','사업','계정','현예산','집행','잔액'],state.budgetRows.map((r)=>[r.department,r.project,`${r.account_code} ${r.account_name}`,r.revised_amount,r.executed_amount,Number(r.revised_amount)-Number(r.executed_amount)]));if(b.dataset.export==='ledger')csv(`계정원장_${state.year}.csv`,['일자','전표번호','적요','거래처','차변','대변','잔액'],state.ledgerRows.map((r)=>[r.journal_date,r.journal_no,r.description,r.counterparty,r.debit,r.credit,r.running_balance]));if(b.dataset.export==='statement')csv(`수입지출결산_${state.year}.csv`,['구분','코드','계정과목','금액'],state.statementRows.map((r)=>[typeLabel(r.account_type),r.code,r.name,r.balance]));});
+
+      loadInit();
+    })();
+  </script>
+
+  <style>
+    .accounting-app{min-height:100vh;background:#eef2f7;color:#20252c}.acc-topbar{height:64px;background:linear-gradient(100deg,#234d7d,#376da8);display:flex;align-items:center;justify-content:space-between;padding:0 24px;color:#fff;box-shadow:0 2px 8px #17335433}.acc-brand{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none}.acc-brand img{width:36px;height:36px;object-fit:contain;background:#fff;border-radius:6px}.acc-brand span{display:flex;align-items:baseline;gap:10px}.acc-brand b{font-family:Batang,'Noto Serif KR',serif;font-size:20px;letter-spacing:.06em}.acc-brand small{font-size:14px}.acc-topbar__right{display:flex;align-items:center;gap:10px;font-size:13px}.acc-shell{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:calc(100vh - 64px)}.acc-sidebar{background:#fff;border-right:1px solid #d4dce7;padding:18px 14px;display:flex;flex-direction:column}.acc-year-box{padding:12px;background:#f4f7fb;border:1px solid #d7dfeb;border-radius:8px;margin-bottom:14px}.acc-year-box label{display:block;font-size:12px;color:#667085;margin-bottom:6px}.acc-year-box select{width:100%}.acc-sidebar nav{display:grid;gap:4px}.acc-nav{border:0;background:transparent;text-align:left;padding:11px 13px;border-radius:6px;font-weight:600;color:#374151}.acc-nav:hover{background:#edf3fa}.acc-nav.active{background:#315f9f;color:#fff}.acc-sidebar__note{margin-top:auto;padding:12px;font-size:11px;line-height:1.6;color:#687386;border-top:1px solid #e2e8f0}.acc-main{padding:22px;min-width:0}.tab-panel{display:none}.tab-panel.active{display:block}.page-heading{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px}.page-heading p{margin:0;color:#b08d3f;font-size:11px;font-weight:800;letter-spacing:.15em}.page-heading h1{margin:3px 0;font-size:24px}.page-heading span{font-size:13px;color:#6b7280}.summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.summary-grid article{background:#fff;border:1px solid #d7deea;border-radius:10px;padding:18px}.summary-grid span{display:block;color:#6b7280;font-size:12px;margin-bottom:8px}.summary-grid strong{font-size:22px;color:#1f4f88}.card{background:#fff;border:1px solid #d6deea;border-radius:10px;margin-bottom:16px;padding:16px;box-shadow:0 1px 2px #00000008}.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.card h2{font-size:17px;margin:0}.btn{border:1px solid transparent;border-radius:5px;padding:9px 13px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.btn-primary{background:#315f9f;color:#fff}.btn-outline{background:#fff;color:#304b70;border-color:#bfcada}.link-btn{border:0;background:none;color:#315f9f;font-weight:700}.form-card{border-top:3px solid #315f9f}.form-grid{display:grid;gap:12px}.form-grid.two{grid-template-columns:repeat(2,1fr)}.form-grid.three{grid-template-columns:repeat(3,1fr)}.form-grid.four{grid-template-columns:repeat(4,1fr)}.form-grid.five{grid-template-columns:repeat(5,1fr)}.span-2{grid-column:span 2}.span-3{grid-column:span 3}label{display:block;font-size:12px;font-weight:700;color:#465162}input,select,textarea{width:100%;border:1px solid #c8d1df;border-radius:5px;padding:9px 10px;margin-top:6px;background:#fff;color:#20252c}select[multiple]{padding:4px}fieldset{border:1px solid #d8e0eb;border-radius:7px;margin:16px 0;padding:12px}legend{font-size:13px;font-weight:700;color:#315f9f}.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:15px}.inline-check{display:flex;gap:8px;align-items:center}.inline-check input{width:auto;margin:0}.table-wrap{overflow:auto;border:1px solid #d5deea;border-radius:6px}table{width:100%;border-collapse:collapse;font-size:12px;min-width:760px}th,td{padding:10px 9px;border-bottom:1px solid #e1e6ee;text-align:center;white-space:nowrap}th{background:#edf3fa;font-weight:700;color:#344255}td.left{text-align:left;white-space:normal}td.left small{display:block;color:#7a8495;margin-top:3px}.num{text-align:right;font-variant-numeric:tabular-nums}.empty{height:110px;color:#7b8492}.negative{color:#c43c3c!important}.status{display:inline-block;border-radius:20px;padding:4px 8px;background:#edf2f7}.status-posted{background:#e4f5e8;color:#24713b}.status-approval_pending{background:#fff2ce;color:#8b6400}.status-rejected,.status-cancelled{background:#fde7e7;color:#a92e2e}.filter-row{display:flex;align-items:center;gap:7px}.filter-row input,.filter-row select{margin:0;width:auto;min-width:150px}.notice{position:fixed;top:75px;right:20px;z-index:50;max-width:420px;padding:13px 16px;border-radius:7px;background:#e7f4ea;color:#236b36;box-shadow:0 5px 20px #0002}.notice.error{background:#fee9e9;color:#a12b2b}.journal-lines{display:grid;gap:7px;margin:12px 0}.journal-line{display:grid;grid-template-columns:1.3fr .8fr .8fr 1fr 1fr 1fr 34px;gap:6px}.journal-line input,.journal-line select{margin:0}.icon-btn,.mini-btn{border:1px solid #c7d0dc;background:#fff;border-radius:4px;color:#42516a}.mini-btn{padding:5px 8px}.journal-total{display:flex;gap:22px;justify-content:flex-end;align-items:center;background:#f5f7fa;padding:10px;margin-top:10px}.month-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}.month-card{border:1px solid #d5deea;border-radius:7px;padding:12px;text-align:center;display:grid;gap:7px}.month-card span{font-size:11px;color:#6b7280}.month-card.closed{background:#eef6ef;border-color:#a9cfaf}.muted{font-size:12px;color:#737d8b}@media(max-width:1100px){.acc-shell{grid-template-columns:180px minmax(0,1fr)}.summary-grid{grid-template-columns:repeat(2,1fr)}.form-grid.four,.form-grid.five{grid-template-columns:repeat(2,1fr)}.journal-line{grid-template-columns:1fr 1fr 1fr}.month-grid{grid-template-columns:repeat(4,1fr)}}@media(max-width:760px){.acc-topbar{height:auto;padding:10px;align-items:flex-start}.acc-brand span{display:block}.acc-topbar__right>span{display:none}.acc-shell{display:block}.acc-sidebar{border-right:0;border-bottom:1px solid #d4dce7}.acc-sidebar nav{grid-template-columns:repeat(2,1fr)}.acc-sidebar__note{display:none}.acc-main{padding:12px}.page-heading{align-items:flex-start}.summary-grid,.form-grid.two,.form-grid.three,.form-grid.four,.form-grid.five{grid-template-columns:1fr}.span-2,.span-3{grid-column:auto}.month-grid{grid-template-columns:repeat(3,1fr)}}
+  </style>
+</GovLayout>

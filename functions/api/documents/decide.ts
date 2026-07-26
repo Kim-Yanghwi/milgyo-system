@@ -1,4 +1,5 @@
 import { authenticateSession, clean, ensureTables, json, randomHex } from '../../_shared/helpers';
+import { ensureAccountingTables, prepareResolutionPosting } from '../../_shared/accounting';
 interface Env { DB: D1Database; }
 type DecidePayload = { token?: string; id?: string; action?: string; memo?: string };
 const VALID_ACTIONS = ['승인', '반려', '검토완료', '협조완료', '전결'];
@@ -33,6 +34,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let payload: DecidePayload;
   try { payload = await request.json(); } catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
   await ensureTables(env.DB);
+  await ensureAccountingTables(env.DB);
   const auth = await authenticateSession(env.DB, clean(payload.token, 200));
   if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
   const me = auth.user;
@@ -80,6 +82,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
             .bind(now, memo || null, currentLine.id),
           env.DB.prepare(`UPDATE documents SET status='반려', completed_at=?, updated_at=? WHERE id=?`)
             .bind(now, now, id),
+          env.DB.prepare(`UPDATE accounting_resolutions SET status='rejected', updated_at=? WHERE document_id=? AND status IN ('approval_pending','approved')`)
+            .bind(now, id),
           env.DB.prepare(`INSERT INTO document_approvals (id, document_id, action, approver_name, approver_role, memo, created_at) VALUES (?, ?, '반려', ?, ?, ?, ?)`)
             .bind(`AP-${randomHex(20)}`, id, me.name, `${currentLine.line_type}자`, memo || null, now),
         ]);
@@ -104,6 +108,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           .bind(`AP-${randomHex(20)}`, id, recordedAction, me.name, `${currentLine.line_type}자`, memo || null, now),
       ];
       if (nextLine) statements.push(env.DB.prepare(`UPDATE document_approval_lines SET status='대기' WHERE id=?`).bind(nextLine.id));
+      if (nextStatus === '승인') {
+        const resolution = await env.DB.prepare(`SELECT * FROM accounting_resolutions WHERE document_id=? AND status IN ('approval_pending','approved') LIMIT 1`)
+          .bind(id).first<any>();
+        if (resolution) {
+          statements.push(env.DB.prepare(`UPDATE accounting_resolutions SET status='approved', updated_at=? WHERE id=?`).bind(now, resolution.id));
+          const posting = await prepareResolutionPosting(env.DB, resolution, me.name);
+          statements.push(...posting.statements);
+        }
+      }
       await env.DB.batch(statements);
       const message = nextLine
         ? `${recordedAction} 처리되어 다음 ${nextLine.line_type}자에게 전달되었습니다.`
@@ -133,14 +146,25 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const now = new Date().toISOString();
-    await env.DB.batch([
+    const legacyStatements: D1PreparedStatement[] = [
       env.DB.prepare(`UPDATE documents SET status = ?, completed_at = CASE WHEN ? IN ('승인','반려') THEN ? ELSE completed_at END, updated_at = ? WHERE id = ?`)
         .bind(newStatus, newStatus, now, now, id),
       env.DB.prepare(`
         INSERT INTO document_approvals (id, document_id, action, approver_name, approver_role, memo, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `).bind(`AP-${randomHex(20)}`, id, recordedAction, me.name, me.position || '처리자', memo || null, now),
-    ]);
+    ];
+    if (newStatus === '반려') {
+      legacyStatements.push(env.DB.prepare(`UPDATE accounting_resolutions SET status='rejected', updated_at=? WHERE document_id=? AND status IN ('approval_pending','approved')`).bind(now,id));
+    } else if (newStatus === '승인') {
+      const resolution = await env.DB.prepare(`SELECT * FROM accounting_resolutions WHERE document_id=? AND status IN ('approval_pending','approved') LIMIT 1`).bind(id).first<any>();
+      if (resolution) {
+        legacyStatements.push(env.DB.prepare(`UPDATE accounting_resolutions SET status='approved', updated_at=? WHERE id=?`).bind(now,resolution.id));
+        const posting=await prepareResolutionPosting(env.DB,resolution,me.name);
+        legacyStatements.push(...posting.statements);
+      }
+    }
+    await env.DB.batch(legacyStatements);
     return json({ ok: true, status: newStatus, action: recordedAction, message: recordedAction === '검토완료' ? '검토가 완료되어 최종 결재자에게 전달되었습니다.' : `문서가 ${recordedAction} 처리되었습니다.` });
   } catch (error) {
     console.error('document decide failed', error);

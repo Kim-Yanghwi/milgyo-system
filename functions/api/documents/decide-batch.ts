@@ -1,4 +1,5 @@
 import { authenticateSession, clean, ensureTables, json, randomHex } from '../../_shared/helpers';
+import { ensureAccountingTables, prepareResolutionPosting } from '../../_shared/accounting';
 interface Env { DB: D1Database; }
 type DecideBatchPayload = { token?: string; ids?: unknown; action?: string; memo?: string };
 const MAX_BATCH = 50;
@@ -20,6 +21,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let payload: DecideBatchPayload;
   try { payload = await request.json(); } catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
   await ensureTables(env.DB);
+  await ensureAccountingTables(env.DB);
   const auth = await authenticateSession(env.DB, clean(payload.token, 200));
   if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
   const me = auth.user;
@@ -70,6 +72,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         if (action === '반려') {
           statements.push(env.DB.prepare(`UPDATE document_approval_lines SET status='반려', acted_at=?, memo=? WHERE id=?`).bind(now, memo || null, currentLine.id));
           statements.push(env.DB.prepare(`UPDATE documents SET status='반려', completed_at=?, updated_at=? WHERE id=?`).bind(now, now, row.id));
+          statements.push(env.DB.prepare(`UPDATE accounting_resolutions SET status='rejected', updated_at=? WHERE document_id=? AND status IN ('approval_pending','approved')`).bind(now,row.id));
           statements.push(env.DB.prepare(`INSERT INTO document_approvals (id, document_id, action, approver_name, approver_role, memo, created_at) VALUES (?, ?, '반려', ?, ?, ?, ?)`)
             .bind(`AP-${randomHex(20)}`, row.id, me.name, `${currentLine.line_type}자`, memo || null, now));
           continue;
@@ -83,6 +86,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           .bind(nextStatus, nextStatus, now, now, row.id));
         statements.push(env.DB.prepare(`INSERT INTO document_approvals (id, document_id, action, approver_name, approver_role, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
           .bind(`AP-${randomHex(20)}`, row.id, recordedAction, me.name, `${currentLine.line_type}자`, memo || null, now));
+        if (nextStatus === '승인') {
+          const resolution = await env.DB.prepare(`SELECT * FROM accounting_resolutions WHERE document_id=? AND status IN ('approval_pending','approved') LIMIT 1`).bind(row.id).first<any>();
+          if (resolution) {
+            statements.push(env.DB.prepare(`UPDATE accounting_resolutions SET status='approved', updated_at=? WHERE id=?`).bind(now,resolution.id));
+            const posting=await prepareResolutionPosting(env.DB,resolution,me.name);
+            statements.push(...posting.statements);
+          }
+        }
         continue;
       }
 
@@ -101,6 +112,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         .bind(nextStatus, nextStatus, now, now, row.id));
       statements.push(env.DB.prepare(`INSERT INTO document_approvals (id, document_id, action, approver_name, approver_role, memo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
         .bind(`AP-${randomHex(20)}`, row.id, recordedAction, me.name, me.position || '처리자', memo || null, now));
+      if (nextStatus === '반려') {
+        statements.push(env.DB.prepare(`UPDATE accounting_resolutions SET status='rejected', updated_at=? WHERE document_id=? AND status IN ('approval_pending','approved')`).bind(now,row.id));
+      } else if (nextStatus === '승인') {
+        const resolution=await env.DB.prepare(`SELECT * FROM accounting_resolutions WHERE document_id=? AND status IN ('approval_pending','approved') LIMIT 1`).bind(row.id).first<any>();
+        if (resolution) {
+          statements.push(env.DB.prepare(`UPDATE accounting_resolutions SET status='approved', updated_at=? WHERE id=?`).bind(now,resolution.id));
+          const posting=await prepareResolutionPosting(env.DB,resolution,me.name);
+          statements.push(...posting.statements);
+        }
+      }
     }
 
     if (!processed.length) return json({ ok: false, message: '현재 계정이 처리할 수 있는 문서가 없습니다.' }, 400);

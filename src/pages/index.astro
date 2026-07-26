@@ -55,6 +55,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         <button type="button" class="app-topbar__link" data-nav="approval">결재</button>
         <button type="button" class="app-topbar__link" data-nav="registry">문서대장</button>
         <button type="button" class="app-topbar__link" data-nav="received">접수·발송</button>
+        <a class="app-topbar__link app-topbar__link--anchor" href="/accounting">회계관리</a>
       </nav>
       <div class="app-topbar__right">
         <span class="app-topbar__me" data-me-label hidden></span>
@@ -74,6 +75,11 @@ import GovLayout from '../layouts/GovLayout.astro';
           <div class="sidebar-profile__row sidebar-profile__row--secondary" data-me-department-secondary-row hidden><span>2차부서</span><strong data-me-department-secondary>-</strong></div>
         </section>
         <button type="button" class="btn btn-primary btn-block sidebar-compose" data-open-compose>+ 문서작성</button>
+
+        <div class="sidebar-group">
+          <p class="sidebar-group__title">회계</p>
+          <a class="sidebar-link sidebar-external-link" href="/accounting">예산·결의·장부·결산</a>
+        </div>
 
         <div class="sidebar-group">
           <p class="sidebar-group__title">전자문서</p>
@@ -1744,6 +1750,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       padding: 0.15rem 0.4rem; border-radius: 4px;
     }
     .app-topbar__menu { display: flex; flex-shrink: 0; gap: 0.3rem; font-size: 0.88rem; }
+    .app-topbar__link--anchor { text-decoration: none; }
     .app-topbar__link {
       background: transparent; border: none; color: rgba(255,255,255,0.75); font-size: 0.88rem;
       padding: 0.4rem 0.7rem; border-radius: 6px;
