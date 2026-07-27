@@ -18,4 +18,9 @@ type R2Bucket = {
   delete: (keys: string | string[]) => Promise<void>;
 };
 
-type MilgyoEnv = { DB: D1Database; ACCOUNTING_DB: D1Database; FILES?: R2Bucket };
+type MilgyoEnv = {
+  DB: D1Database;
+  ACCOUNTING_DB: D1Database;
+  FILES?: R2Bucket;
+  ACCOUNTING_FILES?: R2Bucket;
+};

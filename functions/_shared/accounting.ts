@@ -2,7 +2,7 @@ import { clean, randomHex, type SessionUser } from './helpers';
 import { ensureAccountingSpecialTables, getResolutionDimensions } from './accounting-special';
 
 export const ACCOUNTING_SCHEMA_VERSION='2026-07-26.4';
-const REQUIRED_TABLES=['accounting_fiscal_years','accounting_accounts','accounting_resolutions','accounting_journals','accounting_journal_lines','accounting_closings','accounting_audit_logs','accounting_sequences','accounting_meta','accounting_monthly_summary'];
+const REQUIRED_TABLES=['accounting_fiscal_years','accounting_accounts','accounting_resolutions','accounting_journals','accounting_journal_lines','accounting_closings','accounting_audit_logs','accounting_sequences','accounting_meta','accounting_monthly_summary','accounting_attachments'];
 const schemaReady=new WeakSet<object>();
 const schemaPromises=new WeakMap<object,Promise<void>>();
 
