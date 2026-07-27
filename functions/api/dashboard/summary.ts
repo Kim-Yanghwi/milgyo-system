@@ -93,6 +93,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       counts,
       recentDocuments,
       recentRegistry,
+      permissions: { accounting: me.role === 'admin' || Number(me.can_accounting || 0) === 1 },
       storage: { r2Connected: !!env.FILES },
     });
   } catch (error) {

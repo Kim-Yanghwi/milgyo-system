@@ -23,7 +23,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     const includeInactive = !!payload.includeInactive && auth.user.role === 'admin';
     const rows = await env.DB.prepare(`
-      SELECT CAST(id AS TEXT) AS id, name, username, position, grade, department, role, can_approve, active, created_at
+      SELECT CAST(id AS TEXT) AS id, name, username, position, grade, department, role, can_approve, can_accounting, active, created_at
       FROM system_users
       ${includeInactive ? '' : 'WHERE active = 1'}
       ORDER BY created_at ASC, name ASC

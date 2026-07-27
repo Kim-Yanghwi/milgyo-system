@@ -23,6 +23,7 @@ type CreatePayload = {
   department?: string;
   role?: string;
   canApprove?: boolean;
+  canAccounting?: boolean;
 };
 
 const createAccount = async (
@@ -36,6 +37,7 @@ const createAccount = async (
     department: string;
     role: 'admin' | 'audit' | 'user';
     canApprove: boolean;
+    canAccounting: boolean;
   },
 ) => insertSystemUser(db, {
   name: input.name,
@@ -46,6 +48,7 @@ const createAccount = async (
   department: input.department || null,
   role: input.role,
   canApprove: input.canApprove,
+  canAccounting: input.canAccounting,
   active: true,
 });
 
@@ -73,6 +76,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const department = clean(payload.department, 60);
     const role: 'admin' | 'audit' | 'user' = payload.role === 'admin' ? 'admin' : payload.role === 'audit' ? 'audit' : 'user';
     const canApprove = !!payload.canApprove || role === 'admin';
+    const canAccounting = !!payload.canAccounting || role === 'admin';
 
     if (!name) return json({ ok: false, message: '성명을 입력해 주세요.' }, 400);
     if (!username || username.length < 3) return json({ ok: false, message: '아이디를 3자 이상 입력해 주세요.' }, 400);
@@ -84,7 +88,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (existing) return json({ ok: false, message: '이미 사용 중인 아이디입니다.' }, 400);
 
     const passwordHash = await hashPassword(password);
-    const input = { name, username, passwordHash, position, grade, department, role, canApprove };
+    const input = { name, username, passwordHash, position, grade, department, role, canApprove, canAccounting };
 
     const findCreatedAccount = async () => env.DB.prepare(`
       SELECT CAST(id AS TEXT) AS id, name FROM system_users WHERE username = ? COLLATE NOCASE LIMIT 1

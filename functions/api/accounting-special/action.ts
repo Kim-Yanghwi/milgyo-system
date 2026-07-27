@@ -1,6 +1,7 @@
 import { authenticateSession, clean, ensureTables, json, randomHex } from '../../_shared/helpers';
 import {
   ensureAccountingTables,
+  hasAccountingAccess,
   isAccountingManager,
   isPeriodClosed,
   nextAccountingNumber,
@@ -97,10 +98,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const accountingDb=env.ACCOUNTING_DB;
   await ensureTables(env.DB);
-  await ensureAccountingTables(accountingDb);
-  await ensureAccountingSpecialTables(accountingDb);
   const auth = await authenticateSession(env.DB, clean(payload.token, 200));
   if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+  if (!hasAccountingAccess(auth.user)) return json({ ok: false, message: '종단 회계관리 접속 권한이 없습니다. 관리자에게 회계권한 부여를 요청해 주세요.' }, 403);
+  await ensureAccountingTables(accountingDb);
+  await ensureAccountingSpecialTables(accountingDb);
   const me = auth.user;
   const manager = isAccountingManager(me);
   const action = clean(payload.action, 60);

@@ -1,5 +1,5 @@
 import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
-import { canViewAllAccounting, ensureAccountingTables, isAccountingManager } from '../../_shared/accounting';
+import { canViewAllAccounting, ensureAccountingTables, hasAccountingAccess, isAccountingManager } from '../../_shared/accounting';
 import { ensureAccountingSpecialTables, getDimensionMaster } from '../../_shared/accounting-special';
 
 interface Env { DB: D1Database; ACCOUNTING_DB: D1Database; }
@@ -29,10 +29,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
   const accountingDb=env.ACCOUNTING_DB;
   await ensureTables(env.DB);
-  await ensureAccountingTables(accountingDb);
-  await ensureAccountingSpecialTables(accountingDb);
   const auth = await authenticateSession(env.DB, clean(payload.token, 200));
   if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+  if (!hasAccountingAccess(auth.user)) return json({ ok: false, message: '종단 회계관리 접속 권한이 없습니다. 관리자에게 회계권한 부여를 요청해 주세요.' }, 403);
+  await ensureAccountingTables(accountingDb);
+  await ensureAccountingSpecialTables(accountingDb);
   const me = auth.user;
   const action = clean(payload.action, 60) || 'init';
   const year = toYear(payload.year);

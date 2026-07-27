@@ -72,6 +72,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       department: null,
       role: 'admin' as const,
       canApprove: true,
+      canAccounting: true,
       active: true,
     };
 

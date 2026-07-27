@@ -806,7 +806,7 @@ let tablesEnsured = false;
 let tablesEnsurePromise: Promise<void> | null = null;
 let lastRateLimitCleanupAt = 0;
 const MAINTENANCE_COOLDOWN_MS = 10 * 60 * 1000;
-const SCHEMA_VERSION = '2026-07-26.10';
+const SCHEMA_VERSION = '2026-07-26.11';
 
 type TableColumnInfo = { name: string; type: string; notnull: number; dflt_value?: unknown; pk: number };
 
@@ -858,7 +858,8 @@ const runSchemaMigration = async (db: D1Database) => {
     db.prepare(`CREATE TABLE IF NOT EXISTS system_users (
       id TEXT PRIMARY KEY, name TEXT NOT NULL, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
       position TEXT, grade TEXT, department TEXT, role TEXT NOT NULL DEFAULT 'user',
-      can_approve INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL
+      can_approve INTEGER NOT NULL DEFAULT 0, can_accounting INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL
     )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS system_sessions (
       token TEXT PRIMARY KEY, user_id TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL
@@ -927,6 +928,7 @@ const runSchemaMigration = async (db: D1Database) => {
     ['system_users', 'position TEXT'], ['system_users', 'grade TEXT'], ['system_users', 'department TEXT'],
     ['system_users', `role TEXT NOT NULL DEFAULT 'user'`],
     ['system_users', 'can_approve INTEGER NOT NULL DEFAULT 0'],
+    ['system_users', 'can_accounting INTEGER NOT NULL DEFAULT 0'],
     ['system_users', 'active INTEGER NOT NULL DEFAULT 1'],
     ['system_users', 'created_at TEXT'],
     ['received_documents', 'department TEXT'], ['received_documents', 'related_document_id TEXT'],
@@ -954,9 +956,11 @@ const runSchemaMigration = async (db: D1Database) => {
     UPDATE system_users
     SET role = COALESCE(NULLIF(role, ''), 'user'),
         can_approve = COALESCE(can_approve, 0),
+        can_accounting = CASE WHEN role = 'admin' THEN 1 ELSE COALESCE(can_accounting, 0) END,
         active = COALESCE(active, 1),
         created_at = COALESCE(created_at, ?)
-    WHERE role IS NULL OR role = '' OR can_approve IS NULL OR active IS NULL OR created_at IS NULL
+    WHERE role IS NULL OR role = '' OR can_approve IS NULL OR can_accounting IS NULL OR active IS NULL OR created_at IS NULL
+       OR (role = 'admin' AND can_accounting <> 1)
   `).bind(now).run();
   await db.prepare(`UPDATE received_documents SET updated_at = COALESCE(updated_at, created_at, ?) WHERE updated_at IS NULL`)
     .bind(now).run();
@@ -1025,7 +1029,7 @@ const hasCurrentSchema = async (db: D1Database) => {
 
     // 버전 표식만 맞고 실제 컬럼이 누락된 운영 DB도 자동 복구할 수 있도록 핵심 구조를 함께 확인합니다.
     const checks = await Promise.all([
-      hasColumns(db, 'system_users', ['id', 'name', 'username', 'password_hash', 'position', 'grade', 'department', 'role', 'can_approve', 'active', 'created_at']),
+      hasColumns(db, 'system_users', ['id', 'name', 'username', 'password_hash', 'position', 'grade', 'department', 'role', 'can_approve', 'can_accounting', 'active', 'created_at']),
       hasColumns(db, 'documents', ['id', 'approval_mode', 'status', 'client_request_id']),
       hasColumns(db, 'document_approval_lines', ['id', 'document_id', 'line_order', 'line_type', 'user_id', 'status']),
       hasColumns(db, 'document_dispatch_links', ['document_id', 'registry_id', 'created_at']),
@@ -1110,6 +1114,7 @@ export type NewSystemUser = {
   department?: string | null;
   role: 'admin' | 'audit' | 'user';
   canApprove: boolean;
+  canAccounting: boolean;
   active?: boolean;
   createdAt?: string;
 };
@@ -1143,6 +1148,7 @@ export const insertSystemUser = async (db: D1Database, input: NewSystemUser) => 
     department: input.department || null,
     role: input.role,
     can_approve: input.canApprove ? 1 : 0,
+    can_accounting: input.canAccounting ? 1 : 0,
     active: input.active === false ? 0 : 1,
     created_at: now,
     updated_at: now,
@@ -1165,7 +1171,7 @@ export const insertSystemUser = async (db: D1Database, input: NewSystemUser) => 
 
   const preferredColumns = [
     'id', 'name', 'username', 'password_hash', 'position', 'grade', 'department', 'role',
-    'can_approve', 'active', 'created_at', 'updated_at', 'is_admin', 'is_active', 'approval_enabled',
+    'can_approve', 'can_accounting', 'active', 'created_at', 'updated_at', 'is_admin', 'is_active', 'approval_enabled',
   ];
   const insertColumns = preferredColumns
     .filter((column) => knownColumns.has(column) && !(column === 'id' && autoIntegerId));
@@ -1206,7 +1212,7 @@ export const insertSystemUser = async (db: D1Database, input: NewSystemUser) => 
 
 export type SessionUser = {
   id: string; name: string; username: string; position: string | null; grade: string | null;
-  department: string | null; role: string; can_approve: number;
+  department: string | null; role: string; can_approve: number; can_accounting: number;
 };
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 export const createSession = async (db: D1Database, userId: string) => {
@@ -1223,7 +1229,7 @@ export const authenticateSession = async (
 ): Promise<{ ok: true; user: SessionUser } | { ok: false; message: string; status: number }> => {
   if (!token) return { ok: false, message: '로그인이 필요합니다.', status: 401 };
   const row = await db.prepare(`
-    SELECT CAST(u.id AS TEXT) AS id, u.name, u.username, u.position, u.grade, u.department, u.role, u.can_approve, u.active, s.expires_at
+    SELECT CAST(u.id AS TEXT) AS id, u.name, u.username, u.position, u.grade, u.department, u.role, u.can_approve, u.can_accounting, u.active, s.expires_at
     FROM system_sessions s JOIN system_users u ON u.id = s.user_id WHERE s.token = ?
   `).bind(token).first<SessionUser & { active: number; expires_at: string }>();
   if (!row) return { ok: false, message: '로그인이 만료되었습니다. 다시 로그인해 주세요.', status: 401 };
@@ -1232,8 +1238,8 @@ export const authenticateSession = async (
     await destroySession(db, token);
     return { ok: false, message: '로그인이 만료되었습니다. 다시 로그인해 주세요.', status: 401 };
   }
-  const { id, name, username, position, grade, department, role, can_approve } = row;
-  return { ok: true, user: { id, name, username, position, grade, department, role, can_approve } };
+  const { id, name, username, position, grade, department, role, can_approve, can_accounting } = row;
+  return { ok: true, user: { id, name, username, position, grade, department, role, can_approve, can_accounting } };
 };
 
 export const canReadDocument = (user: SessionUser, document: Record<string, unknown>) => {

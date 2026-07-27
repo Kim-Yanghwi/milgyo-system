@@ -199,7 +199,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         $$('[data-fund-select]').forEach((el)=>{const v=el.value;el.innerHTML=fundOptions;if(v)el.value=v;});
       };
       populateDepartments();
-      const api=async(path,body)=>{const res=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,token})});const text=await res.text();let data;try{data=JSON.parse(text)}catch{data={ok:false,message:`서버 응답 오류(HTTP ${res.status})`}}if(!data.ok)throw Object.assign(new Error(data.message||'처리 중 오류가 발생했습니다.'),{data});return data};
+      const api=async(path,body)=>{const res=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,token})});const text=await res.text();let data;try{data=JSON.parse(text)}catch{data={ok:false,message:`서버 응답 오류(HTTP ${res.status})`}}if(!data.ok)throw Object.assign(new Error(data.message||'처리 중 오류가 발생했습니다.'),{data,status:res.status});return data};
       const notice=(message,type='ok')=>{const el=$('[data-notice]');el.textContent=message;el.className=`notice ${type}`;el.hidden=false;clearTimeout(notice.timer);notice.timer=setTimeout(()=>el.hidden=true,5000)};
       const statusLabel=(s)=>({draft:'작성중',approval_pending:'결재진행',approved:'승인',posted:'전표처리',rejected:'반려',cancelled:'취소',reversed:'역분개'}[s]||s||'-');
       const typeLabel=(t)=>({income:'수입',expense:'지출',asset:'자산',liability:'부채',equity:'순자산',revenue:'수입',expense:'지출',debit:'차변',credit:'대변'}[t]||t||'-');
@@ -209,7 +209,6 @@ import GovLayout from '../layouts/GovLayout.astro';
       $('[data-logout]').addEventListener('click',()=>{localStorage.removeItem(STORAGE_KEY);location.replace('/')});
       $('[data-user-label]').textContent=`${me.name} · ${me.position||'구성원'}`;
       renderYearOptions();
-      $('[data-app]').hidden=false;
 
       const accountOptions=(filter)=>state.accounts.filter(filter).map((a)=>`<option value="${esc(a.code)}">${esc(a.code)} ${esc(a.name)}</option>`).join('');
       const populateAccounts=()=>{
@@ -250,18 +249,21 @@ import GovLayout from '../layouts/GovLayout.astro';
         $('[data-integration-message]').textContent=problem?`회계 반영 대기 또는 실패 자료가 ${problem}건 있습니다. 재처리 후 상태를 확인해 주세요.`:'전자결재와 회계 DB 연계가 정상입니다.';
       };
       const loadInit=async()=>{try{
-        const needsUsers=!state.users.length;
-        const [d,u]=await Promise.all([
-          api('/api/accounting/query',{action:'init',year:state.year}),
-          needsUsers?api('/api/users/list',{}):Promise.resolve(null),
-        ]);
+        // 회계 API의 명시적 권한 검사를 먼저 통과한 뒤에만 회계 화면과 사용자 목록을 표시합니다.
+        const d=await api('/api/accounting/query',{action:'init',year:state.year});
+        let u=null;
+        if(!state.users.length)u=await api('/api/users/list',{});
         state={...state,...d,year:Number(d.year||state.year)};
         if(u)state.users=u.rows||[];
         renderYearOptions(d.fiscalYears||[]);
         populateAccounts();populateDepartments();populateDimensions();
         if(!$('[data-journal-lines]').children.length){addJournalLine({accountCode:'5400',department:me.department||''});addJournalLine({accountCode:'1120',department:me.department||''});}
         renderSummary();renderRecent(d.recentResolutions);setPermissions();renderIntegration(d.integration);populateUsers();renderAccounts();renderMonths(d.closings||[]);
-      }catch(e){notice(e.message,'error')}};
+        $('[data-app]').hidden=false;
+      }catch(e){
+        if(e.status===403){alert(e.message);location.replace('/');return;}
+        notice(e.message,'error');
+      }};
       $('[data-global-year]').addEventListener('change',async(e)=>{state.year=Number(e.target.value);await loadInit();showTab($('.acc-nav.active').dataset.tab)});
       const retryIntegrationButton=$('[data-retry-integration]');
       if(retryIntegrationButton)retryIntegrationButton.addEventListener('click',async()=>{

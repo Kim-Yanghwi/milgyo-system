@@ -16,12 +16,14 @@ export const parseMoney=(value:unknown)=>{
   return Math.round((negative?-1:1)*amount);
 };
 
+export const hasAccountingAccess=(user:SessionUser)=>user.role==='admin'||Number(user.can_accounting||0)===1;
 export const isAccountingManager=(user:SessionUser)=>{
+  if(!hasAccountingAccess(user))return false;
   if(user.role==='admin')return true;
   const scope=`${user.position||''} ${user.department||''}`;
   return /(이사장|사무총장|재정|회계)/.test(scope);
 };
-export const canViewAllAccounting=(user:SessionUser)=>user.role==='admin'||user.role==='audit'||isAccountingManager(user);
+export const canViewAllAccounting=(user:SessionUser)=>hasAccountingAccess(user)&&(user.role==='admin'||user.role==='audit'||isAccountingManager(user));
 
 // 운영 요청 중 DDL을 실행하지 않고 배포 전에 적용된 스키마만 1회 확인합니다.
 export const ensureAccountingTables=async(db:D1Database)=>{

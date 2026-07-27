@@ -1,5 +1,5 @@
 import { authenticateSession, clean, ensureTables, json, makeDocumentNumber, randomHex } from '../../_shared/helpers';
-import { cleanAccountingText, ensureAccountingTables, isAccountingManager, isPeriodClosed, monthlySummaryStatement, nextAccountingNumber, parseMoney } from '../../_shared/accounting';
+import { cleanAccountingText, ensureAccountingTables, hasAccountingAccess, isAccountingManager, isPeriodClosed, monthlySummaryStatement, nextAccountingNumber, parseMoney } from '../../_shared/accounting';
 import { validateDimensions } from '../../_shared/accounting-special';
 import { accountingEventStatement, ensureAccountingIntegrationSchema, processAccountingOutbox } from '../../_shared/accounting-integration';
 
@@ -15,8 +15,10 @@ const auditStatement=(db:D1Database,action:string,type:string,id:string,userId:s
 export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   if(!env.DB||!env.ACCOUNTING_DB)return json({ok:false,message:'전자문서 DB 또는 회계 전용 DB가 연결되지 않았습니다.'},500);
   let payload:Payload;try{payload=await request.json()}catch{return json({ok:false,message:'요청 형식이 올바르지 않습니다.'},400)}
-  await ensureTables(env.DB);await ensureAccountingTables(env.ACCOUNTING_DB);
+  await ensureTables(env.DB);
   const auth=await authenticateSession(env.DB,clean(payload.token,200));if(!auth.ok)return json({ok:false,message:auth.message},auth.status);
+  if(!hasAccountingAccess(auth.user))return json({ok:false,message:'종단 회계관리 접속 권한이 없습니다. 관리자에게 회계권한 부여를 요청해 주세요.'},403);
+  await ensureAccountingTables(env.ACCOUNTING_DB);
   const db=env.ACCOUNTING_DB,me=auth.user,action=clean(payload.action,50),manager=isAccountingManager(me);
   if(me.role==='audit')return json({ok:false,message:'감사 계정은 회계자료를 열람할 수 있지만 등록·수정할 수 없습니다.'},403);
   try{
