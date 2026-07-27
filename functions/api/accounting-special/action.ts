@@ -221,10 +221,30 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const amount = parseMoney(payload.amount);
       if (!validDate(date) || amount <= 0) return json({ ok: false, message: '기부일자와 금액을 확인해 주세요.' }, 400);
       const dimensions = await validateDimensions(accountingDb, payload);
-      const donorId = clean(payload.donorId, 80);
-      if (donorId) {
-        const donor = await accountingDb.prepare(`SELECT id FROM accounting_donors WHERE id=? AND active=1`).bind(donorId).first();
-        if (!donor) return json({ ok: false, message: '후원자를 확인해 주세요.' }, 400);
+      const anonymousDonation = payload.anonymousDonation === true;
+      const donorName = clean(payload.donorName, 100);
+      let donorId = anonymousDonation ? '' : clean(payload.donorId, 80);
+      let donorInsert: D1PreparedStatement | null = null;
+      if (!anonymousDonation) {
+        if (donorId) {
+          const donor = await accountingDb.prepare(`SELECT id FROM accounting_donors WHERE id=? AND active=1`).bind(donorId).first();
+          if (!donor) return json({ ok: false, message: '후원자를 확인해 주세요.' }, 400);
+        } else {
+          if (!donorName) return json({ ok: false, message: '후원자명을 입력하거나 익명 기부를 선택해 주세요.' }, 400);
+          const existingDonor = await accountingDb.prepare(`SELECT id FROM accounting_donors WHERE active=1 AND TRIM(name)=TRIM(?) ORDER BY created_at LIMIT 1`)
+            .bind(donorName).first<{ id: string }>();
+          if (existingDonor?.id) {
+            donorId = existingDonor.id;
+          } else {
+            donorId = `DONOR-${randomHex(20)}`;
+            const donorNo = await nextSpecialNumber(accountingDb, 'donor');
+            donorInsert = accountingDb.prepare(`INSERT INTO accounting_donors
+              (id,donor_no,donor_type,name,identifier_masked,phone,email,address,receipt_consent,memo,
+               active,created_by,created_at,updated_at)
+              VALUES (?,?,'individual',?,NULL,NULL,NULL,NULL,0,'기부금 등록 화면에서 자동 생성',1,?,?,?)`)
+              .bind(donorId, donorNo, donorName, me.name, now, now);
+          }
+        }
       }
       const category = clean(payload.donationCategory, 40) || 'general';
       const accountCode = clean(payload.accountCode, 20) || (category === 'designated' ? '4210' : '4200');
@@ -238,8 +258,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const id = `DON-${randomHex(20)}`;
       const year = Number(date.slice(0, 4));
       const donationNo = await nextSpecialNumber(accountingDb, 'donation', year);
-      const receiptRequested = payload.receiptRequested === true ? 1 : 0;
-      await accountingDb.batch([
+      const receiptRequested = !anonymousDonation && payload.receiptRequested === true ? 1 : 0;
+      const statements: D1PreparedStatement[] = [];
+      if (donorInsert) statements.push(donorInsert);
+      statements.push(
         accountingDb.prepare(`INSERT INTO accounting_donations
           (id,donation_no,fiscal_year,donation_date,donor_id,donation_category,book_type_code,entity_id,fund_id,
            amount,payment_method,account_code,settlement_account_code,purpose,memo,receipt_requested,receipt_status,
@@ -252,8 +274,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
             clean(payload.purpose, 300) || null, clean(payload.memo, 1000) || null,
             receiptRequested, receiptRequested ? 'requested' : 'not_requested', me.name, now, now,
           ),
-        audit(accountingDb, 'create', 'donation', id, me.id, me.name, { donationNo, amount, donorId, ...dimensions }, now),
-      ]);
+        audit(accountingDb, 'create', 'donation', id, me.id, me.name, { donationNo, amount, donorId, anonymousDonation, donorName: anonymousDonation ? '익명' : donorName, ...dimensions }, now),
+      );
+      await accountingDb.batch(statements);
       let posting: any = null;
       if (payload.postNow === true && manager) {
         const donation = await accountingDb.prepare(`SELECT d.*,COALESCE(o.name,'익명') AS donor_name,e.department_path AS department
