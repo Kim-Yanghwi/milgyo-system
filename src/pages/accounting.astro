@@ -58,7 +58,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           </div>
           <div class="card">
             <div class="card-head"><h2>최근 결의서</h2><button class="link-btn" data-go-tab="resolution">전체보기</button></div>
-            <div class="table-wrap"><table><thead><tr><th>결의번호</th><th>구분</th><th>일자</th><th>제목</th><th>금액</th><th>상태</th></tr></thead><tbody data-recent-resolutions></tbody></table></div>
+            <div class="table-wrap"><table class="recent-resolution-table"><thead><tr><th>결의번호</th><th>구분</th><th>일자</th><th>제목</th><th>금액</th><th>상태</th></tr></thead><tbody data-recent-resolutions></tbody></table></div>
           </div>
         </section>
 
@@ -82,7 +82,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           </form>
           <div class="card">
             <div class="card-head"><h2>예산 집행현황</h2><button class="btn btn-outline" data-export="budget">CSV</button></div>
-            <div class="table-wrap"><table><thead><tr><th>회계구분</th><th>회계조직</th><th>재원</th><th>부서</th><th>사업</th><th>계정과목</th><th>본예산</th><th>추경·전용</th><th>현예산</th><th>집행액</th><th>잔액</th><th>집행률</th></tr></thead><tbody data-budget-rows></tbody></table></div>
+            <div class="table-wrap"><table class="budget-table"><thead><tr><th>회계구분</th><th>회계조직</th><th>재원</th><th>부서</th><th>사업</th><th>계정과목</th><th>본예산</th><th>추경·전용</th><th>현예산</th><th>집행액</th><th>잔액</th><th>집행률</th></tr></thead><tbody data-budget-rows></tbody></table></div>
           </div>
         </section>
 
@@ -106,6 +106,19 @@ import GovLayout from '../layouts/GovLayout.astro';
               <label>세액(선택)<input name="taxAmount" class="money-input" inputmode="decimal" placeholder="0" /></label>
               <label class="span-3">비고<textarea name="memo" rows="3"></textarea></label>
             </div>
+            <div class="attachment-box" data-resolution-upload-box>
+              <div class="attachment-box__head">
+                <h3>증빙자료 첨부</h3>
+                <span>파일은 4MB 이하, 자료별 최대 10개까지 등록할 수 있습니다. 실제 파일은 회계 전용 저장소에 보관됩니다.</span>
+              </div>
+              <div class="attachment-box__actions">
+                <label class="btn btn-outline attachment-picker">파일 선택<input type="file" data-resolution-file-input multiple /></label>
+                <button class="btn btn-outline" type="button" data-resolution-clear-files>선택 비우기</button>
+              </div>
+              <ul class="attachment-queue" data-resolution-file-queue>
+                <li class="attachment-empty">선택된 첨부파일이 없습니다.</li>
+              </ul>
+            </div>
             <fieldset><legend>전자결재선</legend><div class="form-grid three">
               <label>협조자(복수)<select name="cooperatorUserIds" data-users-multiple multiple size="4"></select></label>
               <label>검토자(복수)<select name="reviewerUserIds" data-users-multiple multiple size="4"></select></label>
@@ -116,7 +129,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           </form>
           <div class="card">
             <div class="card-head"><h2>결의서 목록</h2><div class="filter-row"><select data-resolution-status><option value="">전체 상태</option><option value="approval_pending">결재진행</option><option value="posted">전표처리</option><option value="rejected">반려</option><option value="cancelled">취소</option></select><input data-resolution-search placeholder="번호·제목·거래처 검색" /><button class="btn btn-outline" data-load-resolutions>조회</button></div></div>
-            <div class="table-wrap"><table class="resolution-list-table"><thead><tr><th>결의번호</th><th>구분</th><th>일자</th><th>제목</th><th>계정</th><th>금액</th><th>전자문서</th><th>상태</th></tr></thead><tbody data-resolution-rows></tbody></table></div>
+            <div class="table-wrap"><table class="resolution-list-table"><thead><tr><th>결의번호</th><th>구분</th><th>일자</th><th>제목</th><th>계정</th><th>금액</th><th>전자문서</th><th>상태</th><th>첨부</th></tr></thead><tbody data-resolution-rows></tbody></table></div>
           </div>
         </section>
 
@@ -153,6 +166,44 @@ import GovLayout from '../layouts/GovLayout.astro';
           <form class="card form-card manager-only" data-form="account-form" hidden><div class="form-grid five"><label>코드<input name="code" required /></label><label>계정과목명<input name="name" required /></label><label>유형<select name="accountType"><option value="asset">자산</option><option value="liability">부채</option><option value="equity">순자산</option><option value="revenue">수입</option><option value="expense">지출</option></select></label><label>정상잔액<select name="normalSide"><option value="debit">차변</option><option value="credit">대변</option></select></label><label>상위코드<input name="parentCode" /></label></div><div class="form-actions"><button class="btn btn-outline" type="button" data-close-form="account-form">취소</button><button class="btn btn-primary" type="submit">저장</button></div></form>
           <div class="card"><div class="table-wrap"><table class="accounts-table"><thead><tr><th>코드</th><th>계정과목</th><th>유형</th><th>정상잔액</th><th>상위코드</th><th>구분</th></tr></thead><tbody data-account-rows></tbody></table></div></div>
         </section>
+
+        <div class="modal-shell" data-resolution-attachment-modal hidden>
+          <div class="modal-backdrop" data-resolution-attachment-close></div>
+          <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="resolution-attachment-title">
+            <div class="modal-card__head">
+              <div>
+                <p class="modal-eyebrow">RESOLUTION ATTACHMENTS</p>
+                <h2 id="resolution-attachment-title" data-resolution-attachment-title>결의서 첨부파일</h2>
+                <span data-resolution-attachment-subtitle>결의서 증빙자료를 조회합니다.</span>
+              </div>
+              <button class="icon-btn modal-close" type="button" aria-label="첨부파일 창 닫기" data-resolution-attachment-close>×</button>
+            </div>
+            <div class="attachment-box attachment-box--modal" data-resolution-modal-upload-box>
+              <div class="attachment-box__head">
+                <h3>첨부파일 추가</h3>
+                <span>결의서 저장 후에도 증빙자료를 추가로 올릴 수 있습니다.</span>
+              </div>
+              <div class="attachment-box__actions">
+                <label class="btn btn-outline attachment-picker">파일 선택<input type="file" data-resolution-modal-file-input multiple /></label>
+                <button class="btn btn-primary" type="button" data-resolution-modal-upload>선택파일 업로드</button>
+                <button class="btn btn-outline" type="button" data-resolution-modal-clear-files>선택 비우기</button>
+              </div>
+              <ul class="attachment-queue" data-resolution-modal-file-queue>
+                <li class="attachment-empty">선택된 첨부파일이 없습니다.</li>
+              </ul>
+            </div>
+            <div class="table-wrap">
+              <table class="attachment-table">
+                <thead>
+                  <tr><th>파일명</th><th>구분</th><th>크기</th><th>등록자</th><th>등록일시</th><th>처리</th></tr>
+                </thead>
+                <tbody data-resolution-attachment-rows>
+                  <tr><td colspan="6" class="empty">첨부파일을 불러오는 중입니다.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   </div>
@@ -167,10 +218,14 @@ import GovLayout from '../layouts/GovLayout.astro';
       const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>Array.from(r.querySelectorAll(s));
       const esc=(v)=>String(v??'').replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
       const won=(v)=>`${Number(v||0).toLocaleString('ko-KR')}원`;
+      const bytesLabel=(value)=>{const size=Number(value||0);if(size>=1024*1024)return `${(size/(1024*1024)).toFixed(2)}MB`;if(size>=1024)return `${(size/1024).toFixed(1)}KB`;return `${size}B`;};
       const moneyValue=(v)=>{const t=String(v??'').trim();const n=Number(t.replace(/[^0-9.-]/g,''));return Number.isFinite(n)?Math.round(n):0};
       const today=()=>new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
       const currentFiscalYear=Number(today().slice(0,4));
       let state={year:currentFiscalYear,accounts:[],permissions:{},summary:{},users:[],books:[],entities:[],funds:[],budgetRows:[],ledgerRows:[],statementRows:[]};
+      let resolutionPendingFiles=[];
+      let resolutionModalFiles=[];
+      let activeResolutionAttachment={id:'',title:''};
       const baseFiscalYears=()=>Array.from({length:Math.max(2030,currentFiscalYear)-Math.min(2026,currentFiscalYear)+1},(_,index)=>Math.min(2026,currentFiscalYear)+index);
       const renderYearOptions=(fiscalYears=[])=>{
         const fiscalMap=new Map((fiscalYears||[]).map((y)=>[Number(y.year),y]));
@@ -201,6 +256,18 @@ import GovLayout from '../layouts/GovLayout.astro';
       populateDepartments();
       const api=async(path,body)=>{const res=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,token})});const text=await res.text();let data;try{data=JSON.parse(text)}catch{data={ok:false,message:`서버 응답 오류(HTTP ${res.status})`}}if(!data.ok)throw Object.assign(new Error(data.message||'처리 중 오류가 발생했습니다.'),{data,status:res.status});return data};
       const notice=(message,type='ok')=>{const el=$('[data-notice]');el.textContent=message;el.className=`notice ${type}`;el.hidden=false;clearTimeout(notice.timer);notice.timer=setTimeout(()=>el.hidden=true,5000)};
+      const fileToBase64=(file)=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>{const result=String(reader.result||'');const comma=result.indexOf(',');resolve(comma>=0?result.slice(comma+1):result)};reader.onerror=()=>reject(new Error('첨부파일을 읽는 중 오류가 발생했습니다.'));reader.readAsDataURL(file);});
+      const queueFiles=(bucket,inputFiles)=>{const next=[...bucket];for(const file of Array.from(inputFiles||[])){if(next.length>=10){notice('첨부파일은 최대 10개까지 선택할 수 있습니다.','error');break;}if(file.size>4*1024*1024){notice(`${file.name} 파일은 4MB를 초과하여 제외되었습니다.`,'error');continue;}const exists=next.some((item)=>item.name===file.name&&item.size===file.size&&item.lastModified===file.lastModified);if(!exists)next.push(file);}return next;};
+      const renderFileQueue=(selector,files)=>{const list=$(selector);if(!list)return;list.innerHTML=files.length?files.map((file,index)=>`<li><span class="attachment-file-name">${esc(file.name)}</span><span class="attachment-file-meta">${bytesLabel(file.size)}</span><button type="button" class="mini-btn" data-file-remove="${index}" data-file-bucket="${selector.replace(/[^a-z0-9]/gi,'')}">제거</button></li>`).join(''):'<li class="attachment-empty">선택된 첨부파일이 없습니다.</li>';};
+      const syncAttachmentQueues=()=>{renderFileQueue('[data-resolution-file-queue]',resolutionPendingFiles);renderFileQueue('[data-resolution-modal-file-queue]',resolutionModalFiles);};
+      const removeQueuedFile=(bucketName,index)=>{const idx=Number(index);if(bucketName==='dataresolutionfilequeue')resolutionPendingFiles=resolutionPendingFiles.filter((_,i)=>i!==idx);if(bucketName==='dataresolutionmodalfilequeue')resolutionModalFiles=resolutionModalFiles.filter((_,i)=>i!==idx);syncAttachmentQueues();};
+      const uploadAccountingAttachment=async(referenceType,referenceId,file,fileCategory='evidence')=>{const dataBase64=await fileToBase64(file);return api('/api/accounting/upload-attachment',{referenceType,referenceId,fileCategory,fileName:file.name,mimeType:file.type||'application/octet-stream',dataBase64});};
+      const listResolutionAttachments=async(referenceId)=>api('/api/accounting/list-attachments',{referenceType:'resolution',referenceId});
+      const downloadBase64File=(fileName,mimeType,dataBase64)=>{const binary=atob(String(dataBase64||''));const bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i+=1)bytes[i]=binary.charCodeAt(i);const blob=new Blob([bytes],{type:mimeType||'application/octet-stream'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=fileName||'attachment';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+      const renderResolutionAttachmentRows=(rows=[])=>{const body=$('[data-resolution-attachment-rows]');body.innerHTML=rows.length?rows.map((row)=>{const mine=String(row.uploaded_by||'')===String(me.id||'');const canDelete=!state.permissions.audit&&(state.permissions.manager||mine);return `<tr><td class="cell-center">${esc(row.original_filename)}</td><td class="cell-center">${esc(row.file_category||'-')}</td><td class="cell-center">${bytesLabel(row.size_bytes)}</td><td class="cell-center">${mine?'본인':esc(row.uploaded_by||'-')}</td><td class="cell-center">${esc(row.uploaded_at||'-')}</td><td class="cell-center"><div class="attachment-actions"><button type="button" class="mini-btn" data-attachment-download="${esc(row.id)}">다운로드</button>${canDelete?`<button type="button" class="mini-btn danger" data-attachment-delete="${esc(row.id)}">삭제</button>`:''}</div></td></tr>`}).join(''):'<tr><td colspan="6" class="empty">등록된 첨부파일이 없습니다.</td></tr>';};
+      const openResolutionAttachmentModal=async(referenceId,title)=>{activeResolutionAttachment={id:String(referenceId||''),title:String(title||'')};$('#resolution-attachment-title').textContent='결의서 첨부파일';$('[data-resolution-attachment-subtitle]').textContent=activeResolutionAttachment.title?`${activeResolutionAttachment.title} · 증빙자료`:'결의서 증빙자료를 조회합니다.';$('[data-resolution-attachment-modal]').hidden=false;$('body').classList.add('modal-open');const uploadBox=$('[data-resolution-modal-upload-box]');if(uploadBox)uploadBox.hidden=!!state.permissions.audit;resolutionModalFiles=[];syncAttachmentQueues();$('[data-resolution-attachment-rows]').innerHTML='<tr><td colspan="6" class="empty">첨부파일을 불러오는 중입니다.</td></tr>';try{const d=await listResolutionAttachments(activeResolutionAttachment.id);renderResolutionAttachmentRows(d.rows||[]);}catch(error){renderResolutionAttachmentRows([]);notice(error.message,'error');}};
+      const closeResolutionAttachmentModal=()=>{$('[data-resolution-attachment-modal]').hidden=true;$('body').classList.remove('modal-open');activeResolutionAttachment={id:'',title:''};resolutionModalFiles=[];syncAttachmentQueues();};
+      const refreshResolutionAttachmentModal=async()=>{if(!activeResolutionAttachment.id)return;const d=await listResolutionAttachments(activeResolutionAttachment.id);renderResolutionAttachmentRows(d.rows||[]);};
       const statusLabel=(s)=>({draft:'작성중',approval_pending:'결재진행',approved:'승인',posted:'전표처리',rejected:'반려',cancelled:'취소',reversed:'역분개'}[s]||s||'-');
       const typeLabel=(t)=>({income:'수입',expense:'지출',asset:'자산',liability:'부채',equity:'순자산',revenue:'수입',expense:'지출',debit:'차변',credit:'대변'}[t]||t||'-');
       const showTab=(name)=>{$$('.acc-nav').forEach((b)=>b.classList.toggle('active',b.dataset.tab===name));$$('.tab-panel').forEach((p)=>p.classList.toggle('active',p.dataset.panel===name));if(name==='budget')loadBudgets();if(name==='resolution')loadResolutions();if(name==='journal')loadJournals();if(name==='ledger'){loadTrial();}if(name==='closing')loadClosing();if(name==='accounts')renderAccounts();};
@@ -208,7 +275,17 @@ import GovLayout from '../layouts/GovLayout.astro';
       $$('[data-toggle-form]').forEach((b)=>b.addEventListener('click',()=>{const f=$(`[data-form="${b.dataset.toggleForm}"]`);f.hidden=!f.hidden}));$$('[data-close-form]').forEach((b)=>b.addEventListener('click',()=>{$(`[data-form="${b.dataset.closeForm}"]`).hidden=true}));
       $('[data-logout]').addEventListener('click',()=>{localStorage.removeItem(STORAGE_KEY);location.replace('/')});
       $('[data-user-label]').textContent=`${me.name} · ${me.position||'구성원'}`;
+      document.addEventListener('click',(event)=>{const target=event.target.closest('[data-file-remove]');if(!target||target.closest('[data-resolution-attachment-modal]'))return;removeQueuedFile(target.dataset.fileBucket,target.dataset.fileRemove);});
       renderYearOptions();
+      syncAttachmentQueues();
+      $('[data-resolution-file-input]').addEventListener('change',(e)=>{resolutionPendingFiles=queueFiles(resolutionPendingFiles,e.target.files);e.target.value='';syncAttachmentQueues();});
+      $('[data-resolution-clear-files]').addEventListener('click',()=>{resolutionPendingFiles=[];syncAttachmentQueues();});
+      $('[data-resolution-modal-file-input]').addEventListener('change',(e)=>{resolutionModalFiles=queueFiles(resolutionModalFiles,e.target.files);e.target.value='';syncAttachmentQueues();});
+      $('[data-resolution-modal-clear-files]').addEventListener('click',()=>{resolutionModalFiles=[];syncAttachmentQueues();});
+      $$('[data-resolution-attachment-close]').forEach((button)=>button.addEventListener('click',closeResolutionAttachmentModal));
+      document.addEventListener('keydown',(event)=>{if(event.key==='Escape'&&!$('[data-resolution-attachment-modal]').hidden)closeResolutionAttachmentModal();});
+      $('[data-resolution-attachment-modal]').addEventListener('click',(event)=>{const target=event.target.closest('[data-file-remove],[data-attachment-download],[data-attachment-delete]');if(!target)return;if(target.dataset.fileRemove){removeQueuedFile(target.dataset.fileBucket,target.dataset.fileRemove);return;}if(target.dataset.attachmentDownload){(async()=>{try{const d=await api('/api/accounting/attachment-data',{attachmentId:target.dataset.attachmentDownload});downloadBase64File(d.fileName,d.mimeType,d.dataBase64);}catch(error){notice(error.message,'error')}})();return;}if(target.dataset.attachmentDelete){(async()=>{if(!confirm('첨부파일을 삭제하시겠습니까?'))return;try{const d=await api('/api/accounting/delete-attachment',{attachmentId:target.dataset.attachmentDelete});notice(d.message||'첨부파일을 삭제했습니다.');await refreshResolutionAttachmentModal();}catch(error){notice(error.message,'error')}})();}});
+      $('[data-resolution-modal-upload]').addEventListener('click',async()=>{if(!activeResolutionAttachment.id){notice('첨부할 결의서를 먼저 선택해 주세요.','error');return;}if(!resolutionModalFiles.length){notice('업로드할 첨부파일을 먼저 선택해 주세요.','error');return;}const button=$('[data-resolution-modal-upload]');button.disabled=true;let uploaded=0;try{for(const file of resolutionModalFiles){await uploadAccountingAttachment('resolution',activeResolutionAttachment.id,file);uploaded+=1;}notice(uploaded===resolutionModalFiles.length?`첨부파일 ${uploaded}건을 등록했습니다.`:`첨부파일 ${uploaded}건만 등록했습니다.`);resolutionModalFiles=[];syncAttachmentQueues();await refreshResolutionAttachmentModal();}catch(error){notice(error.message,'error');if(uploaded)await refreshResolutionAttachmentModal();}finally{button.disabled=false;}});
 
       const accountOptions=(filter)=>state.accounts.filter(filter).map((a)=>`<option value="${esc(a.code)}">${esc(a.code)} ${esc(a.name)}</option>`).join('');
       const populateAccounts=()=>{
@@ -235,7 +312,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         }
       };
       const renderSummary=()=>{const s=state.summary;const income=Number(s.income||0),expense=Number(s.expense||0);$('[data-summary-income]').textContent=won(income);$('[data-summary-expense]').textContent=won(expense);$('[data-summary-balance]').textContent=won(income-expense);$('[data-summary-check]').textContent=Number(s.total_debit||0)===Number(s.total_credit||0)?'일치':'불일치';$('[data-closing-income]').textContent=won(income);$('[data-closing-expense]').textContent=won(expense);$('[data-closing-balance]').textContent=won(income-expense);$('[data-closing-check]').textContent=Number(s.total_debit||0)===Number(s.total_credit||0)?'일치':'불일치';};
-      const renderRecent=(rows)=>{$('[data-recent-resolutions]').innerHTML=rows.length?rows.map((r)=>`<tr><td>${esc(r.resolution_no)}</td><td>${typeLabel(r.resolution_type)}</td><td>${esc(r.resolution_date)}</td><td class="left">${esc(r.title)}</td><td class="num">${won(r.amount)}</td><td><span class="status status-${esc(r.status)}">${statusLabel(r.status)}</span></td></tr>`).join(''):'<tr><td colspan="6" class="empty">등록된 결의서가 없습니다.</td></tr>'};
+      const renderRecent=(rows)=>{$('[data-recent-resolutions]').innerHTML=rows.length?rows.map((r)=>`<tr><td class="cell-center">${esc(r.resolution_no)}</td><td class="cell-center">${typeLabel(r.resolution_type)}</td><td class="cell-center">${esc(r.resolution_date)}</td><td class="cell-center">${esc(r.title)}</td><td class="cell-number">${won(r.amount)}</td><td class="cell-center"><span class="status status-${esc(r.status)}">${statusLabel(r.status)}</span></td></tr>`).join(''):'<tr><td colspan="6" class="empty">등록된 결의서가 없습니다.</td></tr>'};
       const renderIntegration=(integration)=>{
         const card=$('[data-integration-card]');
         if(!card||!state.permissions.manager){if(card)card.hidden=true;return;}
@@ -274,13 +351,81 @@ import GovLayout from '../layouts/GovLayout.astro';
 
       $$('.money-input').forEach((input)=>{input.addEventListener('blur',()=>{const n=moneyValue(input.value);if(input.value.trim())input.value=n.toLocaleString('ko-KR')});});
 
-      const loadBudgets=async()=>{try{const d=await api('/api/accounting/query',{action:'budgets',year:state.year});state.budgetRows=d.rows||[];const body=$('[data-budget-rows]');body.innerHTML=state.budgetRows.length?state.budgetRows.map((r)=>{const revised=Number(r.revised_amount||0),executed=Number(r.executed_amount||0),balance=revised-executed,rate=revised?executed/revised*100:0;return `<tr><td>${esc(r.book_type_name||r.book_type_code)}</td><td>${esc(r.entity_name||'-')}</td><td>${esc(r.fund_name||'-')}</td><td>${esc(r.department||'-')}</td><td>${esc(r.project||'-')}</td><td class="left">${esc(r.account_code)} ${esc(r.account_name)}</td><td class="num">${won(r.original_amount)}</td><td class="num">${won(Number(r.supplementary_amount)+Number(r.transfer_in)-Number(r.transfer_out))}</td><td class="num">${won(revised)}</td><td class="num">${won(executed)}</td><td class="num ${balance<0?'negative':''}">${won(balance)}</td><td>${rate.toFixed(1)}%</td></tr>`}).join(''):'<tr><td colspan="12" class="empty">편성된 예산이 없습니다.</td></tr>'}catch(e){notice(e.message,'error')}};
+      const loadBudgets=async()=>{try{const d=await api('/api/accounting/query',{action:'budgets',year:state.year});state.budgetRows=d.rows||[];const body=$('[data-budget-rows]');body.innerHTML=state.budgetRows.length?state.budgetRows.map((r)=>{const revised=Number(r.revised_amount||0),executed=Number(r.executed_amount||0),balance=revised-executed,rate=revised?executed/revised*100:0;return `<tr><td class="cell-center">${esc(r.book_type_name||r.book_type_code)}</td><td class="cell-center">${esc(r.entity_name||'-')}</td><td class="cell-center">${esc(r.fund_name||'-')}</td><td class="cell-center">${esc(r.department||'-')}</td><td class="cell-center">${esc(r.project||'-')}</td><td class="cell-center">${esc(r.account_code)} ${esc(r.account_name)}</td><td class="cell-number">${won(r.original_amount)}</td><td class="cell-number">${won(Number(r.supplementary_amount)+Number(r.transfer_in)-Number(r.transfer_out))}</td><td class="cell-number">${won(revised)}</td><td class="cell-number">${won(executed)}</td><td class="cell-number ${balance<0?'negative':''}">${won(balance)}</td><td class="cell-center">${rate.toFixed(1)}%</td></tr>`}).join(''):'<tr><td colspan="12" class="empty">편성된 예산이 없습니다.</td></tr>'}catch(e){notice(e.message,'error')}};
       $('[data-form="budget-form"]').addEventListener('submit',async(e)=>{e.preventDefault();const f=e.currentTarget;try{await api('/api/accounting/action',{action:'save-budget',year:state.year,bookTypeCode:f.bookTypeCode.value,entityId:f.entityId.value,fundId:f.fundId.value,department:f.department.value,project:f.project.value,accountCode:f.accountCode.value,originalAmount:f.originalAmount.value,supplementaryAmount:f.supplementaryAmount.value,transferIn:f.transferIn.value,transferOut:f.transferOut.value,memo:f.memo.value});notice('예산을 저장했습니다.');f.hidden=true;loadBudgets()}catch(err){notice(err.message,'error')}});
 
-      const loadResolutions=async()=>{try{const d=await api('/api/accounting/query',{action:'resolutions',year:state.year,status:$('[data-resolution-status]').value,query:$('[data-resolution-search]').value});const rows=d.rows||[];$('[data-resolution-rows]').innerHTML=rows.length?rows.map((r)=>`<tr><td class="cell-center">${esc(r.resolution_no)}</td><td class="cell-center">${typeLabel(r.resolution_type)}</td><td class="cell-center">${esc(r.resolution_date)}</td><td class="cell-center">${esc(r.title)}<small>${esc(r.counterparty||'')}</small></td><td class="cell-center">${esc(r.account_code)} ${esc(r.account_name||'')}</td><td class="cell-number">${won(r.amount)}</td><td class="cell-center">${esc(r.document_id||'-')}</td><td class="cell-center"><span class="status status-${esc(r.status)}">${statusLabel(r.status)}</span></td></tr>`).join(''):'<tr><td colspan="8" class="empty">결의서가 없습니다.</td></tr>'}catch(e){notice(e.message,'error')}};
+      const loadResolutions=async()=>{try{const d=await api('/api/accounting/query',{action:'resolutions',year:state.year,status:$('[data-resolution-status]').value,query:$('[data-resolution-search]').value});const rows=d.rows||[];$('[data-resolution-rows]').innerHTML=rows.length?rows.map((r)=>`<tr><td class="cell-center">${esc(r.resolution_no)}</td><td class="cell-center">${typeLabel(r.resolution_type)}</td><td class="cell-center">${esc(r.resolution_date)}</td><td class="cell-center">${esc(r.title)}<small>${esc(r.counterparty||'')}</small></td><td class="cell-center">${esc(r.account_code)} ${esc(r.account_name||'')}</td><td class="cell-number">${won(r.amount)}</td><td class="cell-center">${esc(r.document_id||'-')}</td><td class="cell-center"><span class="status status-${esc(r.status)}">${statusLabel(r.status)}</span></td><td class="cell-center"><button type="button" class="mini-btn" data-open-resolution-attachments="${esc(r.id)}" data-resolution-title="${esc(r.title)}">첨부관리</button></td></tr>`).join(''):'<tr><td colspan="9" class="empty">결의서가 없습니다.</td></tr>';$$('[data-open-resolution-attachments]').forEach((button)=>button.addEventListener('click',()=>openResolutionAttachmentModal(button.dataset.openResolutionAttachments,button.dataset.resolutionTitle||'')));}catch(e){notice(e.message,'error')}};
       $('[data-load-resolutions]').addEventListener('click',loadResolutions);
       const resolutionForm=$('[data-form="resolution-form"]');resolutionForm.elements.resolutionDate.value=today();resolutionForm.elements.department.value=me.department||'';
-      resolutionForm.addEventListener('submit',async(e)=>{e.preventDefault();const f=e.currentTarget;const selected=(el)=>Array.from(el.selectedOptions).map((o)=>o.value);try{const d=await api('/api/accounting/action',{action:'create-resolution',resolutionType:f.resolutionType.value,resolutionDate:f.resolutionDate.value,title:f.title.value,amount:f.amount.value,taxAmount:f.taxAmount.value,counterparty:f.counterparty.value,department:f.department.value,project:f.project.value,accountCode:f.accountCode.value,settlementAccountCode:f.settlementAccountCode.value,bookTypeCode:f.bookTypeCode.value,entityId:f.entityId.value,fundId:f.fundId.value,paymentMethod:f.paymentMethod.value,memo:f.memo.value,cooperatorUserIds:selected(f.cooperatorUserIds),reviewerUserIds:selected(f.reviewerUserIds),approverUserId:f.approverUserId.value,allowOverBudget:f.allowOverBudget?.checked});notice(d.message);f.reset();f.resolutionDate.value=today();f.department.value=me.department||'';f.hidden=true;updateResolutionAccount();await loadInit();populateDimensions();loadResolutions()}catch(err){notice(err.message,'error')}});
+      resolutionForm.addEventListener('submit',async(e)=>{
+        e.preventDefault();
+        const f=e.currentTarget;
+        const selected=(el)=>Array.from(el.selectedOptions).map((option)=>option.value);
+        const submitButton=f.querySelector('button[type="submit"]');
+        const queuedFiles=[...resolutionPendingFiles];
+        const resolutionTitle=f.title.value;
+        submitButton.disabled=true;
+        try{
+          const d=await api('/api/accounting/action',{
+            action:'create-resolution',
+            resolutionType:f.resolutionType.value,
+            resolutionDate:f.resolutionDate.value,
+            title:f.title.value,
+            amount:f.amount.value,
+            taxAmount:f.taxAmount.value,
+            counterparty:f.counterparty.value,
+            department:f.department.value,
+            project:f.project.value,
+            accountCode:f.accountCode.value,
+            settlementAccountCode:f.settlementAccountCode.value,
+            bookTypeCode:f.bookTypeCode.value,
+            entityId:f.entityId.value,
+            fundId:f.fundId.value,
+            paymentMethod:f.paymentMethod.value,
+            memo:f.memo.value,
+            cooperatorUserIds:selected(f.cooperatorUserIds),
+            reviewerUserIds:selected(f.reviewerUserIds),
+            approverUserId:f.approverUserId.value,
+            allowOverBudget:f.allowOverBudget?.checked,
+          });
+
+          let uploaded=0;
+          let uploadError=null;
+          for(const file of queuedFiles){
+            try{
+              await uploadAccountingAttachment('resolution',d.id,file);
+              uploaded+=1;
+            }catch(error){
+              uploadError=error;
+              break;
+            }
+          }
+
+          resolutionPendingFiles=[];
+          syncAttachmentQueues();
+          f.reset();
+          f.resolutionDate.value=today();
+          f.department.value=me.department||'';
+          f.hidden=true;
+          updateResolutionAccount();
+          await loadInit();
+          populateDimensions();
+          await loadResolutions();
+
+          if(uploadError){
+            notice(`결의서는 정상 등록되었습니다. 첨부파일 ${uploaded}건 등록 후 오류가 발생했습니다: ${uploadError.message}`,'error');
+            await openResolutionAttachmentModal(d.id,resolutionTitle||d.resolutionNo||'');
+            return;
+          }
+
+          notice(queuedFiles.length?`${d.message} 첨부파일 ${uploaded}건을 등록했습니다.`:d.message);
+          if(uploaded)await openResolutionAttachmentModal(d.id,resolutionTitle||d.resolutionNo||'');
+        }catch(err){
+          notice(err.message,'error');
+        }finally{
+          submitButton.disabled=false;
+        }
+      });
 
       const addJournalLine=(values={})=>{const row=document.createElement('div');row.className='journal-line';row.innerHTML=`<select data-line-account aria-label="계정과목">${accountOptions(()=>true)}</select><input data-line-debit class="money-input" inputmode="decimal" placeholder="차변" aria-label="차변"><input data-line-credit class="money-input" inputmode="decimal" placeholder="대변" aria-label="대변"><select data-line-department aria-label="부서">${departmentOptions()}</select><input data-line-project placeholder="사업" aria-label="사업"><input data-line-counterparty placeholder="거래처" aria-label="거래처"><button type="button" class="icon-btn" title="삭제" aria-label="분개행 삭제">×</button>`;row.querySelector('[data-line-account]').value=values.accountCode||'';row.querySelector('[data-line-debit]').value=values.debit||'';row.querySelector('[data-line-credit]').value=values.credit||'';row.querySelector('[data-line-department]').value=values.department||'';row.querySelector('[data-line-project]').value=values.project||'';row.querySelector('[data-line-counterparty]').value=values.counterparty||'';row.querySelector('.icon-btn').onclick=()=>{row.remove();syncJournalTotal()};row.querySelectorAll('input').forEach((i)=>i.addEventListener('input',syncJournalTotal));$('[data-journal-lines]').append(row);};
       const syncJournalTotal=()=>{let d=0,c=0;$$('[data-journal-lines] .journal-line').forEach((r)=>{d+=moneyValue(r.querySelector('[data-line-debit]').value);c+=moneyValue(r.querySelector('[data-line-credit]').value)});$('[data-debit-total]').textContent=won(d);$('[data-credit-total]').textContent=won(c);const b=$('[data-journal-balance]');b.textContent=d===c&&d>0?'일치':`차이 ${won(d-c)}`;b.classList.toggle('negative',d!==c)};
@@ -358,11 +503,19 @@ import GovLayout from '../layouts/GovLayout.astro';
     table{width:100%;border-collapse:collapse;font-size:12px;min-width:760px}
     th,td{padding:10px 9px;border:1px solid #b7c3d1;text-align:center;white-space:nowrap;vertical-align:middle}
     th{background:#edf3fa;font-weight:700;color:#344255}
-    td.left{text-align:center;white-space:normal}td.left small{display:block;color:#7a8495;margin-top:3px}.num{text-align:center;font-variant-numeric:tabular-nums}.empty{height:110px;color:#7b8492}.negative{color:#c43c3c!important}
+    td.left{text-align:left;white-space:normal}td.left small{display:block;color:#7a8495;margin-top:3px}.num{text-align:right;font-variant-numeric:tabular-nums}.empty{height:110px;color:#7b8492}.negative{color:#c43c3c!important}
+    .attachment-box{margin:16px 0;padding:14px;border:1px solid #d8e0eb;border-radius:8px;background:#f8fbff}.attachment-box__head{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}.attachment-box__head h3{margin:0;font-size:14px;color:#304b70}.attachment-box__head span{font-size:12px;color:#667085;line-height:1.5}.attachment-box__actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}.attachment-picker{position:relative;overflow:hidden;cursor:pointer}.attachment-picker input{position:absolute;inset:0;opacity:0;cursor:pointer}.attachment-queue{list-style:none;padding:0;margin:0;display:grid;gap:8px}.attachment-queue li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:8px 10px;border:1px solid #d7dfeb;border-radius:6px;background:#fff}.attachment-file-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.attachment-file-meta{font-size:12px;color:#667085}.attachment-empty{display:block!important;color:#7b8492;text-align:center}
+    .modal-shell{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:70}.modal-backdrop{position:absolute;inset:0;background:#11182766}.modal-card{position:relative;z-index:1;width:min(980px,calc(100vw - 32px));max-height:calc(100vh - 40px);overflow:auto;background:#fff;border-radius:14px;box-shadow:0 20px 60px #11182733;padding:18px}.modal-card__head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}.modal-eyebrow{margin:0 0 4px;font-size:11px;font-weight:800;letter-spacing:.14em;color:#b08d3f}.modal-card__head h2{margin:0 0 4px;font-size:22px}.modal-card__head span{font-size:13px;color:#667085}.modal-close{width:38px;height:38px;font-size:22px}.attachment-table thead th,.attachment-table tbody td{text-align:center!important}.attachment-actions{display:flex;justify-content:center;gap:6px;flex-wrap:wrap}.mini-btn.danger{border-color:#e4b8b8;color:#a92e2e}.modal-open{overflow:hidden}
     /* 동적으로 생성되는 행은 Astro의 scoped 속성이 붙지 않으므로 전역 선택자로 고정합니다. */
     :global(.accounting-app table th),:global(.accounting-app table td){border:1px solid #b7c3d1;vertical-align:middle}
     :global(.accounting-app .cell-center){text-align:center!important}
     :global(.accounting-app .cell-number){text-align:right!important;font-variant-numeric:tabular-nums}
+    
+    :global(.accounting-app .recent-resolution-table thead th),:global(.accounting-app .recent-resolution-table tbody td){text-align:center!important}
+    :global(.accounting-app .recent-resolution-table tbody td:nth-child(5)){text-align:right!important;font-variant-numeric:tabular-nums}
+    :global(.accounting-app .budget-table thead th),:global(.accounting-app .budget-table tbody td){text-align:center!important}
+    :global(.accounting-app .budget-table tbody td:nth-child(7)),:global(.accounting-app .budget-table tbody td:nth-child(8)),:global(.accounting-app .budget-table tbody td:nth-child(9)),:global(.accounting-app .budget-table tbody td:nth-child(10)),:global(.accounting-app .budget-table tbody td:nth-child(11)){text-align:right!important;font-variant-numeric:tabular-nums}
+.resolution-list-table{min-width:1040px}
     :global(.accounting-app .resolution-list-table thead th),:global(.accounting-app .resolution-list-table tbody td){text-align:center!important}
     :global(.accounting-app .resolution-list-table tbody td:nth-child(6)){text-align:right!important;font-variant-numeric:tabular-nums}
     :global(.accounting-app .journal-list-table thead th),:global(.accounting-app .journal-list-table tbody td){text-align:center!important}
@@ -382,6 +535,6 @@ import GovLayout from '../layouts/GovLayout.astro';
     .month-table-wrap{width:100%;max-width:none;margin:0}.month-table{width:100%;min-width:0;table-layout:fixed;font-size:14px}.month-table th,.month-table td{text-align:center!important;padding:12px 16px}.month-table th:nth-child(1),.month-table td:nth-child(1){width:20%}.month-table th:nth-child(2),.month-table td:nth-child(2){width:40%}.month-table th:nth-child(3),.month-table td:nth-child(3){width:40%}.month-row--closed{background:#f3f9f4}.month-status{display:inline-block;min-width:78px;padding:5px 12px;border-radius:999px;font-weight:700;text-align:center}.month-status--open{background:#edf2f7;color:#526176}.month-status--closed{background:#e4f5e8;color:#24713b}.month-table .mini-btn{font-size:13px;padding:6px 12px}
     .muted{font-size:12px;color:#737d8b}
     @media(max-width:1100px){.acc-shell{grid-template-columns:180px minmax(0,1fr)}.summary-grid{grid-template-columns:repeat(2,1fr)}.form-grid.four,.form-grid.five{grid-template-columns:repeat(2,1fr)}}
-    @media(max-width:760px){.acc-topbar{height:auto;padding:10px;align-items:flex-start;gap:.7rem;flex-wrap:wrap}.acc-brand{max-width:calc(100% - 10px)}.acc-brand__wordmark{width:132px;max-height:22px}.acc-brand__system-name{font-size:.88rem}.acc-topbar__right{width:100%;flex-wrap:wrap}.acc-topbar__right>span{display:none}.acc-shell{display:block}.acc-sidebar{border-right:0;border-bottom:1px solid #d4dce7}.acc-sidebar nav{grid-template-columns:repeat(2,1fr)}.acc-sidebar__note{display:none}.acc-main{padding:12px}.page-heading{align-items:flex-start}.summary-grid,.form-grid.two,.form-grid.three,.form-grid.four,.form-grid.five{grid-template-columns:1fr}.span-2,.span-3{grid-column:auto}.month-table-wrap{max-width:none}}
+    @media(max-width:760px){.acc-topbar{height:auto;padding:10px;align-items:flex-start;gap:.7rem;flex-wrap:wrap}.acc-brand{max-width:calc(100% - 10px)}.acc-brand__wordmark{width:132px;max-height:22px}.acc-brand__system-name{font-size:.88rem}.acc-topbar__right{width:100%;flex-wrap:wrap}.acc-topbar__right>span{display:none}.acc-shell{display:block}.acc-sidebar{border-right:0;border-bottom:1px solid #d4dce7}.acc-sidebar nav{grid-template-columns:repeat(2,1fr)}.acc-sidebar__note{display:none}.acc-main{padding:12px}.page-heading{align-items:flex-start}.summary-grid,.form-grid.two,.form-grid.three,.form-grid.four,.form-grid.five{grid-template-columns:1fr}.span-2,.span-3{grid-column:auto}.month-table-wrap{max-width:none}.modal-card{width:min(100vw - 16px,980px);padding:14px}.attachment-queue li{grid-template-columns:minmax(0,1fr)}.attachment-actions{flex-direction:column}}
   </style>
 </GovLayout>
