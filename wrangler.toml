@@ -24,3 +24,7 @@ migrations_dir = "migrations/accounting"
 [[r2_buckets]]
 binding = "FILES"
 bucket_name = "milgyo-system-files"
+
+[[r2_buckets]]
+binding = "ACCOUNTING_FILES"
+bucket_name = "milgyo-accounting-files"
