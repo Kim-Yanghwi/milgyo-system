@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json, randomHex } from '../../_shared/helpers';
+import { authenticateSession, clean, ensureTables, isValidIsoDate, json, randomHex } from '../../_shared/helpers';
 import {
   ensureAccountingTables,
   hasAccountingAccess,
@@ -17,7 +17,6 @@ import {
 
 interface Env { DB: D1Database; ACCOUNTING_DB: D1Database; }
 type Payload = Record<string, unknown> & { token?: string; action?: string };
-const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 const validYear = (value: unknown) => {
   const year = Number(value);
   return Number.isInteger(year) && year >= 2000 && year <= 2200 ? year : 0;
@@ -220,7 +219,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (action === 'save-donation') {
       const date = clean(payload.donationDate, 10);
       const amount = parseMoney(payload.amount);
-      if (!validDate(date) || amount <= 0) return json({ ok: false, message: '기부일자와 금액을 확인해 주세요.' }, 400);
+      if (!isValidIsoDate(date) || amount <= 0) return json({ ok: false, message: '기부일자와 금액을 확인해 주세요.' }, 400);
       const dimensions = await validateDimensions(accountingDb, payload);
       const anonymousDonation = payload.anonymousDonation === true;
       const donorName = clean(payload.donorName, 100);
@@ -336,7 +335,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const date = clean(payload.acquisitionDate, 10);
       const name = clean(payload.name, 120);
       const cost = parseMoney(payload.acquisitionCost);
-      if (!validDate(date) || !name || cost < 0) return json({ ok: false, message: '자산명·취득일자·취득가액을 확인해 주세요.' }, 400);
+      if (!isValidIsoDate(date) || !name || cost < 0) return json({ ok: false, message: '자산명·취득일자·취득가액을 확인해 주세요.' }, 400);
       const dimensions = await validateDimensions(accountingDb, payload);
       const assetNo = existing?.asset_no || await nextSpecialNumber(accountingDb, 'asset', Number(date.slice(0, 4)));
       await accountingDb.batch([
@@ -368,7 +367,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (!manager) return json({ ok: false, message: '자산 처분 권한이 없습니다.' }, 403);
       const id = clean(payload.id, 80);
       const date = clean(payload.disposalDate, 10);
-      if (!validDate(date)) return json({ ok: false, message: '처분일자를 확인해 주세요.' }, 400);
+      if (!isValidIsoDate(date)) return json({ ok: false, message: '처분일자를 확인해 주세요.' }, 400);
       await accountingDb.batch([
         accountingDb.prepare(`UPDATE accounting_assets
           SET status='disposed',disposal_date=?,disposal_amount=?,memo=COALESCE(?,memo),updated_at=? WHERE id=?`)
@@ -437,9 +436,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const merchant = clean(payload.merchant, 120);
       const amount = parseMoney(payload.amount);
       const taxMode = clean(payload.taxMode, 20) || 'taxable';
-      if (!validDate(date) || !merchant || amount <= 0) return json({ ok: false, message: '사용일자·가맹점·금액을 확인해 주세요.' }, 400);
+      if (!isValidIsoDate(date) || !merchant || amount <= 0) return json({ ok: false, message: '사용일자·가맹점·금액을 확인해 주세요.' }, 400);
       if (!['taxable', 'exempt', 'manual'].includes(taxMode)) return json({ ok: false, message: '세액 처리방식을 확인해 주세요.' }, 400);
-      const taxAmount = taxMode === 'taxable' ? Math.round(amount / 11) : taxMode === 'exempt' ? 0 : Math.max(0, parseMoney(payload.taxAmount));
+      const taxAmount = taxMode === 'taxable' ? Math.round(amount * 0.1) : taxMode === 'exempt' ? 0 : Math.max(0, parseMoney(payload.taxAmount));
       if (taxAmount > amount) return json({ ok: false, message: '세액은 결제금액보다 클 수 없습니다.' }, 400);
       const dimensions = await validateDimensions(accountingDb, {
         bookTypeCode: payload.bookTypeCode || card.book_type_code,

@@ -1,8 +1,8 @@
 import { clean, randomHex, type SessionUser } from './helpers';
 import { ensureAccountingSpecialTables, getResolutionDimensions } from './accounting-special';
 
-export const ACCOUNTING_SCHEMA_VERSION='2026-07-26.4';
-const REQUIRED_TABLES=['accounting_fiscal_years','accounting_accounts','accounting_resolutions','accounting_journals','accounting_journal_lines','accounting_closings','accounting_audit_logs','accounting_sequences','accounting_meta','accounting_monthly_summary','accounting_attachments'];
+export const ACCOUNTING_SCHEMA_VERSION='2026-07-29.1';
+const REQUIRED_TABLES=['accounting_fiscal_years','accounting_accounts','accounting_resolutions','accounting_journals','accounting_journal_lines','accounting_closings','accounting_audit_logs','accounting_sequences','accounting_meta','accounting_monthly_summary','accounting_attachments','accounting_attachment_policy','accounting_attachment_integrity_issues','accounting_attachment_operations'];
 const schemaReady=new WeakSet<object>();
 const schemaPromises=new WeakMap<object,Promise<void>>();
 
@@ -36,7 +36,7 @@ export const ensureAccountingTables=async(db:D1Database)=>{
       db.prepare(`SELECT COUNT(*) AS count FROM sqlite_master WHERE type='table' AND name IN (${placeholders})`).bind(...REQUIRED_TABLES),
       db.prepare(`SELECT meta_value FROM accounting_meta WHERE meta_key='schema_version'`),
     ]);
-    if(Number((tables.results?.[0] as any)?.count||0)!==REQUIRED_TABLES.length)throw new Error('회계 전용 DB 스키마가 준비되지 않았습니다. v26 마이그레이션을 먼저 적용해 주세요.');
+    if(Number((tables.results?.[0] as any)?.count||0)!==REQUIRED_TABLES.length)throw new Error('회계 전용 DB 스키마가 준비되지 않았습니다. v27 회계 마이그레이션을 먼저 적용해 주세요.');
     if(!String((version.results?.[0] as any)?.meta_value||''))throw new Error('회계 전용 DB 스키마 버전을 확인할 수 없습니다.');
     await ensureAccountingSpecialTables(db);
     schemaReady.add(key);

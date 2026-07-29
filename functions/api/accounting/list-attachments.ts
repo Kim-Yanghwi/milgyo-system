@@ -1,5 +1,5 @@
 import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
-import { ensureAccountingTables } from '../../_shared/accounting';
+import { ensureAccountingTables, isAccountingManager } from '../../_shared/accounting';
 import {
   authorizeAccountingReference,
   normalizeAccountingReferenceType,
@@ -48,15 +48,34 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   );
   if (!access.ok) return json({ ok: false, message: access.message || '첨부파일 열람 권한이 없습니다.' }, access.exists ? 403 : 404);
 
+  const writeAccess = await authorizeAccountingReference(
+    env.ACCOUNTING_DB,
+    auth.user,
+    referenceType,
+    referenceId,
+    'write',
+  );
+
   const rows = await env.ACCOUNTING_DB.prepare(`
     SELECT id,reference_type,reference_id,file_category,original_filename,content_type,
-           size_bytes,checksum_sha256,uploaded_by,uploaded_at
+           size_bytes,checksum_sha256,uploaded_by,uploaded_at,retention_until,scan_status,scan_message,delete_status
     FROM accounting_attachments
     WHERE reference_type=? AND reference_id=? AND deleted_at IS NULL
     ORDER BY uploaded_at DESC,id DESC
   `).bind(referenceType, referenceId).all();
 
-  return json({ ok: true, referenceType, referenceId, rows: rows.results || [] });
+  return json({
+    ok: true,
+    referenceType,
+    referenceId,
+    rows: rows.results || [],
+    permissions: {
+      canWrite: writeAccess.ok,
+      manager: isAccountingManager(auth.user),
+      audit: auth.user.role === 'audit',
+      userId: auth.user.id,
+    },
+  });
 };
 
 export const onRequestGet: PagesFunction = async () =>

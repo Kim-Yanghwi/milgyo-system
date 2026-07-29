@@ -1,0 +1,85 @@
+---
+import GovLayout from '../layouts/GovLayout.astro';
+---
+<GovLayout title="회계 첨부파일 운영 | 대한불교밀교종">
+  <div class="file-admin" data-app hidden>
+    <header class="topbar">
+      <a href="/accounting-files/" class="brand"><img src="/logo.png" alt="대한불교밀교종 로고" /><span><img src="/brand-wordmark.png" alt="대한불교밀교종" /><b>회계 첨부파일 운영</b></span></a>
+      <div class="top-actions"><span data-user-label></span><a href="/accounting/" class="btn">기본 회계</a><a href="/accounting-special/" class="btn">특화 회계</a><a href="/" class="btn">전자문서</a></div>
+    </header>
+    <main>
+      <div class="notice" data-notice hidden></div>
+      <section class="heading"><div><p>ACCOUNTING FILE OPERATIONS</p><h1>첨부파일 운영·무결성 관리</h1><span>D1 메타정보와 R2 실제 파일을 점검하고 오류 작업을 안전하게 재처리합니다.</span></div></section>
+
+      <section class="card">
+        <div class="card-head"><div><h2>첨부파일 운영정책</h2><p>정책 변경은 새로 등록되는 파일부터 적용됩니다. 기존 파일의 보존기한은 자동 변경하지 않습니다.</p></div><span class="badge" data-mode-label></span></div>
+        <form data-policy-form>
+          <div class="form-grid three">
+            <label class="span-2">허용 확장자<input name="allowedExtensions" placeholder="pdf,jpg,jpeg,png,hwp,hwpx,doc,docx,xls,xlsx,csv,txt" /></label>
+            <label>파일당 최대용량(MB)<input name="maxFileMb" type="number" min="1" max="25" /></label>
+            <label>건당 첨부 개수<input name="maxFiles" type="number" min="1" max="50" /></label>
+            <label>건당 총용량(MB)<input name="maxTotalMb" type="number" min="1" max="200" /></label>
+            <label>보존기간(일)<input name="retentionDays" type="number" min="1" max="36500" /></label>
+            <label class="check"><input name="requireDeleteReason" type="checkbox" /> 삭제 사유 필수</label>
+          </div>
+          <div class="actions"><button class="btn primary" type="submit" data-save-policy>운영정책 저장</button></div>
+        </form>
+        <p class="security-note">현재 악성파일 대응은 확장자·파일 시그니처·크기 검증과 실행형 파일 차단까지 적용합니다. 백신 엔진 기반 정밀검사는 별도 보안서비스 연계가 필요합니다.</p>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><div><h2>D1·R2 무결성 점검</h2><p>불일치를 발견해도 자동 삭제하지 않고 아래 관리자 점검목록에 먼저 표시합니다.</p></div><div class="actions"><button class="btn" type="button" data-scan="d1">D1 기준 빠른점검</button><button class="btn primary" type="button" data-scan="full">D1·R2 전체점검</button></div></div>
+        <div class="summary" data-scan-summary><span>점검을 실행하면 결과가 표시됩니다.</span></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><div><h2>관리자 점검목록</h2><p>R2 단독 파일과 D1 단독 메타정보를 검토한 뒤 처리합니다.</p></div><div class="actions"><select data-issue-status><option value="open">점검 필요</option><option value="ignored">예외 승인</option><option value="resolved">처리 완료</option></select><button class="btn" type="button" data-load-issues>새로고침</button></div></div>
+        <div class="table-wrap"><table><thead><tr><th>유형</th><th>업무</th><th>파일·객체</th><th>최초 발견</th><th>최근 확인</th><th>상태</th><th>처리</th></tr></thead><tbody data-issue-rows><tr><td colspan="7" class="empty">점검목록을 불러오는 중입니다.</td></tr></tbody></table></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><div><h2>첨부파일 오류 재처리</h2><p>R2 삭제 실패 또는 보상삭제 실패 작업을 다시 처리합니다.</p></div><div class="actions"><select data-operation-status><option value="failed">재처리 필요</option><option value="succeeded">처리 완료</option></select><button class="btn" type="button" data-load-operations>새로고침</button></div></div>
+        <div class="table-wrap"><table><thead><tr><th>작업</th><th>업무</th><th>객체경로</th><th>시도</th><th>최근 오류</th><th>갱신일</th><th>처리</th></tr></thead><tbody data-operation-rows><tr><td colspan="7" class="empty">오류목록을 불러오는 중입니다.</td></tr></tbody></table></div>
+      </section>
+
+      <section class="card guide">
+        <h2>운영 원칙</h2>
+        <div class="guide-grid"><div><b>1. 자동삭제 금지</b><span>고아 파일은 관리자 검토 후 정리합니다.</span></div><div><b>2. 감사계정 읽기 전용</b><span>감사계정은 정책·목록을 조회만 할 수 있습니다.</span></div><div><b>3. 오류 재처리</b><span>실패 작업은 이력과 오류를 남기고 다시 처리합니다.</span></div><div><b>4. 정기 복구훈련</b><span>백업은 생성뿐 아니라 복원시험까지 완료해야 합니다.</span></div></div>
+      </section>
+    </main>
+  </div>
+
+  <script is:inline>
+    (()=>{
+      'use strict';
+      const STORAGE_KEY='milgyo-system-session';
+      const session=(()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')}catch{return null}})();
+      if(!session?.token||!session?.user){location.replace('/');return;}
+      const token=session.token,me=session.user;
+      const $=(selector,root=document)=>root.querySelector(selector),$$=(selector,root=document)=>Array.from(root.querySelectorAll(selector));
+      const esc=(value)=>String(value??'').replace(/[&<>"']/g,(character)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+      const api=async(body)=>{const response=await fetch('/api/accounting/attachment-admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,token})});const text=await response.text();let data;try{data=JSON.parse(text)}catch{data={ok:false,message:`서버 응답 오류(HTTP ${response.status})`}}if(!data.ok)throw new Error(data.message||'처리 중 오류가 발생했습니다.');return data;};
+      const notice=(message,type='ok')=>{const el=$('[data-notice]');el.textContent=message;el.className=`notice ${type}`;el.hidden=false;clearTimeout(notice.timer);notice.timer=setTimeout(()=>el.hidden=true,5000);};
+      const typeLabel=(value)=>({D1_ONLY:'D1 정보만 존재',R2_ONLY:'R2 파일만 존재',attachment_delete:'R2 첨부삭제',compensation_delete:'R2 보상삭제'}[value]||value||'-');
+      const refLabel=(value)=>({resolution:'결의서',journal:'전표',donation:'기부금',receipt:'기부금영수증',asset:'자산·비품',card:'법인카드',card_transaction:'카드 사용내역',branch_report:'취합자료',closing:'결산·마감',budget:'예산'}[value]||value||'-');
+      let permissions={manager:false,audit:false};
+      $('[data-user-label]').textContent=`${me.name} · ${me.position||'구성원'}`;
+
+      const loadPolicy=async()=>{const data=await api({action:'policy'});permissions=data.permissions||{};const p=data.policy||{};const form=$('[data-policy-form]');form.allowedExtensions.value=(p.allowedExtensions||[]).join(',');form.maxFileMb.value=Math.round(Number(p.maxFileBytes||0)/1024/1024);form.maxFiles.value=p.maxFilesPerReference||10;form.maxTotalMb.value=Math.round(Number(p.maxTotalBytesPerReference||0)/1024/1024);form.retentionDays.value=p.retentionDays||3650;form.requireDeleteReason.checked=!!p.requireDeleteReason;$('[data-mode-label]').textContent=permissions.audit?'감사 읽기 전용':permissions.manager?'관리자':'조회 전용';$$('[data-save-policy],[data-scan]').forEach((button)=>button.disabled=!permissions.manager||permissions.audit);if(!permissions.manager&&!permissions.audit){notice('첨부파일 운영화면은 회계관리자 또는 감사계정만 사용할 수 있습니다.','error');setTimeout(()=>location.replace('/accounting/'),1400);}};
+      $('[data-policy-form]').addEventListener('submit',async(event)=>{event.preventDefault();const form=event.currentTarget;try{const data=await api({action:'save-policy',allowedExtensions:form.allowedExtensions.value,maxFileBytes:Number(form.maxFileMb.value)*1024*1024,maxFilesPerReference:Number(form.maxFiles.value),maxTotalBytesPerReference:Number(form.maxTotalMb.value)*1024*1024,retentionDays:Number(form.retentionDays.value),requireDeleteReason:form.requireDeleteReason.checked});notice(data.message);await loadPolicy();}catch(error){notice(error.message,'error');}});
+      $$('[data-scan]').forEach((button)=>button.addEventListener('click',async()=>{button.disabled=true;try{const data=await api({action:'scan-integrity',mode:button.dataset.scan});const r=data.result||{};$('[data-scan-summary]').innerHTML=`<span>점검시각 <b>${esc(r.checkedAt||'-')}</b></span><span>활성 메타정보 <b>${Number(r.scannedAttachments||0)}건</b></span><span>D1만 존재 <b>${Number(r.d1Only||0)}건</b></span><span>R2만 존재 <b>${Number(r.r2Only||0)}건</b></span>${r.truncated?'<span class="warn">R2 객체가 많아 일부만 점검됨</span>':''}`;notice(data.message);await loadIssues();}catch(error){notice(error.message,'error');}finally{button.disabled=!permissions.manager||permissions.audit;}}));
+
+      const loadIssues=async()=>{try{const data=await api({action:'issues',status:$('[data-issue-status]').value});const rows=data.rows||[];$('[data-issue-rows]').innerHTML=rows.length?rows.map((row)=>{const file=row.details?.originalFilename||row.object_key;const actions=row.status==='open'&&permissions.manager&&!permissions.audit?(row.issue_type==='R2_ONLY'?`<button class="mini danger" data-resolve-issue="${esc(row.id)}" data-resolution="delete-r2">R2 삭제</button>`:`<button class="mini danger" data-resolve-issue="${esc(row.id)}" data-resolution="mark-d1-deleted">D1 기록 정리</button>`)+`<button class="mini" data-resolve-issue="${esc(row.id)}" data-resolution="ignore">예외 승인</button>`:'-';return `<tr><td>${esc(typeLabel(row.issue_type))}</td><td>${esc(refLabel(row.reference_type))}<small>${esc(row.reference_id||'-')}</small></td><td class="path">${esc(file)}</td><td>${esc(row.detected_at||'-')}</td><td>${esc(row.last_seen_at||'-')}</td><td>${esc(row.status)}</td><td><div class="row-actions">${actions}</div></td></tr>`}).join(''):'<tr><td colspan="7" class="empty">해당 상태의 점검항목이 없습니다.</td></tr>';$$('[data-resolve-issue]').forEach((button)=>button.addEventListener('click',()=>resolveIssue(button)));}catch(error){notice(error.message,'error');}};
+      const resolveIssue=async(button)=>{const resolution=button.dataset.resolution;const message=resolution==='delete-r2'?'D1 정보가 없는 R2 객체를 삭제하시겠습니까?':resolution==='mark-d1-deleted'?'R2 파일이 없는 D1 메타정보를 삭제 상태로 정리하시겠습니까?':'해당 항목을 예외로 승인하시겠습니까?';if(!confirm(message))return;try{const data=await api({action:'resolve-issue',issueId:button.dataset.resolveIssue,resolution});notice(data.message);await loadIssues();}catch(error){notice(error.message,'error');}};
+
+      const loadOperations=async()=>{try{const data=await api({action:'operations',status:$('[data-operation-status]').value});const rows=data.rows||[];$('[data-operation-rows]').innerHTML=rows.length?rows.map((row)=>`<tr><td>${esc(typeLabel(row.operation_type))}</td><td>${esc(refLabel(row.reference_type))}<small>${esc(row.reference_id||'-')}</small></td><td class="path">${esc(row.object_key)}</td><td>${Number(row.attempts||0)}회</td><td>${esc(row.last_error||'-')}</td><td>${esc(row.updated_at||'-')}</td><td>${row.status==='failed'&&permissions.manager&&!permissions.audit?`<button class="mini" data-retry-operation="${esc(row.id)}">다시 처리</button>`:'-'}</td></tr>`).join(''):'<tr><td colspan="7" class="empty">해당 상태의 작업이 없습니다.</td></tr>';$$('[data-retry-operation]').forEach((button)=>button.addEventListener('click',()=>retryOperation(button)));}catch(error){notice(error.message,'error');}};
+      const retryOperation=async(button)=>{if(!confirm('선택한 첨부파일 작업을 다시 처리하시겠습니까?'))return;try{const data=await api({action:'retry-operation',operationId:button.dataset.retryOperation});notice(data.message);await loadOperations();}catch(error){notice(error.message,'error');}};
+      $('[data-load-issues]').addEventListener('click',loadIssues);$('[data-issue-status]').addEventListener('change',loadIssues);$('[data-load-operations]').addEventListener('click',loadOperations);$('[data-operation-status]').addEventListener('change',loadOperations);
+      loadPolicy().then(()=>Promise.all([loadIssues(),loadOperations()])).then(()=>{$('[data-app]').hidden=false;}).catch((error)=>{notice(error.message,'error');$('[data-app]').hidden=false;});
+    })();
+  </script>
+
+  <style>
+    .file-admin{min-height:100vh;background:#eef2f7;color:#20252c}.topbar{height:58px;background:linear-gradient(180deg,#315f9f,#244d7c);display:flex;align-items:center;justify-content:space-between;padding:0 1rem;color:#fff}.brand{display:flex;align-items:center;gap:.55rem;color:#fff;text-decoration:none}.brand>img{width:27px;height:27px}.brand span{display:flex;align-items:center;gap:.5rem}.brand span img{width:158px;max-height:25px;object-fit:contain;filter:brightness(0) invert(1)}.brand b{font-family:Batang,serif}.top-actions{display:flex;align-items:center;gap:.6rem;font-size:.85rem}.btn{border:1px solid #bfcada;border-radius:5px;padding:9px 13px;background:#fff;color:#304b70;text-decoration:none;font-weight:700;cursor:pointer}.btn.primary{background:#315f9f;color:#fff;border-color:#315f9f}.btn:disabled{opacity:.55;cursor:not-allowed}main{max-width:1500px;margin:auto;padding:22px}.heading{margin-bottom:18px}.heading p{margin:0;color:#b08d3f;font-size:11px;font-weight:800;letter-spacing:.15em}.heading h1{margin:4px 0;font-size:25px}.heading span,.card-head p{color:#667085;font-size:13px}.card{background:#fff;border:1px solid #d6deea;border-radius:10px;box-shadow:0 1px 2px #00000008;padding:17px;margin-bottom:16px}.card h2{margin:0 0 7px;font-size:18px}.card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.card-head p{margin:0}.form-grid{display:grid;gap:11px;margin-top:15px}.form-grid.three{grid-template-columns:repeat(3,1fr)}.span-2{grid-column:span 2}label{font-size:12px;font-weight:700;color:#465162}input,select{width:100%;box-sizing:border-box;border:1px solid #c8d1df;border-radius:5px;padding:9px 10px;margin-top:6px;background:#fff}.check{display:flex;align-items:center;gap:8px;margin-top:22px}.check input{width:auto;margin:0}.actions,.row-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.card>.actions{margin-top:12px}.badge{padding:6px 10px;border-radius:999px;background:#edf3fa;color:#315f9f;font-size:12px;font-weight:800}.security-note{margin:12px 0 0;padding:10px 12px;border-left:4px solid #d6a84a;background:#fff9eb;color:#6b5525;font-size:12px}.summary{display:flex;gap:16px;flex-wrap:wrap;margin-top:13px;padding:12px;background:#f8fafc;border:1px solid #e0e6ef;border-radius:7px}.summary b{color:#1f4f88}.summary .warn{color:#a15c12}.table-wrap{overflow:auto;border:1px solid #aebccc;border-radius:6px;margin-top:14px}.table-wrap table{width:100%;border-collapse:collapse;min-width:1050px;font-size:12px}.table-wrap th,.table-wrap td{border:1px solid #aebccc;padding:8px 9px;text-align:center;vertical-align:middle}.table-wrap th{background:#eaf1f8}.table-wrap small{display:block;color:#788395;margin-top:3px}.path{text-align:left!important;word-break:break-all}.empty{height:70px;color:#7b8492}.mini{border:1px solid #aebbd0;background:#fff;color:#315f9f;border-radius:4px;padding:5px 7px;font-size:11px;font-weight:700;cursor:pointer}.mini.danger{color:#a92e2e;border-color:#e5b7b7}.guide-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}.guide-grid div{padding:13px;border:1px solid #dce3ed;border-radius:8px;background:#f8fafc}.guide-grid b,.guide-grid span{display:block}.guide-grid span{margin-top:6px;color:#667085;font-size:12px}.notice{position:fixed;top:74px;right:20px;z-index:100;max-width:460px;padding:13px 16px;border-radius:7px;background:#e7f4ea;color:#236b36;box-shadow:0 5px 20px #0002}.notice.error{background:#fee9e9;color:#a12b2b}@media(max-width:900px){.topbar{height:auto;padding:10px;flex-wrap:wrap}.top-actions{width:100%;flex-wrap:wrap}.form-grid.three,.guide-grid{grid-template-columns:1fr}.span-2{grid-column:auto}main{padding:12px}.card-head{display:block}.card-head .actions{margin-top:10px}}
+  </style>
+</GovLayout>

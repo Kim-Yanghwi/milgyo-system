@@ -194,7 +194,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (!canViewAll) return json({ ok: false, message: '종단 취합자료 조회 권한이 없습니다.' }, 403);
       const periodType = clean(payload.periodType, 20) || 'annual';
       const periodKey = clean(payload.periodKey, 20) || String(year);
-      const rows = await accountingDb.prepare(`SELECT e.entity_type,e.entity_code,e.name AS entity_name,b.name AS book_type_name,
+      const rows = await accountingDb.prepare(`SELECT r.id,e.entity_type,e.entity_code,e.name AS entity_name,b.name AS book_type_name,
           r.income_total,r.expense_total,r.asset_total,r.liability_total,r.cash_balance,r.donation_total,r.status
         FROM accounting_branch_reports r JOIN accounting_entities e ON e.id=r.entity_id
         JOIN accounting_book_types b ON b.code=r.book_type_code

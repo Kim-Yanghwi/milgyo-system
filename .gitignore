@@ -13,3 +13,6 @@ backup/
 .dev.vars.*
 Thumbs.db
 .DS_Store
+
+# 운영 백업 산출물
+backups/
