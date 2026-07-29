@@ -10,6 +10,7 @@ import {
 } from '../../_shared/accounting';
 import {
   ensureAccountingSpecialTables,
+  nextAvailableCardNumber,
   nextSpecialNumber,
   validateDimensions,
 } from '../../_shared/accounting-special';
@@ -385,7 +386,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const label = clean(payload.cardLabel, 100);
       if (!label) return json({ ok: false, message: '카드명을 입력해 주세요.' }, 400);
       const dimensions = await validateDimensions(accountingDb, payload);
-      const cardCode = existing?.card_code || await nextSpecialNumber(accountingDb, 'card');
+      const cardYear = validYear(payload.year) || new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCFullYear();
+      const cardCode = existing?.card_code || await nextAvailableCardNumber(accountingDb, cardYear);
       await accountingDb.batch([
         accountingDb.prepare(`INSERT INTO accounting_cards
           (id,card_code,card_label,issuer,masked_number,holder,book_type_code,entity_id,department,
@@ -405,6 +407,28 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return json({ ok: true, id, cardCode, message: '법인카드를 저장했습니다.' });
     }
 
+    if (action === 'delete-card') {
+      if (!manager) return json({ ok: false, message: '법인카드 삭제 권한이 없습니다.' }, 403);
+      const id = clean(payload.id, 80);
+      const card = await accountingDb.prepare(`SELECT c.id,c.card_code,c.card_label,
+          (SELECT COUNT(*) FROM accounting_card_transactions t WHERE t.card_id=c.id) AS transaction_count,
+          (SELECT COUNT(*) FROM accounting_attachments a WHERE a.reference_type='card' AND a.reference_id=c.id AND a.deleted_at IS NULL) AS attachment_count
+        FROM accounting_cards c WHERE c.id=?`).bind(id).first<any>();
+      if (!card) return json({ ok: false, message: '삭제할 법인카드를 찾을 수 없습니다.' }, 404);
+      if (Number(card.transaction_count || 0) > 0) {
+        return json({ ok: false, message: `카드 사용내역 ${Number(card.transaction_count)}건이 있어 삭제할 수 없습니다. 회계이력 보존을 위해 사용내역이 없는 카드만 삭제할 수 있습니다.` }, 409);
+      }
+      if (Number(card.attachment_count || 0) > 0) {
+        return json({ ok: false, message: '카드에 첨부파일이 있어 삭제할 수 없습니다. 첨부파일을 먼저 삭제해 주세요.' }, 409);
+      }
+      await accountingDb.batch([
+        accountingDb.prepare(`DELETE FROM accounting_attachments WHERE reference_type='card' AND reference_id=? AND deleted_at IS NOT NULL`).bind(id),
+        accountingDb.prepare(`DELETE FROM accounting_cards WHERE id=?`).bind(id),
+        audit(accountingDb, 'delete', 'card', id, me.id, me.name, { cardCode: card.card_code, cardLabel: card.card_label }, now),
+      ]);
+      return json({ ok: true, cardCode: card.card_code, message: `${card.card_code} 법인카드를 삭제했습니다. 해당 코드는 다음 카드 등록 시 다시 사용됩니다.` });
+    }
+
     if (action === 'save-card-transaction') {
       const cardId = clean(payload.cardId, 80);
       const card = await accountingDb.prepare(`SELECT * FROM accounting_cards WHERE id=? AND active=1`).bind(cardId).first<any>();
@@ -412,7 +436,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const date = clean(payload.transactionDate, 10);
       const merchant = clean(payload.merchant, 120);
       const amount = parseMoney(payload.amount);
+      const taxMode = clean(payload.taxMode, 20) || 'taxable';
       if (!validDate(date) || !merchant || amount <= 0) return json({ ok: false, message: '사용일자·가맹점·금액을 확인해 주세요.' }, 400);
+      if (!['taxable', 'exempt', 'manual'].includes(taxMode)) return json({ ok: false, message: '세액 처리방식을 확인해 주세요.' }, 400);
+      const taxAmount = taxMode === 'taxable' ? Math.round(amount / 11) : taxMode === 'exempt' ? 0 : Math.max(0, parseMoney(payload.taxAmount));
+      if (taxAmount > amount) return json({ ok: false, message: '세액은 결제금액보다 클 수 없습니다.' }, 400);
       const dimensions = await validateDimensions(accountingDb, {
         bookTypeCode: payload.bookTypeCode || card.book_type_code,
         entityId: payload.entityId || card.entity_id,
@@ -426,7 +454,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
            book_type_code,entity_id,fund_id,department,project,memo,status,created_by,created_at,updated_at)
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'unmatched',?,?,?)`)
           .bind(
-            id, txNo, cardId, date, merchant, amount, Math.max(0, parseMoney(payload.taxAmount)),
+            id, txNo, cardId, date, merchant, amount, taxAmount,
             clean(payload.accountCode, 20) || null, dimensions.bookTypeCode, dimensions.entityId, dimensions.fundId,
             clean(payload.department, 100) || card.department || '', clean(payload.project, 100),
             clean(payload.memo, 1000) || null, me.name, now, now,

@@ -66,7 +66,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           FROM accounting_assets a LEFT JOIN accounting_book_types b ON b.code=a.book_type_code
           LEFT JOIN accounting_entities e ON e.id=a.entity_id LEFT JOIN accounting_funds f ON f.id=a.fund_id
           ORDER BY a.status,a.acquisition_date DESC LIMIT 20`),
-        accountingDb.prepare(`SELECT c.*,b.name AS book_type_name,e.name AS entity_name FROM accounting_cards c
+        accountingDb.prepare(`SELECT c.*,b.name AS book_type_name,e.name AS entity_name,
+          (SELECT COUNT(*) FROM accounting_card_transactions t WHERE t.card_id=c.id) AS transaction_count
+          FROM accounting_cards c
           LEFT JOIN accounting_book_types b ON b.code=c.book_type_code LEFT JOIN accounting_entities e ON e.id=c.entity_id
           WHERE c.active=1 ORDER BY c.card_code`),
         accountingDb.prepare(`SELECT t.*,c.card_label,c.masked_number,a.name AS account_name,e.name AS entity_name,f.name AS fund_name
@@ -165,7 +167,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (action === 'cards') {
       const limit=requestedLimit(payload.limit);
       const [cards, transactions] = await accountingDb.batch([
-        accountingDb.prepare(`SELECT c.*,b.name AS book_type_name,e.name AS entity_name FROM accounting_cards c
+        accountingDb.prepare(`SELECT c.*,b.name AS book_type_name,e.name AS entity_name,
+          (SELECT COUNT(*) FROM accounting_card_transactions t WHERE t.card_id=c.id) AS transaction_count
+          FROM accounting_cards c
           LEFT JOIN accounting_book_types b ON b.code=c.book_type_code LEFT JOIN accounting_entities e ON e.id=c.entity_id
           WHERE c.active=1 ORDER BY c.card_code`),
         accountingDb.prepare(`SELECT t.*,c.card_label,c.masked_number,a.name AS account_name,e.name AS entity_name,f.name AS fund_name
