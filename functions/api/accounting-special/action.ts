@@ -21,6 +21,44 @@ const validYear = (value: unknown) => {
   const year = Number(value);
   return Number.isInteger(year) && year >= 2000 && year <= 2200 ? year : 0;
 };
+
+type ReceiptItem = { date: string; description: string; amount: number };
+const receiptItemsFromPayload = (
+  value: unknown,
+  fallbackDate: string,
+  fallbackDescription: string,
+  totalAmount: number,
+): ReceiptItem[] => {
+  let source: unknown = value;
+  if (typeof source === 'string') {
+    try { source = JSON.parse(source); } catch { source = []; }
+  }
+  const raw = Array.isArray(source) ? source : [];
+  const items = raw.map((item) => {
+    const row = item && typeof item === 'object' ? item as Record<string, unknown> : {};
+    return {
+      date: clean(row.date, 10),
+      description: clean(row.description, 200),
+      amount: Math.abs(parseMoney(row.amount)),
+    };
+  }).filter((item) => item.date || item.description || item.amount);
+  if (!items.length) items.push({
+    date: fallbackDate,
+    description: fallbackDescription || '기부금',
+    amount: totalAmount,
+  });
+  if (items.length > 5) throw new Error('기부내용은 최대 5건까지 입력할 수 있습니다.');
+  for (const item of items) {
+    if (!isValidIsoDate(item.date)) throw new Error('기부내용의 년월일을 확인해 주세요.');
+    if (!item.description) throw new Error('기부내용의 적요를 입력해 주세요.');
+    if (item.amount <= 0) throw new Error('기부내용의 금액은 0원보다 커야 합니다.');
+  }
+  const itemTotal = items.reduce((sum, item) => sum + item.amount, 0);
+  if (itemTotal !== totalAmount) {
+    throw new Error(`기부내용 합계 ${itemTotal.toLocaleString('ko-KR')}원이 등록금액 ${totalAmount.toLocaleString('ko-KR')}원과 일치하지 않습니다.`);
+  }
+  return items;
+};
 const audit = (
   db: D1Database,
   action: string,
@@ -251,7 +289,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         .bind(dimensions.entityId).first<any>();
       const receiptDonationType = clean(payload.receiptDonationType, 300) || '소득세법 제34조 제1항 기부금중 종교단체 기부금';
       const receiptDonationCode = clean(payload.receiptDonationCode, 20) || '41';
-      const receiptDescription = clean(payload.receiptDescription, 200) || clean(payload.purpose, 300) || null;
+      const fallbackReceiptDescription = clean(payload.receiptDescription, 200) || clean(payload.purpose, 300) || '기부금';
+      const receiptItems = receiptItemsFromPayload(payload.receiptItems, date, fallbackReceiptDescription, amount);
+      const receiptDescription = receiptItems[0]?.description || fallbackReceiptDescription;
+      const receiptItemsJson = JSON.stringify(receiptItems);
       const receiptOrgName = clean(payload.receiptOrgName, 160) || clean(receiptEntity?.name, 160) || null;
       const receiptOrgRegistrationNo = clean(payload.receiptOrgRegistrationNo, 60) || clean(receiptEntity?.registration_no, 60) || null;
       const receiptOrgAddress = clean(payload.receiptOrgAddress, 400) || clean(receiptEntity?.address, 400) || null;
@@ -272,7 +313,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const id = `DON-${randomHex(20)}`;
       const year = Number(date.slice(0, 4));
       const donationNo = await nextSpecialNumber(accountingDb, 'donation', year);
-      const receiptRequested = !anonymousDonation && payload.receiptRequested === true ? 1 : 0;
+      const receiptRequested = 0;
       const statements: D1PreparedStatement[] = [];
       if (donorInsert) statements.push(donorInsert);
       statements.push(
@@ -289,19 +330,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
             receiptRequested, receiptRequested ? 'requested' : 'not_requested', me.name, now, now,
           ),
         accountingDb.prepare(`UPDATE accounting_donations SET
-          receipt_donation_type=?,receipt_donation_code=?,receipt_description=?,
+          receipt_donation_type=?,receipt_donation_code=?,receipt_description=?,receipt_items_json=?,
           receipt_org_name=?,receipt_org_registration_no=?,receipt_org_address=?,
           receipt_collector_name=?,receipt_collector_registration_no=?,receipt_collector_address=?,
           receipt_issuer_title=?,receipt_issuer_name=?,receipt_issuer_phone=? WHERE id=?`)
           .bind(
-            receiptDonationType, receiptDonationCode, receiptDescription,
+            receiptDonationType, receiptDonationCode, receiptDescription, receiptItemsJson,
             receiptOrgName, receiptOrgRegistrationNo, receiptOrgAddress,
             receiptCollectorName, receiptCollectorRegistrationNo, receiptCollectorAddress,
             receiptIssuerTitle, receiptIssuerName, receiptIssuerPhone, id,
           ),
         audit(accountingDb, 'create', 'donation', id, me.id, me.name, {
           donationNo, amount, donorId, anonymousDonation, donorName: anonymousDonation ? '익명' : donorName,
-          receiptDonationType, receiptDonationCode, receiptOrgName, ...dimensions,
+          receiptDonationType, receiptDonationCode, receiptOrgName, receiptItemCount: receiptItems.length, ...dimensions,
         }, now),
       );
       await accountingDb.batch(statements);
