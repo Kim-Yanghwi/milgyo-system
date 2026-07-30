@@ -22,6 +22,17 @@ const calcAsset = (row: any, asOf: Date) => {
   return { accumulated, bookValue: Math.max(residual, cost - accumulated) };
 };
 
+const summaryStatement = (db: D1Database, year: number) => db.prepare(`SELECT
+  (SELECT COUNT(*) FROM accounting_entities WHERE active=1) AS entity_count,
+  (SELECT COUNT(*) FROM accounting_donors WHERE active=1) AS donor_count,
+  (SELECT COALESCE(SUM(amount),0) FROM accounting_donations WHERE fiscal_year=?) AS donation_total,
+  (SELECT COUNT(*) FROM accounting_donations WHERE fiscal_year=? AND receipt_status='requested') AS receipt_pending,
+  (SELECT COUNT(*) FROM accounting_assets WHERE status='in_use') AS asset_count,
+  (SELECT COALESCE(SUM(acquisition_cost),0) FROM accounting_assets WHERE status='in_use') AS asset_cost,
+  (SELECT COUNT(*) FROM accounting_card_transactions WHERE status='unmatched') AS unmatched_cards,
+  (SELECT COUNT(*) FROM accounting_branch_reports WHERE fiscal_year=? AND status='submitted') AS submitted_reports`)
+  .bind(year, year, year);
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB || !env.ACCOUNTING_DB) return json({ ok: false, message: '전자문서 DB 또는 회계 전용 DB가 연결되지 않았습니다.' }, 500);
   let payload: Payload;
@@ -43,47 +54,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     if (action === 'init') {
       const master = await getDimensionMaster(accountingDb);
-      const [summary, donors, donations, assets, cards, cardTransactions, branchReports, fiscalYears, accounts] = await accountingDb.batch([
-        accountingDb.prepare(`SELECT
-          (SELECT COUNT(*) FROM accounting_entities WHERE active=1) AS entity_count,
-          (SELECT COUNT(*) FROM accounting_donors WHERE active=1) AS donor_count,
-          (SELECT COALESCE(SUM(amount),0) FROM accounting_donations WHERE fiscal_year=?) AS donation_total,
-          (SELECT COUNT(*) FROM accounting_donations WHERE fiscal_year=? AND receipt_status='requested') AS receipt_pending,
-          (SELECT COUNT(*) FROM accounting_assets WHERE status='in_use') AS asset_count,
-          (SELECT COALESCE(SUM(acquisition_cost),0) FROM accounting_assets WHERE status='in_use') AS asset_cost,
-          (SELECT COUNT(*) FROM accounting_card_transactions WHERE status='unmatched') AS unmatched_cards,
-          (SELECT COUNT(*) FROM accounting_branch_reports WHERE fiscal_year=? AND status='submitted') AS submitted_reports`)
-          .bind(year, year, year),
-        accountingDb.prepare(`SELECT * FROM accounting_donors WHERE active=1 ORDER BY created_at DESC LIMIT 20`),
-        accountingDb.prepare(`SELECT d.*,COALESCE(o.name,'익명') AS donor_name,b.name AS book_type_name,e.name AS entity_name,f.name AS fund_name
-          FROM accounting_donations d
-          LEFT JOIN accounting_donors o ON o.id=d.donor_id
-          LEFT JOIN accounting_book_types b ON b.code=d.book_type_code
-          LEFT JOIN accounting_entities e ON e.id=d.entity_id
-          LEFT JOIN accounting_funds f ON f.id=d.fund_id
-          WHERE d.fiscal_year=? ORDER BY d.donation_date DESC,d.created_at DESC LIMIT 20`).bind(year),
-        accountingDb.prepare(`SELECT a.*,b.name AS book_type_name,e.name AS entity_name,f.name AS fund_name
-          FROM accounting_assets a LEFT JOIN accounting_book_types b ON b.code=a.book_type_code
-          LEFT JOIN accounting_entities e ON e.id=a.entity_id LEFT JOIN accounting_funds f ON f.id=a.fund_id
-          ORDER BY a.status,a.acquisition_date DESC LIMIT 20`),
-        accountingDb.prepare(`SELECT c.*,b.name AS book_type_name,e.name AS entity_name,
-          (SELECT COUNT(*) FROM accounting_card_transactions t WHERE t.card_id=c.id) AS transaction_count
-          FROM accounting_cards c
-          LEFT JOIN accounting_book_types b ON b.code=c.book_type_code LEFT JOIN accounting_entities e ON e.id=c.entity_id
-          WHERE c.active=1 ORDER BY c.card_code`),
-        accountingDb.prepare(`SELECT t.*,c.card_label,c.masked_number,a.name AS account_name,e.name AS entity_name,f.name AS fund_name
-          FROM accounting_card_transactions t JOIN accounting_cards c ON c.id=t.card_id
-          LEFT JOIN accounting_accounts a ON a.code=t.account_code LEFT JOIN accounting_entities e ON e.id=t.entity_id
-          LEFT JOIN accounting_funds f ON f.id=t.fund_id
-          WHERE t.transaction_date>=? AND t.transaction_date<? ORDER BY t.transaction_date DESC,t.created_at DESC LIMIT 20`).bind(`${year}-01-01`, `${year+1}-01-01`),
-        accountingDb.prepare(`SELECT r.*,e.name AS entity_name,b.name AS book_type_name FROM accounting_branch_reports r
-          LEFT JOIN accounting_entities e ON e.id=r.entity_id LEFT JOIN accounting_book_types b ON b.code=r.book_type_code
-          WHERE r.fiscal_year=? ORDER BY r.period_type,r.period_key,e.name LIMIT 20`).bind(year),
+      const [summary, fiscalYears, accounts] = await accountingDb.batch([
+        summaryStatement(accountingDb, year),
         accountingDb.prepare(`SELECT year,name,start_date,end_date,base_currency,status FROM accounting_fiscal_years ORDER BY year`),
         accountingDb.prepare(`SELECT code,name,account_type,normal_side,parent_code,active,system_account FROM accounting_accounts WHERE active=1 ORDER BY code`),
       ]);
-      const asOf = new Date(`${year}-12-31T00:00:00Z`);
-      const assetRows = (assets.results || []).map((row: any) => ({ ...row, ...calcAsset(row, asOf) }));
       return json({
         ok: true,
         me,
@@ -91,15 +66,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         year,
         ...master,
         summary: summary.results?.[0] || {},
-        donors: donors.results || [],
-        donations: donations.results || [],
-        assets: assetRows,
-        cards: cards.results || [],
-        cardTransactions: cardTransactions.results || [],
-        branchReports: branchReports.results || [],
+        donors: [],
+        donations: [],
+        assets: [],
+        cards: [],
+        cardTransactions: [],
+        branchReports: [],
         fiscalYears: fiscalYears.results || [],
         accounts: accounts.results || [],
       });
+    }
+
+    if (action === 'summary') {
+      const result = await summaryStatement(accountingDb, year).all();
+      return json({ ok: true, summary: result.results?.[0] || {} });
     }
 
     if (action === 'master') return json({ ok: true, ...(await getDimensionMaster(accountingDb)) });

@@ -47,8 +47,29 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   let payload: Payload;
-  try { payload = await request.json(); }
-  catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
+  let uploadedFile: File | null = null;
+  const requestContentType = request.headers.get('content-type') || '';
+  try {
+    if (requestContentType.includes('multipart/form-data')) {
+      const form = await request.formData();
+      const filePart = form.get('file');
+      uploadedFile = filePart && typeof filePart !== 'string' && typeof filePart.arrayBuffer === 'function'
+        ? filePart as File
+        : null;
+      payload = {
+        token: String(form.get('token') || ''),
+        referenceType: String(form.get('referenceType') || ''),
+        referenceId: String(form.get('referenceId') || ''),
+        fileCategory: String(form.get('fileCategory') || ''),
+        fileName: uploadedFile?.name || String(form.get('fileName') || ''),
+        mimeType: uploadedFile?.type || String(form.get('mimeType') || ''),
+      };
+    } else {
+      payload = await request.json();
+    }
+  } catch {
+    return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400);
+  }
 
   await ensureTables(env.DB);
   const auth = await authenticateSession(env.DB, clean(payload.token, 200));
@@ -62,14 +83,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const contentType = clean(payload.mimeType, 140) || 'application/octet-stream';
   const dataBase64 = typeof payload.dataBase64 === 'string' ? payload.dataBase64 : '';
 
-  if (!referenceType || !referenceId || !originalFilename || !dataBase64) {
+  if (!referenceType || !referenceId || !originalFilename || (!uploadedFile && !dataBase64)) {
     return json({ ok: false, message: '회계자료 및 첨부파일 정보가 부족합니다.' }, 400);
   }
 
   const access = await authorizeAccountingReference(env.ACCOUNTING_DB, auth.user, referenceType, referenceId, 'write');
   if (!access.ok) return json({ ok: false, message: access.message || '첨부 권한이 없습니다.' }, access.exists ? 403 : 404);
 
-  const bytes = decodeAccountingAttachmentBase64(dataBase64);
+  const bytes = uploadedFile
+    ? new Uint8Array(await uploadedFile.arrayBuffer())
+    : decodeAccountingAttachmentBase64(dataBase64);
   if (!bytes) return json({ ok: false, message: '첨부파일 인코딩이 올바르지 않습니다.' }, 400);
 
   const policy = await getAccountingAttachmentPolicy(env.ACCOUNTING_DB);

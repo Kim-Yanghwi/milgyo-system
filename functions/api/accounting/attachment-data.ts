@@ -15,6 +15,7 @@ interface Env {
 type Payload = {
   token?: string;
   attachmentId?: number | string;
+  binary?: boolean;
 };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -66,14 +67,29 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!object) return json({ ok: false, message: 'R2에서 회계 첨부파일을 찾을 수 없습니다.' }, 404);
 
   const buffer = await object.arrayBuffer();
+  const mimeType = attachment.content_type || object.httpMetadata?.contentType || 'application/octet-stream';
+  const fileName = String(attachment.original_filename || 'attachment');
+  if (payload.binary === true) {
+    const encodedFileName = encodeURIComponent(fileName);
+    return new Response(buffer, {
+      status: 200,
+      headers: {
+        'Content-Type': mimeType,
+        'Content-Length': String(buffer.byteLength),
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodedFileName}`,
+        'X-File-Name': encodedFileName,
+        'Cache-Control': 'private, no-store',
+      },
+    });
+  }
   return json({
     ok: true,
     id: attachment.id,
     referenceType,
     referenceId: attachment.reference_id,
     fileCategory: attachment.file_category,
-    fileName: attachment.original_filename,
-    mimeType: attachment.content_type || object.httpMetadata?.contentType || 'application/octet-stream',
+    fileName,
+    mimeType,
     sizeBytes: Number(attachment.size_bytes || buffer.byteLength),
     checksumSha256: attachment.checksum_sha256 || null,
     dataBase64: arrayBufferToBase64(buffer),
