@@ -6,10 +6,12 @@ import {
   runAccountingAttachmentIntegrityScan,
   saveAccountingAttachmentPolicy,
 } from '../../_shared/accounting-attachment-ops';
+import { getTestResetPreview, resetAllTestData, TEST_RESET_CONFIRMATION } from '../../_shared/test-data-reset';
 
 interface Env {
   DB: D1Database;
   ACCOUNTING_DB: D1Database;
+  FILES?: R2Bucket;
   ACCOUNTING_FILES?: R2Bucket;
 }
 
@@ -124,6 +126,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const operationId = clean(payload.operationId, 80);
       await retryAccountingAttachmentOperation(env.ACCOUNTING_DB, env.ACCOUNTING_FILES, operationId);
       return json({ ok: true, message: '첨부파일 작업을 재처리했습니다.' });
+    }
+
+    if (action === 'test-reset-preview') {
+      if (auth.user.role !== 'admin' || readOnlyAudit) return json({ ok: false, message: '테스트자료 초기화는 최고관리자만 실행할 수 있습니다.' }, 403);
+      const preview = await getTestResetPreview(env);
+      return json({ ok: true, preview, confirmationText: TEST_RESET_CONFIRMATION });
+    }
+
+    if (action === 'test-reset-execute') {
+      if (auth.user.role !== 'admin' || readOnlyAudit) return json({ ok: false, message: '테스트자료 초기화는 최고관리자만 실행할 수 있습니다.' }, 403);
+      if (payload.backupConfirmed !== true) return json({ ok: false, message: '초기화 전 백업 완료 확인이 필요합니다.' }, 400);
+      if (clean(payload.confirmation, 100) !== TEST_RESET_CONFIRMATION) return json({ ok: false, message: `확인문구를 정확히 입력해 주세요: ${TEST_RESET_CONFIRMATION}` }, 400);
+      const result = await resetAllTestData(env, auth.user);
+      return json({ ok: true, result, message: result.message });
     }
 
     return json({ ok: false, message: '지원하지 않는 첨부파일 관리 요청입니다.' }, 400);
