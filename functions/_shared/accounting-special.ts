@@ -61,7 +61,7 @@ export const nextAvailableCardNumber=async(db:D1Database,year?:number)=>{
 export const getDimensionMaster=async(db:D1Database)=>{
   const [books,entities,funds]=await db.batch([
     db.prepare(`SELECT code,name,description,active,system_type FROM accounting_book_types WHERE active=1 ORDER BY CASE code WHEN 'general' THEN 1 WHEN 'purpose' THEN 2 WHEN 'revenue' THEN 3 ELSE 9 END,name`),
-    db.prepare(`SELECT id,entity_code,name,entity_type,parent_id,department_path,representative,address,consolidation_enabled,active FROM accounting_entities WHERE active=1 ORDER BY entity_type,entity_code,name`),
+    db.prepare(`SELECT id,entity_code,name,entity_type,parent_id,department_path,registration_no,representative,address,consolidation_enabled,active FROM accounting_entities WHERE active=1 ORDER BY entity_type,entity_code,name`),
     db.prepare(`SELECT id,fund_code,name,fund_type,purpose,restriction_note,active,system_fund FROM accounting_funds WHERE active=1 ORDER BY system_fund DESC,fund_code,name`),
   ]);
   return {books:books.results||[],entities:entities.results||[],funds:funds.results||[]};

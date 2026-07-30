@@ -247,6 +247,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         }
       }
       const category = clean(payload.donationCategory, 40) || 'general';
+      const receiptEntity = await accountingDb.prepare(`SELECT name,registration_no,representative,address FROM accounting_entities WHERE id=? AND active=1`)
+        .bind(dimensions.entityId).first<any>();
+      const receiptDonationType = clean(payload.receiptDonationType, 300) || '소득세법 제34조 제1항 기부금중 종교단체 기부금';
+      const receiptDonationCode = clean(payload.receiptDonationCode, 20) || '41';
+      const receiptDescription = clean(payload.receiptDescription, 200) || clean(payload.purpose, 300) || null;
+      const receiptOrgName = clean(payload.receiptOrgName, 160) || clean(receiptEntity?.name, 160) || null;
+      const receiptOrgRegistrationNo = clean(payload.receiptOrgRegistrationNo, 60) || clean(receiptEntity?.registration_no, 60) || null;
+      const receiptOrgAddress = clean(payload.receiptOrgAddress, 400) || clean(receiptEntity?.address, 400) || null;
+      const receiptCollectorName = clean(payload.receiptCollectorName, 160) || null;
+      const receiptCollectorRegistrationNo = clean(payload.receiptCollectorRegistrationNo, 60) || null;
+      const receiptCollectorAddress = clean(payload.receiptCollectorAddress, 400) || null;
+      const receiptIssuerTitle = clean(payload.receiptIssuerTitle, 60) || '주지';
+      const receiptIssuerName = clean(payload.receiptIssuerName, 100) || clean(receiptEntity?.representative, 100) || null;
+      const receiptIssuerPhone = clean(payload.receiptIssuerPhone, 60) || null;
       const accountCode = clean(payload.accountCode, 20) || (category === 'designated' ? '4210' : '4200');
       const settlement = clean(payload.settlementAccountCode, 20) || '1120';
       const accounts = await accountingDb.prepare(`SELECT code,account_type FROM accounting_accounts WHERE code IN (?,?) AND active=1`)
@@ -274,7 +288,21 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
             clean(payload.purpose, 300) || null, clean(payload.memo, 1000) || null,
             receiptRequested, receiptRequested ? 'requested' : 'not_requested', me.name, now, now,
           ),
-        audit(accountingDb, 'create', 'donation', id, me.id, me.name, { donationNo, amount, donorId, anonymousDonation, donorName: anonymousDonation ? '익명' : donorName, ...dimensions }, now),
+        accountingDb.prepare(`UPDATE accounting_donations SET
+          receipt_donation_type=?,receipt_donation_code=?,receipt_description=?,
+          receipt_org_name=?,receipt_org_registration_no=?,receipt_org_address=?,
+          receipt_collector_name=?,receipt_collector_registration_no=?,receipt_collector_address=?,
+          receipt_issuer_title=?,receipt_issuer_name=?,receipt_issuer_phone=? WHERE id=?`)
+          .bind(
+            receiptDonationType, receiptDonationCode, receiptDescription,
+            receiptOrgName, receiptOrgRegistrationNo, receiptOrgAddress,
+            receiptCollectorName, receiptCollectorRegistrationNo, receiptCollectorAddress,
+            receiptIssuerTitle, receiptIssuerName, receiptIssuerPhone, id,
+          ),
+        audit(accountingDb, 'create', 'donation', id, me.id, me.name, {
+          donationNo, amount, donorId, anonymousDonation, donorName: anonymousDonation ? '익명' : donorName,
+          receiptDonationType, receiptDonationCode, receiptOrgName, ...dimensions,
+        }, now),
       );
       await accountingDb.batch(statements);
       let posting: any = null;

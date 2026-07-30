@@ -120,8 +120,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (action === 'receipt-detail') {
       const id = clean(payload.id, 80);
-      const row = await accountingDb.prepare(`SELECT d.*,o.donor_no,o.name AS donor_name,o.donor_type,o.identifier_masked,o.address,
-          e.name AS entity_name,e.registration_no,e.representative,e.address AS entity_address,f.name AS fund_name
+      const row = await accountingDb.prepare(`SELECT d.*,o.donor_no,o.name AS donor_name,o.donor_type,
+          o.identifier_masked,o.address AS donor_address,o.phone AS donor_phone,
+          e.name AS entity_name,e.registration_no,e.representative,e.address AS entity_address,f.name AS fund_name,
+          COALESCE(NULLIF(d.receipt_org_name,''),e.name) AS resolved_receipt_org_name,
+          COALESCE(NULLIF(d.receipt_org_registration_no,''),e.registration_no) AS resolved_receipt_org_registration_no,
+          COALESCE(NULLIF(d.receipt_org_address,''),e.address) AS resolved_receipt_org_address,
+          COALESCE(NULLIF(d.receipt_issuer_name,''),e.representative) AS resolved_receipt_issuer_name
         FROM accounting_donations d JOIN accounting_donors o ON o.id=d.donor_id
         LEFT JOIN accounting_entities e ON e.id=d.entity_id LEFT JOIN accounting_funds f ON f.id=d.fund_id
         WHERE d.id=?`).bind(id).first();
