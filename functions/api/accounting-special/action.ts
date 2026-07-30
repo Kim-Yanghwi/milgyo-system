@@ -12,6 +12,7 @@ import {
   ensureAccountingSpecialTables,
   nextAvailableCardNumber,
   nextSpecialNumber,
+  nextSpecialSequence,
   validateDimensions,
 } from '../../_shared/accounting-special';
 
@@ -184,21 +185,68 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       await accountingDb.batch([
         accountingDb.prepare(`INSERT INTO accounting_entities
           (id,entity_code,name,entity_type,parent_id,department_path,registration_no,representative,address,
-           consolidation_enabled,active,created_by,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?,?)
+           affiliation_registered_at,consolidation_enabled,active,created_by,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)
           ON CONFLICT(id) DO UPDATE SET entity_code=excluded.entity_code,name=excluded.name,entity_type=excluded.entity_type,
           parent_id=excluded.parent_id,department_path=excluded.department_path,registration_no=excluded.registration_no,
           representative=excluded.representative,address=excluded.address,
+          affiliation_registered_at=excluded.affiliation_registered_at,
           consolidation_enabled=excluded.consolidation_enabled,active=1,updated_at=excluded.updated_at`)
           .bind(
             id, entityCode, name, entityType, parentId || null, clean(payload.departmentPath, 120) || null,
             clean(payload.registrationNo, 40) || null, clean(payload.representative, 80) || null,
-            clean(payload.address, 300) || null, payload.consolidationEnabled === false ? 0 : 1,
+            clean(payload.address, 300) || null,
+            isValidIsoDate(clean(payload.affiliationRegisteredAt, 10)) ? clean(payload.affiliationRegisteredAt, 10) : null,
+            payload.consolidationEnabled === false ? 0 : 1,
             me.name, now, now,
           ),
         audit(accountingDb, 'save', 'entity', id, me.id, me.name, { entityCode, name, entityType }, now),
       ]);
       return json({ ok: true, id, message: '회계조직을 저장했습니다.' });
+    }
+
+    if (action === 'issue-entity-certificate') {
+      if (!manager) return json({ ok: false, message: '소속증명원 발급 권한이 없습니다.' }, 403);
+      const entityId = clean(payload.entityId, 80);
+      const entity = await accountingDb.prepare(`SELECT id,entity_code,name,registration_no,address,representative,affiliation_registered_at
+        FROM accounting_entities WHERE id=? AND active=1`).bind(entityId).first<any>();
+      if (!entity) return json({ ok: false, message: '회계조직을 찾을 수 없습니다.' }, 404);
+      const issueDate = clean(payload.issueDate, 10);
+      const registrationDate = clean(payload.registrationDate, 10) || clean(entity.affiliation_registered_at, 10);
+      if (!isValidIsoDate(issueDate)) return json({ ok: false, message: '발급일을 확인해 주세요.' }, 400);
+      if (!isValidIsoDate(registrationDate)) return json({ ok: false, message: '등록년월일을 입력해 주세요.' }, 400);
+      const headquartersAddress = clean(payload.headquartersAddress, 300) || '경상북도 성주군 대가면 도남4길 26-33';
+      const templeDisplayName = clean(payload.templeDisplayName, 240) || `대한불교밀교종 ${entity.name}${entity.registration_no ? `(${entity.registration_no})` : ''}`;
+      const purpose = clean(payload.purpose, 200) || '연말정산 확인용';
+      const confirmationChairman = clean(payload.confirmationChairman, 100) || clean(payload.issuingChairman, 100) || me.name;
+      const issuingChairman = clean(payload.issuingChairman, 100) || confirmationChairman;
+      const issueYear = Number(issueDate.slice(0, 4));
+      const buddhistYear = issueYear + 544;
+      const validDate = new Date(`${issueDate}T00:00:00Z`);
+      validDate.setUTCMonth(validDate.getUTCMonth() + 3);
+      const validUntil = validDate.toISOString().slice(0, 10);
+      const sequence = await nextSpecialSequence(accountingDb, `entity-certificate:${issueYear}`);
+      const certificateNo = `제${issueYear}-${sequence}호`;
+      const id = `CERT-${randomHex(20)}`;
+      await accountingDb.batch([
+        accountingDb.prepare(`INSERT INTO accounting_entity_certificates
+          (id,certificate_no,entity_id,affiliation_name,headquarters_address,temple_display_name,registration_date,purpose,
+           confirmation_chairman,issuing_chairman,issue_date,buddhist_year,valid_until,issued_by,issued_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
+            id, certificateNo, entity.id, '대한불교밀교종', headquartersAddress, templeDisplayName, registrationDate, purpose,
+            confirmationChairman, issuingChairman, issueDate, buddhistYear, validUntil, me.name, now,
+          ),
+        accountingDb.prepare(`UPDATE accounting_entities SET affiliation_registered_at=?,updated_at=? WHERE id=?`)
+          .bind(registrationDate, now, entity.id),
+        audit(accountingDb, 'issue', 'entity-certificate', id, me.id, me.name, {
+          certificateNo, entityId: entity.id, entityName: entity.name, issueDate, validUntil,
+        }, now),
+      ]);
+      return json({ ok: true, message: '소속증명원을 발급했습니다.', certificate: {
+        id, certificateNo, affiliationName: '대한불교밀교종', headquartersAddress, templeDisplayName,
+        registrationDate, purpose, confirmationChairman, issuingChairman, issueDate, buddhistYear, validUntil,
+        entityName: entity.name, registrationNo: entity.registration_no || '', representative: entity.representative || '',
+      }});
     }
 
     if (action === 'save-fund') {

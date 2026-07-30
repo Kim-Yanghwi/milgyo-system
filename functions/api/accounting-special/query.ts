@@ -54,11 +54,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     if (action === 'init') {
       const master = await getDimensionMaster(accountingDb);
-      const [summary, fiscalYears, accounts] = await accountingDb.batch([
-        summaryStatement(accountingDb, year),
-        accountingDb.prepare(`SELECT year,name,start_date,end_date,base_currency,status FROM accounting_fiscal_years ORDER BY year`),
-        accountingDb.prepare(`SELECT code,name,account_type,normal_side,parent_code,active,system_account FROM accounting_accounts WHERE active=1 ORDER BY code`),
+      const [accountingResults, chairpersons] = await Promise.all([
+        accountingDb.batch([
+          summaryStatement(accountingDb, year),
+          accountingDb.prepare(`SELECT year,name,start_date,end_date,base_currency,status FROM accounting_fiscal_years ORDER BY year`),
+          accountingDb.prepare(`SELECT code,name,account_type,normal_side,parent_code,active,system_account FROM accounting_accounts WHERE active=1 ORDER BY code`),
+        ]),
+        env.DB.prepare(`SELECT CAST(id AS TEXT) AS id,name,position,department
+          FROM system_users WHERE active=1 AND (COALESCE(position,'') LIKE '%이사장%' OR COALESCE(department,'') LIKE '%이사장%')
+          ORDER BY name`).all(),
       ]);
+      const [summary, fiscalYears, accounts] = accountingResults;
       return json({
         ok: true,
         me,
@@ -74,6 +80,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         branchReports: [],
         fiscalYears: fiscalYears.results || [],
         accounts: accounts.results || [],
+        chairpersons: chairpersons.results || [],
       });
     }
 
