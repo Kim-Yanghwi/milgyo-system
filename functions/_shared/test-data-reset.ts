@@ -71,77 +71,94 @@ const deleteBucketKeys = async (bucket: R2Bucket | undefined, keys: string[], la
 };
 
 export const getTestResetPreview = async (env: ResetEnv) => {
-  const [
-    documents,
-    receivedDocuments,
-    documentAttachments,
-    receivedAttachments,
-    accountingOutbox,
-    resolutions,
-    journals,
-    donations,
-    donors,
-    assets,
-    cards,
-    cardTransactions,
-    branchReports,
-    certificates,
-    accountingAttachments,
-    customEntities,
-    customFunds,
-    customBookTypes,
-    customAccounts,
-    mainFiles,
-    accountingFiles,
-  ] = await Promise.all([
-    countFrom(env.DB, 'SELECT COUNT(*) AS count FROM documents'),
-    countFrom(env.DB, 'SELECT COUNT(*) AS count FROM received_documents'),
-    countFrom(env.DB, 'SELECT COUNT(*) AS count FROM document_attachments'),
-    countFrom(env.DB, 'SELECT COUNT(*) AS count FROM received_attachments'),
-    countFrom(env.DB, 'SELECT COUNT(*) AS count FROM accounting_outbox'),
-    countFrom(env.ACCOUNTING_DB, 'SELECT COUNT(*) AS count FROM accounting_resolutions'),
-    countFrom(env.ACCOUNTING_DB, 'SELECT COUNT(*) AS count FROM accounting_journals'),
-    countFrom(env.ACCOUNTING_DB, 'SELECT COUNT(*) AS count FROM accounting_donations'),
-    countFrom(env.ACCOUNTING_DB, 'SELECT COUNT(*) AS count FROM accounting_donors'),
-    countFrom(env.ACCOUNTING_DB, 'SELECT COUNT(*) AS count FROM accounting_assets'),
-    countFrom(env.ACCOUNTING_DB, 'SELECT COUNT(*) AS count FROM accounting_cards'),
-    countFrom(env.ACCOUNTING_DB, 'SELECT COUNT(*) AS count FROM accounting_card_transactions'),
-    countFrom(env.ACCOUNTING_DB, 'SELECT COUNT(*) AS count FROM accounting_branch_reports'),
-    countFrom(env.ACCOUNTING_DB, 'SELECT COUNT(*) AS count FROM accounting_entity_certificates'),
-    countFrom(env.ACCOUNTING_DB, 'SELECT COUNT(*) AS count FROM accounting_attachments'),
-    countFrom(env.ACCOUNTING_DB, "SELECT COUNT(*) AS count FROM accounting_entities WHERE id<>'ENTITY-HQ'"),
-    countFrom(env.ACCOUNTING_DB, 'SELECT COUNT(*) AS count FROM accounting_funds WHERE system_fund=0'),
-    countFrom(env.ACCOUNTING_DB, 'SELECT COUNT(*) AS count FROM accounting_book_types WHERE system_type=0'),
-    countFrom(env.ACCOUNTING_DB, 'SELECT COUNT(*) AS count FROM accounting_accounts WHERE system_account=0'),
+  const [mainCounts, accountingCounts, mainFiles, accountingFiles] = await Promise.all([
+    env.DB.prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM documents) AS documents,
+        (SELECT COUNT(*) FROM received_documents) AS received_documents,
+        (SELECT COUNT(*) FROM document_attachments) AS document_attachments,
+        (SELECT COUNT(*) FROM received_attachments) AS received_attachments,
+        (SELECT COUNT(*) FROM accounting_outbox) AS accounting_outbox,
+        (SELECT COUNT(*) FROM document_approval_lines) AS document_approval_lines,
+        (SELECT COUNT(*) FROM document_approvals) AS document_approvals,
+        (SELECT COUNT(*) FROM document_dispatch_links) AS document_dispatch_links,
+        (SELECT COUNT(*) FROM document_sequences) AS document_sequences,
+        (SELECT COUNT(*) FROM admin_rate_limits) AS admin_rate_limits,
+        (SELECT COUNT(*) FROM system_meta WHERE meta_key='last_test_data_reset' OR meta_key LIKE 'test_%') AS reset_meta
+    `).first<Record<string, number>>(),
+    env.ACCOUNTING_DB.prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM accounting_resolutions) AS resolutions,
+        (SELECT COUNT(*) FROM accounting_journals) AS journals,
+        (SELECT COUNT(*) FROM accounting_donations) AS donations,
+        (SELECT COUNT(*) FROM accounting_donors) AS donors,
+        (SELECT COUNT(*) FROM accounting_assets) AS assets,
+        (SELECT COUNT(*) FROM accounting_cards) AS cards,
+        (SELECT COUNT(*) FROM accounting_card_transactions) AS card_transactions,
+        (SELECT COUNT(*) FROM accounting_branch_reports) AS branch_reports,
+        (SELECT COUNT(*) FROM accounting_entity_certificates) AS certificates,
+        (SELECT COUNT(*) FROM accounting_attachments) AS attachments,
+        (SELECT COUNT(*) FROM accounting_entities WHERE id<>'ENTITY-HQ') AS custom_entities,
+        (SELECT COUNT(*) FROM accounting_funds WHERE system_fund=0) AS custom_funds,
+        (SELECT COUNT(*) FROM accounting_book_types WHERE system_type=0) AS custom_book_types,
+        (SELECT COUNT(*) FROM accounting_accounts WHERE system_account=0) AS custom_accounts,
+        (SELECT COUNT(*) FROM accounting_audit_logs) AS audit_logs,
+        (SELECT COUNT(*) FROM accounting_attachment_operations) AS attachment_operations,
+        (SELECT COUNT(*) FROM accounting_attachment_integrity_issues) AS integrity_issues,
+        (SELECT COUNT(*) FROM accounting_sequences) AS sequences,
+        (SELECT COUNT(*) FROM accounting_special_sequences) AS special_sequences,
+        (SELECT COUNT(*) FROM accounting_meta WHERE meta_key='last_test_data_reset' OR meta_key LIKE 'test_%') AS reset_meta,
+        (SELECT COUNT(*) FROM accounting_resolution_dimensions) AS resolution_dimensions,
+        (SELECT COUNT(*) FROM accounting_journal_lines) AS journal_lines,
+        (SELECT COUNT(*) FROM accounting_journal_line_dimensions) AS journal_line_dimensions,
+        (SELECT COUNT(*) FROM accounting_budgets) AS budgets,
+        (SELECT COUNT(*) FROM accounting_budget_plans) AS budget_plans,
+        (SELECT COUNT(*) FROM accounting_closings) AS closings,
+        (SELECT COUNT(*) FROM accounting_monthly_summary) AS monthly_summary
+    `).first<Record<string, number>>(),
     collectMainFileKeys(env),
     collectAccountingFileKeys(env),
   ]);
 
+  const main = mainCounts || {};
+  const accounting = accountingCounts || {};
+  const n = (value: unknown) => Number(value || 0);
+
   return {
     generatedAt: new Date().toISOString(),
     main: {
-      documents,
-      receivedDocuments,
-      attachments: documentAttachments + receivedAttachments,
-      accountingOutbox,
+      documents: n(main.documents),
+      receivedDocuments: n(main.received_documents),
+      attachments: n(main.document_attachments) + n(main.received_attachments),
       r2Objects: unique([...mainFiles.metadataKeys, ...mainFiles.bucketKeys]).length,
     },
     accounting: {
-      resolutions,
-      journals,
-      donations,
-      donors,
-      assets,
-      cards,
-      cardTransactions,
-      branchReports,
-      certificates,
-      attachments: accountingAttachments,
-      customEntities,
-      customFunds,
-      customBookTypes,
-      customAccounts,
+      resolutions: n(accounting.resolutions),
+      journals: n(accounting.journals),
+      donations: n(accounting.donations),
+      donors: n(accounting.donors),
+      assets: n(accounting.assets),
+      cards: n(accounting.cards),
+      cardTransactions: n(accounting.card_transactions),
+      branchReports: n(accounting.branch_reports),
+      certificates: n(accounting.certificates),
+      attachments: n(accounting.attachments),
+      customEntities: n(accounting.custom_entities),
+      customFunds: n(accounting.custom_funds),
+      customBookTypes: n(accounting.custom_book_types),
+      customAccounts: n(accounting.custom_accounts),
       r2Objects: unique([...accountingFiles.metadataKeys, ...accountingFiles.bucketKeys]).length,
+    },
+    traces: {
+      documentWorkflow: n(main.document_approval_lines) + n(main.document_approvals) + n(main.document_dispatch_links),
+      integrationQueue: n(main.accounting_outbox),
+      accountingDetails: n(accounting.resolution_dimensions) + n(accounting.journal_lines) + n(accounting.journal_line_dimensions)
+        + n(accounting.budgets) + n(accounting.budget_plans) + n(accounting.closings) + n(accounting.monthly_summary),
+      accountingAuditLogs: n(accounting.audit_logs),
+      attachmentHistory: n(accounting.attachment_operations) + n(accounting.integrity_issues),
+      accessRateHistory: n(main.admin_rate_limits),
+      sequenceRecords: n(main.document_sequences) + n(accounting.sequences) + n(accounting.special_sequences),
+      resetMetaRecords: n(main.reset_meta) + n(accounting.reset_meta),
     },
     preserved: [
       '사용자·권한·로그인 세션',
@@ -150,6 +167,11 @@ export const getTestResetPreview = async (env: ResetEnv) => {
       '기본 회계구분·기본 재원·첨부 운영정책',
     ],
   };
+};
+
+const countPreviewRemainders = (preview: Awaited<ReturnType<typeof getTestResetPreview>>) => {
+  const groups = [preview.main, preview.accounting, preview.traces];
+  return groups.reduce((total, group) => total + Object.values(group).reduce((subtotal, value) => subtotal + Number(value || 0), 0), 0);
 };
 
 export const resetAllTestData = async (env: ResetEnv, user: SessionUser) => {
@@ -166,13 +188,6 @@ export const resetAllTestData = async (env: ResetEnv, user: SessionUser) => {
   const deletedMainR2 = await deleteBucketKeys(env.FILES, mainR2Keys, '전자문서');
   const deletedAccountingR2 = await deleteBucketKeys(env.ACCOUNTING_FILES, accountingR2Keys, '회계');
   const now = new Date().toISOString();
-  const resetDetail = JSON.stringify({
-    resetAt: now,
-    resetBy: user.name,
-    resetByUserId: user.id,
-    deletedMainR2,
-    deletedAccountingR2,
-  });
 
   await env.DB.batch([
     env.DB.prepare('DELETE FROM document_approval_lines'),
@@ -185,8 +200,7 @@ export const resetAllTestData = async (env: ResetEnv, user: SessionUser) => {
     env.DB.prepare('DELETE FROM accounting_outbox'),
     env.DB.prepare('DELETE FROM document_sequences'),
     env.DB.prepare('DELETE FROM admin_rate_limits'),
-    env.DB.prepare(`INSERT INTO system_meta (meta_key,meta_value,updated_at) VALUES ('last_test_data_reset',?,?)
-      ON CONFLICT(meta_key) DO UPDATE SET meta_value=excluded.meta_value,updated_at=excluded.updated_at`).bind(resetDetail, now),
+    env.DB.prepare("DELETE FROM system_meta WHERE meta_key='last_test_data_reset' OR meta_key LIKE 'test_%'"),
   ]);
 
   await env.ACCOUNTING_DB.batch([
@@ -216,14 +230,23 @@ export const resetAllTestData = async (env: ResetEnv, user: SessionUser) => {
     env.ACCOUNTING_DB.prepare('DELETE FROM accounting_funds WHERE system_fund=0'),
     env.ACCOUNTING_DB.prepare("DELETE FROM accounting_entities WHERE id<>'ENTITY-HQ'"),
     env.ACCOUNTING_DB.prepare('DELETE FROM accounting_book_types WHERE system_type=0'),
-    env.ACCOUNTING_DB.prepare(`INSERT INTO accounting_meta (meta_key,meta_value,updated_at) VALUES ('last_test_data_reset',?,?)
-      ON CONFLICT(meta_key) DO UPDATE SET meta_value=excluded.meta_value,updated_at=excluded.updated_at`).bind(resetDetail, now),
+    env.ACCOUNTING_DB.prepare("DELETE FROM accounting_meta WHERE meta_key='last_test_data_reset' OR meta_key LIKE 'test_%'"),
   ]);
+
+  const verification = await getTestResetPreview(env);
+  const remainingRecords = countPreviewRemainders(verification);
+  const verified = remainingRecords === 0;
 
   return {
     resetAt: now,
+    resetBy: user.name,
     deletedMainR2,
     deletedAccountingR2,
-    message: '전자문서·회계 테스트자료와 번호 카운트를 초기화했습니다.',
+    verified,
+    remainingRecords,
+    verification,
+    message: verified
+      ? '전자문서·회계 테스트자료, 관련 로그·감사이력, 번호 카운트와 R2 파일을 모두 초기화하고 잔여 0건을 확인했습니다.'
+      : `초기화는 실행했으나 삭제 대상 ${remainingRecords.toLocaleString('ko-KR')}건이 남아 있습니다. 미리보기를 다시 실행해 잔여 항목을 확인해 주세요.`,
   };
 };
