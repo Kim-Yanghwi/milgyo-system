@@ -2,7 +2,7 @@
 import ManagementLayout from '../layouts/ManagementLayout.astro';
 ---
 <ManagementLayout title="대장관리기능" active="registers">
-  <div data-register-management-version="2026-08-01-v56" hidden></div>
+  <div data-register-management-version="2026-08-01-v57" hidden></div>
   <div class="page-heading">
     <div><p class="page-heading__kicker">REGISTER MANAGEMENT</p><h1>대장관리기능</h1><p>공고대장, 관인날인 기록부, 인영관리 기록부를 신청·조회·처리합니다.</p></div>
     <button type="button" class="btn btn-primary" data-open-request>+ 신청</button>
@@ -98,10 +98,13 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
   </div>
 
   <div class="modal-overlay" data-detail-modal hidden>
-    <section class="modal">
+    <section class="modal register-detail-modal">
       <header class="modal__header"><h2>대장 신청 상세</h2><button type="button" class="modal__close" data-close-detail aria-label="닫기">×</button></header>
-      <div class="modal__body">
-        <div class="detail-grid" data-detail-grid></div>
+      <div class="modal__body register-detail-modal__body">
+        <section class="detail-section detail-section--summary">
+          <h3>기본정보</h3>
+          <div class="detail-grid" data-detail-grid></div>
+        </section>
         <section class="detail-section"><h3>신청내용</h3><div class="detail-content" data-detail-content></div></section>
         <section class="detail-section"><h3>첨부파일</h3><div class="attachment-list" data-attachment-list></div></section>
         <section class="admin-processing" data-admin-processing hidden>
@@ -109,7 +112,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
           <div class="form-grid"><div class="form-field"><label for="process-status">처리상태</label><select id="process-status" data-process-status><option>신청</option><option>검토중</option><option>완료</option><option>반려</option></select></div><div class="form-field form-field--full"><label for="process-memo">처리의견</label><textarea id="process-memo" data-process-memo></textarea></div></div>
           <div class="modal__actions"><button type="button" class="btn btn-primary" data-save-status>처리상태 저장</button></div>
         </section>
-        <div class="modal__actions"><button type="button" class="btn btn-outline" data-cancel-request hidden>신청 취소</button><button type="button" class="btn btn-outline" data-close-detail>닫기</button></div>
+        <div class="modal__actions register-detail-footer"><button type="button" class="btn btn-outline" data-cancel-request hidden>신청 취소</button><button type="button" class="btn btn-outline" data-close-detail>닫기</button></div>
       </div>
     </section>
   </div>
@@ -521,25 +524,92 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       });
 
       const detailRows = (row) => [
-        ['신청번호', row.request_no],
-        ['대장유형', row.record_type],
-        ['신청일', row.request_date],
-        ['신청자', row.applicant_name],
-        ['부서', row.applicant_department || '-'],
-        ['상태', row.status],
-        ['처리자', row.processed_by || '-'],
-        ['처리일시', row.processed_at ? new Date(row.processed_at).toLocaleString('ko-KR') : '-'],
-        ['처리의견', row.processing_memo || '-'],
+        [
+          { label: '신청번호', value: row.request_no },
+          { label: '대장유형', value: row.record_type },
+        ],
+        [
+          { label: '신청일', value: row.request_date },
+          { label: '신청자', value: row.applicant_name },
+        ],
+        [
+          { label: '부서', value: row.applicant_department || '-' },
+          { label: '상태', value: row.status },
+        ],
+        [
+          { label: '처리자', value: row.processed_by || '-' },
+          { label: '처리일시', value: row.processed_at ? new Date(row.processed_at).toLocaleString('ko-KR') : '-' },
+        ],
+        [
+          { label: '처리의견', value: row.processing_memo || '-', full: true },
+        ],
       ];
 
-      const keyValueTable = (rows, className) => `<table class="register-detail-table ${className}"><tbody>${rows
-        .map(([label, value]) => `<tr><th scope="row">${esc(label)}</th><td>${esc(displayValue(value))}</td></tr>`)
-        .join('')}</tbody></table>`;
+      const contentRows = (type, content = {}) => {
+        if (type === '공고대장') {
+          return [
+            [
+              { label: '공고일', value: content.noticeDate || '-' },
+              { label: '공고번호', value: content.noticeNumber || '-' },
+            ],
+            [{ label: '공고명', value: content.noticeTitle || '-', full: true }],
+            [{ label: '공고내용', value: content.noticeBody || '-', full: true, multiline: true }],
+            [{ label: '비고', value: content.remarks || '-', full: true, multiline: true }],
+          ];
+        }
+        if (type === '관인날인기록부') {
+          return [
+            [{ label: '건명', value: content.subject || '-', full: true }],
+            [
+              { label: '날인매수', value: content.sealCount || '-' },
+              { label: '관인종류', value: content.sealType || '-' },
+            ],
+            [{ label: '관련근거', value: content.relatedBasis || '-', full: true }],
+            [{ label: '사용목적', value: content.purpose || '-', full: true, multiline: true }],
+            [{ label: '비고', value: content.remarks || '-', full: true, multiline: true }],
+          ];
+        }
+        return [
+          [{ label: '근거문서', value: content.referenceDocument || '-', full: true }],
+          [{ label: '사용목적', value: content.purpose || '-', full: true, multiline: true }],
+          [{ label: '사용기관·업체명', value: content.recipientOrganization || '-', full: true }],
+          [
+            { label: '사용기관 대표자명', value: content.representativeName || '-' },
+            { label: '사업자번호', value: content.businessNumber || '-' },
+          ],
+          [
+            { label: '사용방법', value: content.usageMethod || '-' },
+            { label: '사용개수', value: content.usageCount || '-' },
+          ],
+          [
+            { label: '사용기간 시작', value: content.usageStartDate || '-' },
+            { label: '사용기간 종료', value: content.usageEndDate || '-' },
+          ],
+          [
+            { label: '사용완료일', value: content.usageCompletionDate || '-' },
+            { label: '신청자 연락처', value: content.contact || '-' },
+          ],
+          [{ label: '준수사항 서약', value: content.pledgeAccepted ? '확인' : '미확인', full: true }],
+          [{ label: '비고', value: content.remarks || '-', full: true, multiline: true }],
+        ];
+      };
+
+      const structuredDetailTable = (rows, className = '') => `<table class="register-detail-table ${className}">
+        <colgroup><col class="register-detail-label-col"><col class="register-detail-value-col"><col class="register-detail-label-col"><col class="register-detail-value-col"></colgroup>
+        <tbody>${rows.map((row) => {
+          const first = row[0];
+          if (first?.full || row.length === 1) {
+            const valueClass = first?.multiline ? ' register-detail-value--multiline' : '';
+            return `<tr><th scope="row">${esc(first?.label || '-')}</th><td colspan="3" class="register-detail-value${valueClass}">${esc(displayValue(first?.value))}</td></tr>`;
+          }
+          const second = row[1] || { label: '-', value: '-' };
+          return `<tr><th scope="row">${esc(first.label)}</th><td class="register-detail-value">${esc(displayValue(first.value))}</td><th scope="row">${esc(second.label)}</th><td class="register-detail-value">${esc(displayValue(second.value))}</td></tr>`;
+        }).join('')}</tbody></table>`;
 
       const renderAttachments = (attachments, row, id) => {
         const list = $('[data-attachment-list]');
         if (!attachments.length) {
-          list.innerHTML = '<div class="attachment-empty">첨부파일이 없습니다.</div>';
+          list.innerHTML = '<table class="register-attachment-table"><thead><tr><th>파일명</th><th>용량</th><th>관리</th></tr></thead><tbody><tr><td colspan="3" class="attachment-empty-cell">첨부파일이 없습니다.</td></tr></tbody></table>';
           return;
         }
         list.innerHTML = `<table class="register-attachment-table"><thead><tr><th>파일명</th><th>용량</th><th>관리</th></tr></thead><tbody>${attachments.map((attachment) => {
@@ -582,10 +652,11 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
           }
           currentDetail = data.row;
           canManage = !!data.canManage;
-          $('[data-detail-grid]').innerHTML = keyValueTable(detailRows(data.row), 'register-detail-summary');
-          const contentMap = labels[data.row.record_type] || {};
-          const contentRows = Object.entries(contentMap).map(([key, label]) => [label, data.row.content?.[key]]);
-          $('[data-detail-content]').innerHTML = keyValueTable(contentRows, 'register-detail-content-table');
+          $('[data-detail-grid]').innerHTML = structuredDetailTable(detailRows(data.row), 'register-detail-summary');
+          $('[data-detail-content]').innerHTML = structuredDetailTable(
+            contentRows(data.row.record_type, data.row.content || {}),
+            `register-detail-content-table register-detail-content-table--${data.row.record_type}`,
+          );
           renderAttachments(data.attachments || [], data.row, id);
           $('[data-admin-processing]').hidden = !canManage;
           $('[data-process-status]').value = data.row.status === '취소' ? '신청' : data.row.status;
@@ -700,7 +771,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
     })();
   </script>
 
-  <style>
+  <style is:global>
     .register-type-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:.45rem;margin-bottom:1rem}
     .register-type-tab{border:1px solid var(--gov-border);background:#f7f9fc;padding:.8rem;font-weight:700;transition:background-color .12s ease,color .12s ease,border-color .12s ease}
     .register-type-tab.active{background:var(--gov-accent);color:#fff;border-color:var(--gov-accent)}
@@ -728,35 +799,50 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
     .pending-files span{display:inline-flex;align-items:center;gap:.35rem;border:1px solid var(--gov-border);background:#fff;padding:.35rem .5rem}
     .pending-files button{border:0;background:transparent;color:#a12626}
 
+    .register-detail-modal{width:min(1080px,calc(100vw - 2rem));max-height:calc(100vh - 2rem)}
+    .register-detail-modal__body{background:#f4f7fb;padding:1rem 1.1rem 1.1rem}
     .detail-grid{margin:0}
-    .register-detail-table{width:100%;border-collapse:collapse;table-layout:fixed;border:1px solid var(--gov-border)}
-    .register-detail-table th,.register-detail-table td{border:1px solid var(--gov-border);padding:.7rem .8rem;text-align:center;vertical-align:middle;line-height:1.5;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}
-    .register-detail-table th{width:180px;background:#eef3f8;color:var(--gov-navy-dark);font-weight:800}
-    .register-detail-table td{background:#fff}
-    .register-detail-summary th{width:150px}
-    .detail-section,.admin-processing{margin-top:1rem}
-    .detail-section h3,.admin-processing h3{margin:0 0 .55rem}
+    .detail-section,.admin-processing{margin:0 0 1rem;border:1px solid #cbd8e8;border-radius:8px;background:#fff;padding:1rem;box-shadow:0 1px 2px rgba(31,57,90,.04)}
+    .detail-section h3,.admin-processing h3{display:flex;align-items:center;gap:.45rem;margin:0 0 .7rem;color:var(--gov-navy-dark);font-size:1rem;font-weight:800}
+    .detail-section h3::before,.admin-processing h3::before{content:"";display:block;width:4px;height:1.05rem;border-radius:999px;background:var(--gov-accent)}
+    .register-detail-table{width:100%;border-collapse:collapse;table-layout:fixed;border:1px solid #9eb1c8;background:#fff}
+    .register-detail-table .register-detail-label-col{width:15%}
+    .register-detail-table .register-detail-value-col{width:35%}
+    .register-detail-table th,.register-detail-table td{border:1px solid #9eb1c8;padding:.72rem .8rem;text-align:center!important;vertical-align:middle;line-height:1.5;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}
+    .register-detail-table th{background:#e8eff7;color:#142f52;font-weight:800}
+    .register-detail-table td{background:#fff;color:#172335}
+    .register-detail-table .register-detail-value--multiline{min-height:76px;padding-top:1rem;padding-bottom:1rem;line-height:1.7}
+    .register-detail-content-table th{background:#edf3f9}
     .detail-content{border:0}
-    .detail-loading{border:1px solid var(--gov-border);background:#f7f9fc;padding:1.1rem;text-align:center;color:var(--gov-muted)}
+    .detail-loading{border:1px solid #cbd8e8;border-radius:6px;background:#f7f9fc;padding:1.1rem;text-align:center;color:var(--gov-muted)}
 
     .attachment-list{border:0}
-    .register-attachment-table{width:100%;border-collapse:collapse;table-layout:fixed;border:1px solid var(--gov-border)}
-    .register-attachment-table th,.register-attachment-table td{border:1px solid var(--gov-border);padding:.6rem;text-align:center;vertical-align:middle;word-break:keep-all;overflow-wrap:anywhere}
-    .register-attachment-table th{background:#eef3f8}
+    .register-attachment-table{width:100%;border-collapse:collapse;table-layout:fixed;border:1px solid #9eb1c8;background:#fff}
+    .register-attachment-table th,.register-attachment-table td{border:1px solid #9eb1c8;padding:.65rem;text-align:center!important;vertical-align:middle;word-break:keep-all;overflow-wrap:anywhere}
+    .register-attachment-table th{background:#e8eff7;color:#142f52;font-weight:800}
     .register-attachment-table th:nth-child(2),.register-attachment-table td:nth-child(2){width:110px}
     .register-attachment-table th:last-child,.register-attachment-table td:last-child{width:180px}
-    .attachment-empty{border:1px solid var(--gov-border);padding:.8rem;text-align:center;color:var(--gov-muted)}
+    .attachment-empty-cell{padding:1rem!important;text-align:center!important;color:var(--gov-muted);background:#fff}
     .row-actions{display:flex;justify-content:center;gap:.45rem;flex-wrap:wrap}
 
     .admin-processing .form-grid{align-items:end}
+    .admin-processing .form-field label{font-weight:800;color:#253b58}
+    .admin-processing select,.admin-processing textarea{background:#fff}
+    .register-detail-footer{position:sticky;bottom:-1.1rem;margin:0 -1.1rem -1.1rem;padding:.85rem 1.1rem;background:#fff;border-top:1px solid #d5dfeb;z-index:2}
     .pledge-field label{display:flex;align-items:flex-start;gap:.5rem;line-height:1.55;font-weight:600}
     .pledge-field input{min-height:auto;margin-top:.2rem}
     .danger{color:#a12626;border-color:#dfb4b4}
 
     @media(max-width:850px){
       .register-type-tabs{grid-template-columns:1fr}
-      .register-detail-table th{width:120px}
+      .register-detail-modal{width:calc(100vw - 1rem);max-height:calc(100vh - 1rem)}
+      .register-detail-modal__body{padding:.75rem}
+      .detail-section,.admin-processing{padding:.75rem}
+      .register-detail-table{min-width:700px}
+      .detail-grid,.detail-content,.attachment-list{overflow-x:auto}
+      .register-attachment-table{min-width:620px}
       .register-attachment-table th:last-child,.register-attachment-table td:last-child{width:140px}
+      .register-detail-footer{bottom:-.75rem;margin:0 -.75rem -.75rem;padding:.75rem}
     }
   </style>
 </ManagementLayout>
