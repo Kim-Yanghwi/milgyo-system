@@ -64,10 +64,10 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         .employment-certificate-preview-root{background:#dfe4ea;padding:1rem}
         .employment-certificate-paper{width:794px;min-height:1123px;margin:0 auto;background:#fff;padding:78px 64px 74px;color:#111;font-family:"Nanum Myeongjo","Noto Serif KR","Malgun Myeongjo",Batang,serif}
         .employment-certificate-title{display:table;margin:0 auto 56px;padding:0 20px 8px;border-bottom:4px double #111;font-size:34px;line-height:1.1;font-weight:700;letter-spacing:.42em;text-indent:.42em;white-space:nowrap}
-        .employment-certificate-head{display:grid;grid-template-columns:minmax(0,1fr) 248px;align-items:end;column-gap:8px;margin:0 0 10px 6px}
+        .employment-certificate-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;column-gap:8px;margin:0 0 10px 6px}
         .employment-certificate-number{padding-top:24px;font-size:16px;line-height:1.5;white-space:nowrap}
         .employment-certificate-number strong{display:inline-block;min-width:78px;text-align:center;font-weight:400}
-        .employment-certificate-meta{display:flex;flex-direction:column;gap:6px;min-width:0;width:248px;margin-right:-4px;font-size:15.5px;line-height:1.45;white-space:nowrap;justify-self:end}
+        .employment-certificate-meta{display:flex;flex-direction:column;gap:6px;min-width:0;width:max-content;margin-right:0;font-size:15.5px;line-height:1.45;white-space:nowrap;justify-self:end}
         .employment-certificate-meta-row{display:grid;grid-template-columns:60px minmax(0,1fr);align-items:baseline;column-gap:4px;width:100%}
         .employment-certificate-meta-label{font-weight:600;text-align:left}
         .employment-certificate-meta-value{min-width:0;letter-spacing:.02em;white-space:nowrap;text-align:left}
@@ -89,7 +89,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         .employment-certificate-issuer{width:100%;margin:0 auto;padding-bottom:78px;text-align:center;font-size:22px;line-height:1.5;font-weight:600}
         .employment-certificate-issuer-block{position:relative;display:inline-grid;grid-auto-rows:auto;justify-items:end;min-width:0;width:max-content;max-width:100%;margin:0 auto;text-align:right;padding-right:0}.employment-certificate-issuer-line{position:relative;z-index:2;display:block;white-space:nowrap;letter-spacing:0}
         .employment-certificate-issuer-line + .employment-certificate-issuer-line{margin-top:4px}
-        .employment-certificate-seal{position:absolute;z-index:1;right:18px;top:2px;width:98px;height:98px;object-fit:contain;pointer-events:none;opacity:1;mix-blend-mode:normal;filter:none;background:transparent}
+        .employment-certificate-seal{position:absolute;z-index:1;right:-62px;top:2px;width:98px;height:98px;object-fit:contain;pointer-events:none;opacity:1;mix-blend-mode:normal;filter:none;background:transparent}
         .employment-certificate-print-action{width:794px;margin:12px auto 24px;text-align:right}
         .employment-certificate-print-action button{padding:7px 18px}
         @media print{
