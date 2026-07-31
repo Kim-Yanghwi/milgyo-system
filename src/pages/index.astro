@@ -105,6 +105,16 @@ import GovLayout from '../layouts/GovLayout.astro';
         </div>
 
         <div class="sidebar-group">
+          <p class="sidebar-group__title">대장관리기능</p>
+          <a class="sidebar-link sidebar-external-link" href="/register-management">공고·관인·인영 대장</a>
+        </div>
+
+        <div class="sidebar-group">
+          <p class="sidebar-group__title">임·직원 증명서</p>
+          <a class="sidebar-link sidebar-external-link" href="/employee-certificates">재직증명서 발급·대장</a>
+        </div>
+
+        <div class="sidebar-group">
           <p class="sidebar-group__title">접수·외부발송(문서24 등)</p>
           <button type="button" class="sidebar-link" data-received-view="전체">접수·발송대장</button>
           <a class="sidebar-link sidebar-external-link" href="https://docu.gdoc.go.kr/" target="_blank" rel="noopener noreferrer">문서24 바로가기</a>
@@ -1701,8 +1711,20 @@ import GovLayout from '../layouts/GovLayout.astro';
       });
       bootstrapForm.addEventListener('submit',async(e)=>{e.preventDefault();bootstrapError.hidden=true;bootstrapOk.hidden=true;const fd=new FormData(bootstrapForm),d=await callApi('/api/auth/bootstrap',{adminToken:fd.get('adminToken'),name:fd.get('name'),username:fd.get('username'),password:fd.get('password'),position:fd.get('position')});if(!d.ok){bootstrapError.hidden=false;bootstrapError.textContent=d.message;return;}bootstrapOk.hidden=false;bootstrapOk.textContent=d.message;$('#login-username').value=fd.get('username');});
       $('[data-logout]').addEventListener('click',async()=>{const token=getToken();clearSession();showLogin();if(token)callApi('/api/auth/logout',{token});});
+      const activateFromQuery = () => {
+        const params = new URLSearchParams(location.search);
+        const requestedView = params.get('view');
+        if (requestedView && ['임시저장','진행','결재대기','발송대기','완료','반려','전체'].includes(requestedView)) activateDocumentsView(requestedView);
+        else if (params.get('received') === '1') activateReceivedView();
+        else activateHome();
+        if (params.get('compose') === '1') setTimeout(() => $('[data-open-compose]')?.click(), 50);
+        if (params.get('receivedCreate') === '1') setTimeout(() => $('[data-open-received]')?.click(), 50);
+        if (params.get('templates') === '1') setTimeout(() => $('[data-open-templates]')?.click(), 50);
+        if (params.get('users') === '1') setTimeout(() => $('[data-open-users]')?.click(), 50);
+        if (params.get('orgchart') === '1') setTimeout(() => $('[data-open-orgchart]')?.click(), 50);
+      };
       if(getToken()){
-        showApp();activateHome();
+        showApp();activateFromQuery();
         Promise.all([refreshUserOptions(),refreshTemplates(),loadOrgSettings()]).catch((error)=>console.error('초기 데이터 로드 실패',error));
       } else showLogin();
     })();

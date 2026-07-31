@@ -42,14 +42,18 @@ const collectMainFileKeys = async (env: ResetEnv) => {
     UNION ALL
     SELECT r2_key AS object_key FROM received_attachments
     WHERE storage_type='r2' AND r2_key IS NOT NULL AND r2_key<>''
+    UNION ALL
+    SELECT r2_key AS object_key FROM management_register_attachments
+    WHERE storage_type='r2' AND r2_key IS NOT NULL AND r2_key<>''
   `).all<{ object_key: string }>();
   const metadataKeys = (metadataRows.results || []).map((row) => String(row.object_key || ''));
   if (!env.FILES) return { metadataKeys: unique(metadataKeys), bucketKeys: [] as string[] };
-  const [documentKeys, registryKeys] = await Promise.all([
+  const [documentKeys, registryKeys, registerKeys] = await Promise.all([
     listBucketKeys(env.FILES, 'documents/'),
     listBucketKeys(env.FILES, 'registry/'),
+    listBucketKeys(env.FILES, 'registers/'),
   ]);
-  return { metadataKeys: unique(metadataKeys), bucketKeys: unique([...documentKeys, ...registryKeys]) };
+  return { metadataKeys: unique(metadataKeys), bucketKeys: unique([...documentKeys, ...registryKeys, ...registerKeys]) };
 };
 
 const collectAccountingFileKeys = async (env: ResetEnv) => {
@@ -78,6 +82,11 @@ export const getTestResetPreview = async (env: ResetEnv) => {
         (SELECT COUNT(*) FROM received_documents) AS received_documents,
         (SELECT COUNT(*) FROM document_attachments) AS document_attachments,
         (SELECT COUNT(*) FROM received_attachments) AS received_attachments,
+        (SELECT COUNT(*) FROM management_registers) AS management_registers,
+        (SELECT COUNT(*) FROM management_register_attachments) AS management_register_attachments,
+        (SELECT COUNT(*) FROM employment_certificates) AS employment_certificates,
+        (SELECT COUNT(*) FROM employee_profiles) AS employee_profiles,
+        (SELECT COUNT(*) FROM management_audit_logs) AS management_audit_logs,
         (SELECT COUNT(*) FROM accounting_outbox) AS accounting_outbox,
         (SELECT COUNT(*) FROM document_approval_lines) AS document_approval_lines,
         (SELECT COUNT(*) FROM document_approvals) AS document_approvals,
@@ -130,6 +139,10 @@ export const getTestResetPreview = async (env: ResetEnv) => {
       documents: n(main.documents),
       receivedDocuments: n(main.received_documents),
       attachments: n(main.document_attachments) + n(main.received_attachments),
+      registers: n(main.management_registers),
+      registerAttachments: n(main.management_register_attachments),
+      employmentCertificates: n(main.employment_certificates),
+      employeeProfiles: n(main.employee_profiles),
       r2Objects: unique([...mainFiles.metadataKeys, ...mainFiles.bucketKeys]).length,
     },
     accounting: {
@@ -159,6 +172,7 @@ export const getTestResetPreview = async (env: ResetEnv) => {
       accessRateHistory: n(main.admin_rate_limits),
       sequenceRecords: n(main.document_sequences) + n(accounting.sequences) + n(accounting.special_sequences),
       resetMetaRecords: n(main.reset_meta) + n(accounting.reset_meta),
+      managementAuditLogs: n(main.management_audit_logs),
     },
     preserved: [
       '사용자·권한·로그인 세션',
@@ -195,6 +209,11 @@ export const resetAllTestData = async (env: ResetEnv, user: SessionUser) => {
     env.DB.prepare('DELETE FROM document_dispatch_links'),
     env.DB.prepare('DELETE FROM document_attachments'),
     env.DB.prepare('DELETE FROM received_attachments'),
+    env.DB.prepare('DELETE FROM management_register_attachments'),
+    env.DB.prepare('DELETE FROM management_registers'),
+    env.DB.prepare('DELETE FROM employment_certificates'),
+    env.DB.prepare('DELETE FROM employee_profiles'),
+    env.DB.prepare('DELETE FROM management_audit_logs'),
     env.DB.prepare('DELETE FROM received_documents'),
     env.DB.prepare('DELETE FROM documents'),
     env.DB.prepare('DELETE FROM accounting_outbox'),

@@ -1,0 +1,114 @@
+---
+import GovLayout from './GovLayout.astro';
+export interface Props {
+  title: string;
+  active: 'registers' | 'employment';
+}
+const { title, active } = Astro.props;
+---
+<GovLayout title={`${title} | 대한불교밀교종 종단관리시스템`}>
+  <div class="app-shell management-shell" data-management-shell>
+    <header class="app-topbar">
+      <button type="button" class="app-topbar__menu-toggle" data-toggle-sidebar aria-label="메뉴 접기">☰</button>
+      <a class="app-topbar__brand" href="/" aria-label="대한불교밀교종 종단관리시스템 홈으로 이동">
+        <img class="app-topbar__logo" src="/logo.png" alt="대한불교밀교종 로고" />
+        <span class="app-topbar__brand-title">
+          <img class="app-topbar__wordmark" src="/brand-wordmark.png" alt="대한불교밀교종" />
+          <span class="app-topbar__system-name">종단관리시스템</span>
+        </span>
+      </a>
+      <nav class="app-topbar__menu">
+        <a class="app-topbar__link" href="/">홈</a>
+        <a class="app-topbar__link" href="/?view=결재대기">결재</a>
+        <a class="app-topbar__link" href="/?view=전체">문서대장</a>
+        <a class="app-topbar__link" href="/?received=1">접수·발송</a>
+        <a class="app-topbar__link" href="/accounting" data-accounting-access-link hidden>회계관리</a>
+      </nav>
+      <div class="app-topbar__right">
+        <span class="app-topbar__me" data-me-label></span>
+        <a class="btn btn-ghost" href="/?templates=1" data-admin-link hidden>서식관리</a>
+        <a class="btn btn-ghost" href="/?users=1" data-admin-link hidden>계정관리</a>
+        <a class="btn btn-ghost" href="/?orgchart=1">조직도</a>
+        <button type="button" class="btn btn-ghost" data-logout>로그아웃</button>
+      </div>
+    </header>
+
+    <div class="app-body">
+      <aside class="app-sidebar">
+        <section class="sidebar-profile" aria-label="로그인 계정 정보">
+          <div class="sidebar-profile__row"><span>이름</span><strong data-me-name>-</strong></div>
+          <div class="sidebar-profile__row"><span>직책</span><strong data-me-position>-</strong></div>
+          <div class="sidebar-profile__row"><span>1차부서</span><strong data-me-department>-</strong></div>
+        </section>
+        <a class="btn btn-primary btn-block sidebar-compose" href="/?compose=1">+ 문서작성</a>
+
+        <div class="sidebar-group" data-accounting-access-section hidden>
+          <p class="sidebar-group__title">회계</p>
+          <a class="sidebar-link sidebar-external-link" href="/accounting">예산·결의·장부·결산</a>
+        </div>
+
+        <div class="sidebar-group">
+          <p class="sidebar-group__title">전자문서</p>
+          <a class="sidebar-link sidebar-external-link" href="/?view=임시저장">임시저장함</a>
+          <a class="sidebar-link sidebar-external-link" href="/?view=진행">진행문서함</a>
+          <a class="sidebar-link sidebar-external-link" href="/?view=결재대기">결재대기함</a>
+          <a class="sidebar-link sidebar-external-link" href="/?view=발송대기">발송대기함</a>
+          <a class="sidebar-link sidebar-external-link" href="/?view=전체">문서등록대장</a>
+        </div>
+        <div class="sidebar-group">
+          <p class="sidebar-group__title">처리한문서</p>
+          <a class="sidebar-link sidebar-external-link" href="/?view=완료">완료문서함</a>
+          <a class="sidebar-link sidebar-external-link" href="/?view=반려">반려문서함</a>
+        </div>
+        <div class="sidebar-group">
+          <p class="sidebar-group__title">대장관리기능</p>
+          <a class:list={["sidebar-link","sidebar-external-link", active === 'registers' && 'active']} href="/register-management">공고·관인·인영 대장</a>
+        </div>
+        <div class="sidebar-group">
+          <p class="sidebar-group__title">임·직원 증명서</p>
+          <a class:list={["sidebar-link","sidebar-external-link", active === 'employment' && 'active']} href="/employee-certificates">재직증명서 발급·대장</a>
+        </div>
+        <div class="sidebar-group">
+          <p class="sidebar-group__title">접수·외부발송(문서24 등)</p>
+          <a class="sidebar-link sidebar-external-link" href="/?received=1">접수·발송대장</a>
+          <a class="sidebar-link sidebar-external-link" href="https://docu.gdoc.go.kr/" target="_blank" rel="noopener noreferrer">문서24 바로가기</a>
+          <a class="btn btn-outline btn-block" href="/?receivedCreate=1">+ 접수·발송 등록</a>
+        </div>
+      </aside>
+      <main class="app-main"><slot /></main>
+    </div>
+  </div>
+
+  <script is:inline>
+    (() => {
+      const key='milgyo-system-session';
+      let session=null;
+      try { session=JSON.parse(localStorage.getItem(key)||'null'); } catch {}
+      if(!session?.token||!session?.user){ location.replace('/'); return; }
+      const user=session.user;
+      const set=(sel,value)=>{const el=document.querySelector(sel);if(el)el.textContent=value||'-';};
+      set('[data-me-name]',user.name); set('[data-me-position]',user.position||user.grade); set('[data-me-department]',user.department);
+      set('[data-me-label]',[user.name,user.position||user.grade].filter(Boolean).join(' · '));
+      const accounting= user.role==='admin'||!!user.canAccounting||Number(user.can_accounting||0)===1;
+      document.querySelectorAll('[data-accounting-access-link],[data-accounting-access-section]').forEach((el)=>el.hidden=!accounting);
+      document.querySelectorAll('[data-admin-link]').forEach((el)=>el.hidden=user.role!=='admin');
+      document.querySelector('[data-toggle-sidebar]')?.addEventListener('click',()=>document.querySelector('[data-management-shell]')?.classList.toggle('sidebar-collapsed'));
+      document.querySelector('[data-logout]')?.addEventListener('click',async()=>{
+        try{await fetch('/api/auth/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:session.token})});}catch{}
+        localStorage.removeItem(key);location.replace('/');
+      });
+      fetch('/api/dashboard/summary',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:session.token})})
+        .then(r=>r.json()).then(data=>{if(!data.ok&&/로그인|만료/.test(data.message||'')){localStorage.removeItem(key);location.replace('/');}}).catch(()=>{});
+      window.__MILGYO_SESSION__=session;
+    })();
+  </script>
+
+  <style is:global>
+    [hidden]{display:none!important}.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;border:1px solid transparent;border-radius:3px;padding:.55rem 1rem;font-size:.92rem;font-weight:600}.btn-primary{background:var(--gov-accent);color:#fff}.btn-outline{background:#fff;border-color:var(--gov-border);color:var(--gov-text)}.btn-ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.4)}.btn-block{width:100%}.btn-sm{padding:.35rem .65rem;font-size:.78rem}
+    .app-topbar{min-height:58px;background:linear-gradient(180deg,var(--gov-navy),var(--gov-navy-dark));color:#fff;display:flex;align-items:center;gap:.72rem;padding:.55rem 1rem}.app-topbar__menu-toggle{border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;border-radius:6px;width:36px;height:34px}.app-topbar__brand{display:flex;align-items:center;gap:.5rem;margin-right:auto;color:#fff;text-decoration:none;font-weight:700;min-width:0}.app-topbar__logo{width:26px;height:26px;object-fit:contain}.app-topbar__brand-title{display:flex;align-items:center;gap:.48rem;min-width:0}.app-topbar__wordmark{width:158px;max-height:25px;object-fit:contain;filter:brightness(0) invert(1)}.app-topbar__system-name{font-family:"Noto Serif KR","Nanum Myeongjo",Batang,serif;font-size:.98rem;white-space:nowrap}.app-topbar__menu,.app-topbar__right{display:flex;align-items:center;gap:.3rem;flex-shrink:0}.app-topbar__link{color:rgba(255,255,255,.78);text-decoration:none;padding:.4rem .7rem;border-radius:6px;font-size:.88rem}.app-topbar__link:hover{color:#fff;background:rgba(255,255,255,.08)}.app-topbar__me{font-size:.85rem;color:rgba(255,255,255,.9);margin-right:.35rem}
+    .app-body{display:flex;min-height:calc(100vh - 58px)}.app-sidebar{width:220px;flex:0 0 220px;background:#fff;border-right:1px solid var(--gov-border);padding:1rem .8rem;display:flex;flex-direction:column;gap:1rem}.sidebar-profile{border:1px solid #cfd8e6;border-radius:8px;overflow:hidden;background:#f7f9fc}.sidebar-profile__row{display:grid;grid-template-columns:70px 1fr;min-height:34px;border-bottom:1px solid #e1e6ee}.sidebar-profile__row:last-child{border-bottom:0}.sidebar-profile__row span,.sidebar-profile__row strong{display:flex;align-items:center;padding:.38rem .44rem;font-size:.75rem;min-width:0}.sidebar-profile__row span{background:#edf2f8;color:#526174;font-weight:700}.sidebar-profile__row strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sidebar-compose{margin-bottom:.4rem}.sidebar-group__title{font-size:.78rem;color:#fff;background:#557eb1;font-weight:700;margin:0 0 .25rem;padding:.42rem .55rem;border-radius:2px}.sidebar-link{display:flex;align-items:center;justify-content:flex-start;width:100%;padding:.58rem .65rem;border-radius:2px;color:var(--gov-text);text-decoration:none;font-size:.9rem}.sidebar-link:hover{background:#f2f4f7}.sidebar-link.active{background:#e8effe;color:var(--gov-accent);font-weight:700}.app-main{flex:1;min-width:0;padding:1.35rem 1.5rem 1.8rem}.management-shell.sidebar-collapsed .app-sidebar{width:0;flex-basis:0;padding:0;border:0;overflow:hidden}
+    .page-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;margin-bottom:1rem}.page-heading__kicker{margin:0 0 .2rem;color:var(--gov-gold);font-size:.72rem;font-weight:800;letter-spacing:.15em}.page-heading h1{margin:0;font-size:1.45rem}.page-heading p{margin:.28rem 0 0;color:var(--gov-muted);font-size:.87rem}.surface{background:#fff;border:1px solid var(--gov-border);border-radius:10px;padding:1rem;box-shadow:0 2px 8px rgba(20,36,60,.04)}
+    input,select,textarea{border:1px solid var(--gov-border);border-radius:5px;padding:.58rem .7rem;font-size:.9rem;background:#fff;min-height:38px}textarea{resize:vertical;min-height:78px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem 1rem}.form-field{display:flex;flex-direction:column;gap:.35rem}.form-field--full{grid-column:1/-1}.form-field label,.field-label{font-size:.82rem;font-weight:700}.hint{margin:.2rem 0;color:var(--gov-muted);font-size:.76rem}.toolbar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}.toolbar--between{justify-content:space-between}.status-message{min-height:1.4rem;color:var(--gov-muted);font-size:.84rem}.status-message.error{color:#a12626}.status-message.ok{color:#1e6f2b}.data-wrap{overflow:auto;border:1px solid var(--gov-border)}.data-table{width:100%;min-width:980px;border-collapse:collapse;table-layout:fixed;font-size:.84rem}.data-table th,.data-table td{border:1px solid var(--gov-border);padding:.58rem .55rem;text-align:center;vertical-align:middle}.data-table th{background:#e9f0f8;font-weight:700}.data-table td.text-left{text-align:left}.badge{display:inline-flex;padding:.18rem .55rem;border-radius:999px;font-size:.75rem;background:#edf0f4}.badge--신청{background:#fff3d6;color:#835800}.badge--검토중{background:#e3ecff;color:#2a4fb0}.badge--완료,.badge--발급{background:#e3f4e3;color:#1e6f2b}.badge--반려,.badge--취소{background:#fbe4e4;color:#a12626}.pagination{display:flex;justify-content:center;gap:.3rem;margin-top:.8rem}.pagination button{min-width:34px;height:34px;border:1px solid var(--gov-border);background:#fff}.pagination button.active{background:var(--gov-accent);color:#fff}.modal-overlay{position:fixed;inset:0;background:rgba(15,28,48,.48);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:100}.modal{width:min(920px,calc(100vw - 2rem));max-height:92vh;background:#fff;border-radius:10px;overflow:auto;box-shadow:0 22px 70px rgba(0,0,0,.3)}.modal__header{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:.9rem 1rem;border-bottom:1px solid var(--gov-border);background:#fff}.modal__header h2{margin:0;font-size:1.15rem}.modal__close{border:0;background:transparent;font-size:1.5rem}.modal__body{padding:1rem}.modal__actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--gov-border)}
+    @media(max-width:1050px){.app-topbar{flex-wrap:wrap}.app-topbar__menu,.app-topbar__right{width:100%;flex-wrap:wrap}.app-body{flex-direction:column}.app-sidebar{width:100%;flex-basis:auto;border-right:0;border-bottom:1px solid var(--gov-border)}.form-grid{grid-template-columns:1fr}.form-field--full{grid-column:auto}}@media(max-width:640px){.app-main{padding:1rem}.app-topbar__wordmark{width:130px}.page-heading{align-items:flex-start;flex-direction:column}}
+  </style>
+</GovLayout>

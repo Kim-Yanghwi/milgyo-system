@@ -1,0 +1,166 @@
+---
+import ManagementLayout from '../layouts/ManagementLayout.astro';
+---
+<ManagementLayout title="대장관리기능" active="registers">
+  <div class="page-heading">
+    <div><p class="page-heading__kicker">REGISTER MANAGEMENT</p><h1>대장관리기능</h1><p>공고대장, 관인날인 기록부, 인영관리 기록부를 신청·조회·처리합니다.</p></div>
+    <button type="button" class="btn btn-primary" data-open-request>+ 신청</button>
+  </div>
+
+  <section class="surface register-surface">
+    <div class="register-type-tabs" role="tablist" aria-label="대장 유형">
+      <button type="button" class="register-type-tab active" data-register-type="공고대장">공고대장</button>
+      <button type="button" class="register-type-tab" data-register-type="관인날인기록부">관인날인 기록부</button>
+      <button type="button" class="register-type-tab" data-register-type="인영관리기록부">인영관리 기록부</button>
+    </div>
+    <div class="toolbar toolbar--between register-list-toolbar">
+      <div class="scope-tabs">
+        <button type="button" class="scope-tab active" data-scope="all">전체목록</button>
+        <button type="button" class="scope-tab" data-scope="mine">나의목록</button>
+      </div>
+      <div class="toolbar register-filters">
+        <select data-status-filter aria-label="처리상태"><option value="">전체 상태</option><option>신청</option><option>검토중</option><option>완료</option><option>반려</option><option>취소</option></select>
+        <input type="date" data-date-from aria-label="시작일" />
+        <span>~</span>
+        <input type="date" data-date-to aria-label="종료일" />
+        <input type="search" data-query placeholder="신청번호·건명·신청자 검색" />
+        <select data-page-size aria-label="페이지당 건수"><option value="10">10개</option><option value="20" selected>20개</option><option value="50">50개</option></select>
+        <button type="button" class="btn btn-outline" data-search>조회</button>
+        <button type="button" class="btn btn-outline" data-export>CSV</button><button type="button" class="btn btn-outline" data-print-list>인쇄</button>
+      </div>
+    </div>
+    <div class="status-message" data-status aria-live="polite"></div>
+    <div class="data-wrap"><table class="data-table register-table"><thead data-table-head></thead><tbody data-table-body><tr><td colspan="9">불러오는 중입니다.</td></tr></tbody></table></div>
+    <div class="pagination" data-pagination></div>
+  </section>
+
+  <div class="modal-overlay" data-request-modal hidden>
+    <section class="modal">
+      <header class="modal__header"><h2 data-request-title>대장 신청</h2><button type="button" class="modal__close" data-close-request aria-label="닫기">×</button></header>
+      <form class="modal__body" data-request-form>
+        <div class="form-grid">
+          <div class="form-field"><label for="r-type">대장 유형</label><select id="r-type" name="type" data-form-type><option>공고대장</option><option>관인날인기록부</option><option>인영관리기록부</option></select></div>
+          <div class="form-field"><label for="r-date">신청일</label><input id="r-date" name="requestDate" type="date" required /></div>
+        </div>
+
+        <fieldset class="register-fieldset" data-fields="공고대장">
+          <legend>공고대장 신청</legend>
+          <div class="form-grid">
+            <div class="form-field"><label for="notice-date">공고일</label><input id="notice-date" name="noticeDate" type="date" /></div>
+            <div class="form-field"><label for="notice-number">공고번호(선택)</label><input id="notice-number" name="noticeNumber" maxlength="60" placeholder="예: 대한불교밀교종 공고 제2026-1호" /></div>
+            <div class="form-field form-field--full"><label for="notice-title">공고명</label><input id="notice-title" name="noticeTitle" maxlength="200" required /></div>
+            <div class="form-field form-field--full"><label for="notice-body">공고내용</label><textarea id="notice-body" name="noticeBody" rows="6"></textarea></div>
+            <div class="form-field form-field--full"><label for="notice-remarks">비고</label><textarea id="notice-remarks" name="noticeRemarks" rows="2"></textarea></div>
+          </div>
+        </fieldset>
+
+        <fieldset class="register-fieldset" data-fields="관인날인기록부" hidden>
+          <legend>관인날인 기록부 신청</legend>
+          <div class="form-grid">
+            <div class="form-field form-field--full"><label for="seal-subject">건명</label><input id="seal-subject" name="sealSubject" maxlength="200" /></div>
+            <div class="form-field"><label for="seal-count">날인매수</label><input id="seal-count" name="sealCount" type="number" min="1" max="9999" /></div>
+            <div class="form-field"><label for="seal-type">관인종류</label><select id="seal-type" name="sealType"><option value="법인인감">법인인감</option><option value="사용인감">사용인감</option><option value="직인">직인</option><option value="기타">기타</option></select></div>
+            <div class="form-field form-field--full"><label for="seal-basis">관련근거</label><input id="seal-basis" name="relatedBasis" maxlength="300" placeholder="관련 문서번호 또는 근거" /></div>
+            <div class="form-field form-field--full"><label for="seal-purpose">사용목적</label><textarea id="seal-purpose" name="sealPurpose" rows="4"></textarea></div>
+            <div class="form-field form-field--full"><label for="seal-remarks">비고</label><textarea id="seal-remarks" name="sealRemarks" rows="2"></textarea></div>
+          </div>
+        </fieldset>
+
+        <fieldset class="register-fieldset" data-fields="인영관리기록부" hidden>
+          <legend>인영관리 기록부 신청</legend>
+          <div class="form-grid">
+            <div class="form-field form-field--full"><label for="imprint-reference">근거문서</label><input id="imprint-reference" name="referenceDocument" maxlength="200" placeholder="예: 밀교종-2026-001" /></div>
+            <div class="form-field form-field--full"><label for="imprint-purpose">사용목적</label><textarea id="imprint-purpose" name="imprintPurpose" rows="3"></textarea></div>
+            <div class="form-field form-field--full"><label for="recipient-organization">사용기관·업체명</label><input id="recipient-organization" name="recipientOrganization" maxlength="200" /></div>
+            <div class="form-field"><label for="representative-name">사용기관 대표자명</label><input id="representative-name" name="representativeName" maxlength="100" /></div>
+            <div class="form-field"><label for="business-number">사용기관 사업자번호</label><input id="business-number" name="businessNumber" maxlength="40" placeholder="예: 105-235-78521" /></div>
+            <div class="form-field"><label for="usage-method">사용방법</label><select id="usage-method" name="usageMethod"><option value="인쇄물">인쇄물</option><option value="전자문서">전자문서</option><option value="온라인 게시">온라인 게시</option><option value="기타">기타</option></select></div>
+            <div class="form-field"><label for="usage-count">사용개수</label><input id="usage-count" name="usageCount" type="number" min="1" max="999999" /></div>
+            <div class="form-field"><label for="usage-start">사용기간 시작</label><input id="usage-start" name="usageStartDate" type="date" /></div>
+            <div class="form-field"><label for="usage-end">사용기간 종료</label><input id="usage-end" name="usageEndDate" type="date" /></div>
+            <div class="form-field"><label for="usage-completion">사용완료일(사후입력 가능)</label><input id="usage-completion" name="usageCompletionDate" type="date" /></div>
+            <div class="form-field"><label for="imprint-contact">신청자 연락처</label><input id="imprint-contact" name="imprintContact" maxlength="80" /></div>
+            <div class="form-field form-field--full pledge-field"><label><input type="checkbox" name="pledgeAccepted" required /> 본인은 인영을 신청 목적 외 용도로 사용하지 않으며, 본 건으로 인한 사고 발생 시 책임을 감수할 것을 확인합니다.</label></div>
+            <div class="form-field form-field--full"><label for="imprint-remarks">비고</label><textarea id="imprint-remarks" name="imprintRemarks" rows="2"></textarea></div>
+          </div>
+        </fieldset>
+
+        <section class="attachment-box">
+          <div><strong>첨부파일</strong><p class="hint">파일당 4MB 이하, 최대 10개입니다. 실행파일·스크립트 파일은 등록할 수 없습니다.</p></div>
+          <input type="file" data-files multiple accept=".pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.csv,.txt,.jpg,.jpeg,.png" />
+          <div class="pending-files" data-pending-files>선택된 파일이 없습니다.</div>
+        </section>
+        <div class="status-message" data-form-status aria-live="polite"></div>
+        <div class="modal__actions"><button type="button" class="btn btn-outline" data-close-request>취소</button><button type="submit" class="btn btn-primary">신청 등록</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="modal-overlay" data-detail-modal hidden>
+    <section class="modal">
+      <header class="modal__header"><h2>대장 신청 상세</h2><button type="button" class="modal__close" data-close-detail aria-label="닫기">×</button></header>
+      <div class="modal__body">
+        <dl class="detail-grid" data-detail-grid></dl>
+        <section class="detail-section"><h3>신청내용</h3><div class="detail-content" data-detail-content></div></section>
+        <section class="detail-section"><h3>첨부파일</h3><div class="attachment-list" data-attachment-list></div></section>
+        <section class="admin-processing" data-admin-processing hidden>
+          <h3>관리자 처리</h3>
+          <div class="form-grid"><div class="form-field"><label for="process-status">처리상태</label><select id="process-status" data-process-status><option>신청</option><option>검토중</option><option>완료</option><option>반려</option></select></div><div class="form-field form-field--full"><label for="process-memo">처리의견</label><textarea id="process-memo" data-process-memo></textarea></div></div>
+          <div class="modal__actions"><button type="button" class="btn btn-primary" data-save-status>처리상태 저장</button></div>
+        </section>
+        <div class="modal__actions"><button type="button" class="btn btn-outline" data-cancel-request hidden>신청 취소</button><button type="button" class="btn btn-outline" data-close-detail>닫기</button></div>
+      </div>
+    </section>
+  </div>
+
+  <script is:inline>
+    (()=>{
+      const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+      const esc=(v)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      const session=(()=>{try{return JSON.parse(localStorage.getItem('milgyo-system-session')||'null')}catch{return null}})();
+      if(!session?.token)return;
+      let currentType='공고대장',scope='all',page=1,pages=1,currentDetail=null,canManage=false,pendingFiles=[];
+      const api=async(url,payload)=>{const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:session.token,...payload})});const d=await r.json();if(!d.ok&&r.status===401){localStorage.removeItem('milgyo-system-session');location.replace('/');throw new Error(d.message||'로그인이 필요합니다.')}return d;};
+      const today=()=>{const d=new Date(Date.now()+9*60*60*1000);return d.toISOString().slice(0,10)};
+      const formatBytes=(n)=>{const v=Number(n||0);if(v<1024)return `${v}B`;if(v<1024*1024)return `${(v/1024).toFixed(1)}KB`;return `${(v/1024/1024).toFixed(1)}MB`;};
+      const setStatus=(message,type='')=>{const el=$('[data-status]');el.textContent=message||'';el.className=`status-message ${type}`;};
+      const labels={
+        공고대장:{noticeDate:'공고일',noticeNumber:'공고번호',noticeTitle:'공고명',noticeBody:'공고내용',remarks:'비고'},
+        관인날인기록부:{subject:'건명',sealCount:'날인매수',relatedBasis:'관련근거',sealType:'관인종류',purpose:'사용목적',remarks:'비고'},
+        인영관리기록부:{referenceDocument:'근거번호',purpose:'사용목적',recipientOrganization:'사용기관·업체명',representativeName:'사용기관 대표자명',businessNumber:'사용기관 사업자번호',usageMethod:'사용방법',usageStartDate:'사용기간 시작',usageEndDate:'사용기간 종료',usageCompletionDate:'사용완료일',usageCount:'사용수량',contact:'신청자 연락처',pledgeAccepted:'준수사항 서약',remarks:'비고'}
+      };
+      const headers={
+        공고대장:['신청일','신청번호','공고일','공고명','신청자','첨부','상태','관리'],
+        관인날인기록부:['신청일','신청번호','건명','부서','신청자','날인매수','관련근거','상태','관리'],
+        인영관리기록부:['신청일','신청번호','부서','신청자','사용목적','사용기관','근거문서','상태','관리']
+      };
+      const rowCells=(r)=>{const c=r.content||{};if(currentType==='공고대장')return [r.request_date,r.request_no,c.noticeDate||'-',r.title,r.applicant_name,`${r.attachment_count||0}건`,r.status,'상세'];if(currentType==='관인날인기록부')return [r.request_date,r.request_no,r.title,r.applicant_department||'-',r.applicant_name,c.sealCount||'-',c.relatedBasis||'-',r.status,'상세'];return [r.request_date,r.request_no,r.applicant_department||'-',r.applicant_name,c.purpose||'-',c.recipientOrganization||'-',c.referenceDocument||'-',r.status,'상세'];};
+      const renderHead=()=>{$('[data-table-head]').innerHTML='<tr>'+headers[currentType].map(h=>`<th>${esc(h)}</th>`).join('')+'</tr>';};
+      const load=async()=>{setStatus('불러오는 중입니다...');renderHead();const d=await api('/api/registers/query',{type:currentType,scope,status:$('[data-status-filter]').value,query:$('[data-query]').value.trim(),dateFrom:$('[data-date-from]').value,dateTo:$('[data-date-to]').value,page,pageSize:Number($('[data-page-size]').value)});if(!d.ok){setStatus(d.message,'error');return;}canManage=!!d.canManage;pages=d.pages||1;const body=$('[data-table-body]');if(!d.rows.length){body.innerHTML=`<tr><td colspan="${headers[currentType].length}">등록된 자료가 없습니다.</td></tr>`;}else{body.innerHTML=d.rows.map(r=>`<tr>${rowCells(r).map((v,i)=>i===headers[currentType].length-2?`<td><span class="badge badge--${esc(v)}">${esc(v)}</span></td>`:i===headers[currentType].length-1?`<td><button type="button" class="btn btn-outline btn-sm" data-detail-id="${esc(r.id)}">상세</button></td>`:`<td${i===3||i===4?' class="text-left"':''}>${esc(v)}</td>`).join('')}</tr>`).join('');$$('[data-detail-id]',body).forEach(b=>b.addEventListener('click',()=>openDetail(b.dataset.detailId)));}renderPagination();setStatus(`총 ${Number(d.total||0).toLocaleString('ko-KR')}건`);};
+      const renderPagination=()=>{const box=$('[data-pagination]');const start=Math.max(1,page-2),end=Math.min(pages,page+2);let html=`<button data-page="${Math.max(1,page-1)}" ${page===1?'disabled':''}>‹</button>`;for(let i=start;i<=end;i++)html+=`<button data-page="${i}" class="${i===page?'active':''}">${i}</button>`;html+=`<button data-page="${Math.min(pages,page+1)}" ${page===pages?'disabled':''}>›</button>`;box.innerHTML=html;$$('[data-page]',box).forEach(b=>b.addEventListener('click',()=>{page=Number(b.dataset.page);load()}));};
+      const setType=(type)=>{currentType=type;page=1;$$('[data-register-type]').forEach(b=>b.classList.toggle('active',b.dataset.registerType===type));load();};
+      $$('[data-register-type]').forEach(b=>b.addEventListener('click',()=>setType(b.dataset.registerType)));$$('[data-scope]').forEach(b=>b.addEventListener('click',()=>{scope=b.dataset.scope;page=1;$$('[data-scope]').forEach(x=>x.classList.toggle('active',x===b));load()}));$('[data-search]').addEventListener('click',()=>{page=1;load()});$('[data-query]').addEventListener('keydown',e=>{if(e.key==='Enter'){page=1;load()}});$$('[data-status-filter],[data-page-size]').forEach(el=>el.addEventListener('change',()=>{page=1;load()}));
+      const showFields=(type)=>{$$('[data-fields]').forEach(f=>f.hidden=f.dataset.fields!==type);const requiredMap={공고대장:['noticeTitle'],관인날인기록부:['sealSubject','sealCount','sealPurpose'],인영관리기록부:['imprintPurpose','recipientOrganization','representativeName','businessNumber','usageCount','imprintContact','pledgeAccepted']};$$('[data-request-form] input,[data-request-form] textarea').forEach(el=>{if(el.name&&!['requestDate'].includes(el.name))el.required=false});(requiredMap[type]||[]).forEach(name=>{const el=$(`[name="${name}"]`);if(el)el.required=true});};
+      const openRequest=()=>{const form=$('[data-request-form]');form.reset();$('[data-form-type]').value=currentType;$('[name=requestDate]').value=today();$('[name=noticeDate]').value=today();pendingFiles=[];renderPending();showFields(currentType);$('[data-form-status]').textContent='';$('[data-request-modal]').hidden=false;};
+      const closeRequest=()=>{$('[data-request-modal]').hidden=true};$('[data-open-request]').addEventListener('click',openRequest);$$('[data-close-request]').forEach(b=>b.addEventListener('click',closeRequest));$('[data-form-type]').addEventListener('change',e=>showFields(e.target.value));
+      $('[data-files]').addEventListener('change',e=>{pendingFiles=Array.from(e.target.files||[]);renderPending()});
+      const renderPending=()=>{$('[data-pending-files]').innerHTML=pendingFiles.length?pendingFiles.map((f,i)=>`<span>${esc(f.name)} <small>${formatBytes(f.size)}</small><button type="button" data-remove-file="${i}">×</button></span>`).join(''):'선택된 파일이 없습니다.';$$('[data-remove-file]').forEach(b=>b.addEventListener('click',()=>{pendingFiles.splice(Number(b.dataset.removeFile),1);renderPending()}));};
+      const fileBase64=(file)=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result||'').split(',')[1]||'');reader.onerror=reject;reader.readAsDataURL(file)});
+      $('[data-request-form]').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget,type=$('[data-form-type]').value,fd=new FormData(form);const content=type==='공고대장'?{noticeDate:fd.get('noticeDate'),noticeNumber:fd.get('noticeNumber'),noticeTitle:fd.get('noticeTitle'),noticeBody:fd.get('noticeBody'),remarks:fd.get('noticeRemarks')}:type==='관인날인기록부'?{subject:fd.get('sealSubject'),sealCount:fd.get('sealCount'),relatedBasis:fd.get('relatedBasis'),sealType:fd.get('sealType'),purpose:fd.get('sealPurpose'),remarks:fd.get('sealRemarks')}:{referenceDocument:fd.get('referenceDocument'),purpose:fd.get('imprintPurpose'),recipientOrganization:fd.get('recipientOrganization'),representativeName:fd.get('representativeName'),businessNumber:fd.get('businessNumber'),usageMethod:fd.get('usageMethod'),usageStartDate:fd.get('usageStartDate'),usageEndDate:fd.get('usageEndDate'),usageCompletionDate:fd.get('usageCompletionDate'),usageCount:fd.get('usageCount'),contact:fd.get('imprintContact'),pledgeAccepted:fd.get('pledgeAccepted')==='on',remarks:fd.get('imprintRemarks')};const msg=$('[data-form-status]');msg.textContent='등록 중입니다...';const d=await api('/api/registers/action',{operation:'create',type,requestDate:fd.get('requestDate'),content});if(!d.ok){msg.textContent=d.message;msg.className='status-message error';return;}for(const file of pendingFiles){if(file.size>4*1024*1024){msg.textContent=`${file.name}: 4MB를 초과하여 등록하지 못했습니다.`;msg.className='status-message error';return;}const up=await api('/api/registers/upload-attachment',{registerId:d.id,fileName:file.name,mimeType:file.type||'application/octet-stream',dataBase64:await fileBase64(file)});if(!up.ok){msg.textContent=`신청은 등록되었으나 ${file.name} 첨부 실패: ${up.message}`;msg.className='status-message error';page=1;load();return;}}closeRequest();currentType=type;$$('[data-register-type]').forEach(b=>b.classList.toggle('active',b.dataset.registerType===type));page=1;await load();setStatus(d.message,'ok');});
+      const detailRows=(r)=>[['신청번호',r.request_no],['대장유형',r.record_type],['신청일',r.request_date],['신청자',r.applicant_name],['부서',r.applicant_department||'-'],['상태',r.status],['처리자',r.processed_by||'-'],['처리일시',r.processed_at?new Date(r.processed_at).toLocaleString('ko-KR'):'-'],['처리의견',r.processing_memo||'-']];
+      const openDetail=async(id)=>{const d=await api('/api/registers/query',{operation:'detail',id});if(!d.ok){setStatus(d.message,'error');return;}currentDetail=d.row;canManage=!!d.canManage;$('[data-detail-grid]').innerHTML=detailRows(d.row).map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');const map=labels[d.row.record_type]||{};$('[data-detail-content]').innerHTML=Object.entries(map).map(([k,l])=>`<div><strong>${esc(l)}</strong><span>${esc(d.row.content?.[k]||'-')}</span></div>`).join('');const list=$('[data-attachment-list]');list.innerHTML=d.attachments.length?d.attachments.map(a=>`<div><span>${esc(a.file_name)} <small>${formatBytes(a.size_bytes)}</small></span><span><button type="button" class="btn btn-outline btn-sm" data-download="${esc(a.id)}">다운로드</button>${(canManage||String(d.row.applicant_user_id)===String(session.user.id))&&!['완료','반려','취소'].includes(d.row.status)?` <button type="button" class="btn btn-outline btn-sm danger" data-delete-attachment="${esc(a.id)}">삭제</button>`:''}</span></div>`).join(''):'첨부파일이 없습니다.';$$('[data-download]',list).forEach(b=>b.addEventListener('click',()=>downloadAttachment(b.dataset.download)));$$('[data-delete-attachment]',list).forEach(b=>b.addEventListener('click',async()=>{if(!confirm('첨부파일을 삭제하시겠습니까?'))return;const x=await api('/api/registers/delete-attachment',{attachmentId:b.dataset.deleteAttachment});if(!x.ok){alert(x.message);return;}openDetail(id)}));$('[data-admin-processing]').hidden=!canManage;$('[data-process-status]').value=d.row.status==='취소'?'신청':d.row.status;$('[data-process-memo]').value=d.row.processing_memo||'';const cancel=$('[data-cancel-request]');cancel.hidden=!((String(d.row.applicant_user_id)===String(session.user.id)||canManage)&&['신청','검토중'].includes(d.row.status));$('[data-detail-modal]').hidden=false;};
+      const closeDetail=()=>{$('[data-detail-modal]').hidden=true;currentDetail=null};$$('[data-close-detail]').forEach(b=>b.addEventListener('click',closeDetail));
+      const downloadAttachment=async(id)=>{const d=await api('/api/registers/attachment-data',{attachmentId:id});if(!d.ok){alert(d.message);return;}const bytes=Uint8Array.from(atob(d.dataBase64),c=>c.charCodeAt(0));const url=URL.createObjectURL(new Blob([bytes],{type:d.mimeType||'application/octet-stream'}));const a=document.createElement('a');a.href=url;a.download=d.fileName;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+      $('[data-save-status]').addEventListener('click',async()=>{if(!currentDetail)return;const d=await api('/api/registers/action',{operation:'updateStatus',id:currentDetail.id,status:$('[data-process-status]').value,memo:$('[data-process-memo]').value});if(!d.ok){alert(d.message);return;}closeDetail();load();setStatus(d.message,'ok')});
+      $('[data-cancel-request]').addEventListener('click',async()=>{if(!currentDetail||!confirm('이 신청을 취소하시겠습니까?'))return;const d=await api('/api/registers/action',{operation:'cancel',id:currentDetail.id,memo:'신청자 취소'});if(!d.ok){alert(d.message);return;}closeDetail();load();setStatus(d.message,'ok')});
+      const csv=(filename,rows)=>{const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;const text='\ufeff'+rows.map(r=>r.map(q).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+      $('[data-export]').addEventListener('click',async()=>{const d=await api('/api/registers/query',{type:currentType,scope,status:$('[data-status-filter]').value,query:$('[data-query]').value.trim(),dateFrom:$('[data-date-from]').value,dateTo:$('[data-date-to]').value,page:1,pageSize:100});if(!d.ok){setStatus(d.message,'error');return;}csv(`${currentType}_${today()}.csv`,[headers[currentType].slice(0,-1),...d.rows.map(r=>rowCells(r).slice(0,-1))])});
+      $('[data-print-list]').addEventListener('click',()=>{const table=$('.register-table').outerHTML;const w=window.open('','_blank','width=1200,height=900');if(!w){alert('팝업 차단을 해제해 주세요.');return;}w.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(currentType)} 인쇄</title><style>body{font-family:"Malgun Gothic",sans-serif;margin:28px}h1{text-align:center;font-size:24px;margin-bottom:22px}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px}th,td{border:1px solid #333;padding:7px;text-align:center}th{background:#eef3f8}.btn{display:none}@media print{@page{size:A4 landscape;margin:10mm}button{display:none}}</style></head><body><h1>${esc(currentType)} - ${scope==='mine'?'나의목록':'전체목록'}</h1>${table}<p style="text-align:right"><button onclick="window.print()">인쇄</button></p></body></html>`);w.document.close();});
+      api('/api/registers/query',{operation:'options'}).then(d=>{if(d.ok){canManage=!!d.canManage;if(!d.canWrite)$('[data-open-request]').hidden=true;load()}else setStatus(d.message,'error')});
+    })();
+  </script>
+
+  <style>
+    .register-type-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:.45rem;margin-bottom:1rem}.register-type-tab{border:1px solid var(--gov-border);background:#f7f9fc;padding:.8rem;font-weight:700}.register-type-tab.active{background:var(--gov-accent);color:#fff;border-color:var(--gov-accent)}.scope-tabs{display:flex;gap:.25rem}.scope-tab{border:0;border-bottom:3px solid transparent;background:transparent;padding:.55rem .9rem;font-weight:700}.scope-tab.active{color:var(--gov-accent);border-bottom-color:var(--gov-accent)}.register-list-toolbar{margin-bottom:.8rem;gap:1rem}.register-filters input[type=search]{min-width:240px}.register-table th:last-child,.register-table td:last-child{width:80px}.register-fieldset{border:1px solid var(--gov-border);border-radius:8px;margin:1rem 0 0;padding:1rem}.register-fieldset legend{font-weight:800;color:var(--gov-navy-dark);padding:0 .35rem}.attachment-box{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.6rem 1rem;align-items:center;border:1px solid #d7e1ef;background:#f7faff;border-radius:8px;padding:.9rem;margin-top:1rem}.pending-files{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:.45rem;color:var(--gov-muted);font-size:.8rem}.pending-files span{display:inline-flex;align-items:center;gap:.35rem;border:1px solid var(--gov-border);background:#fff;padding:.35rem .5rem}.pending-files button{border:0;background:transparent;color:#a12626}.detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--gov-border);margin:0}.detail-grid>div{display:grid;grid-template-columns:110px 1fr;border-bottom:1px solid var(--gov-border)}.detail-grid>div:nth-last-child(-n+2){border-bottom:0}.detail-grid dt{background:#f1f5fa;font-weight:700;padding:.65rem}.detail-grid dd{margin:0;padding:.65rem;white-space:pre-wrap}.detail-section,.admin-processing{margin-top:1rem}.detail-section h3,.admin-processing h3{margin:0 0 .55rem}.detail-content{border:1px solid var(--gov-border)}.detail-content>div{display:grid;grid-template-columns:160px 1fr;border-bottom:1px solid var(--gov-border)}.detail-content>div:last-child{border-bottom:0}.detail-content strong{background:#f5f7fa;padding:.65rem}.detail-content span{padding:.65rem;white-space:pre-wrap}.attachment-list{border:1px solid var(--gov-border)}.attachment-list>div{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.55rem .65rem;border-bottom:1px solid var(--gov-border)}.attachment-list>div:last-child{border-bottom:0}.pledge-field label{display:flex;align-items:flex-start;gap:.5rem;line-height:1.55;font-weight:600}.pledge-field input{min-height:auto;margin-top:.2rem}.danger{color:#a12626;border-color:#dfb4b4}@media(max-width:850px){.register-type-tabs{grid-template-columns:1fr}.detail-grid{grid-template-columns:1fr}.detail-grid>div:nth-last-child(-n+2){border-bottom:1px solid var(--gov-border)}.detail-grid>div:last-child{border-bottom:0}}
+  </style>
+</ManagementLayout>

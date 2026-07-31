@@ -806,7 +806,7 @@ let tablesEnsured = false;
 let tablesEnsurePromise: Promise<void> | null = null;
 let lastRateLimitCleanupAt = 0;
 const MAINTENANCE_COOLDOWN_MS = 10 * 60 * 1000;
-const SCHEMA_VERSION = '2026-07-26.11';
+const SCHEMA_VERSION = '2026-07-31.12';
 
 type TableColumnInfo = { name: string; type: string; notnull: number; dflt_value?: unknown; pk: number };
 
@@ -913,6 +913,36 @@ const runSchemaMigration = async (db: D1Database) => {
     db.prepare(`CREATE TABLE IF NOT EXISTS admin_rate_limits (id TEXT PRIMARY KEY, rate_key TEXT NOT NULL, created_at TEXT NOT NULL)`),
     db.prepare(`CREATE TABLE IF NOT EXISTS org_settings (id TEXT PRIMARY KEY, seal_image TEXT, logo_image TEXT, updated_at TEXT NOT NULL)`),
     db.prepare(`CREATE TABLE IF NOT EXISTS system_meta (meta_key TEXT PRIMARY KEY, meta_value TEXT NOT NULL, updated_at TEXT NOT NULL)`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS management_registers (
+      id TEXT PRIMARY KEY, request_no TEXT NOT NULL UNIQUE, record_type TEXT NOT NULL, title TEXT NOT NULL,
+      content_json TEXT NOT NULL DEFAULT '{}', applicant_user_id TEXT NOT NULL, applicant_name TEXT NOT NULL,
+      applicant_department TEXT, status TEXT NOT NULL DEFAULT '신청', request_date TEXT NOT NULL,
+      processed_by TEXT, processed_by_user_id TEXT, processed_at TEXT, processing_memo TEXT,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS management_register_attachments (
+      id TEXT PRIMARY KEY, register_id TEXT NOT NULL, file_name TEXT NOT NULL,
+      mime_type TEXT NOT NULL DEFAULT 'application/octet-stream', size_bytes INTEGER NOT NULL DEFAULT 0,
+      data_base64 TEXT NOT NULL DEFAULT '', storage_type TEXT NOT NULL DEFAULT 'd1', r2_key TEXT, created_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS employee_profiles (
+      user_id TEXT PRIMARY KEY, name_hanja TEXT, birth_or_registration TEXT, address TEXT,
+      employment_start_date TEXT, contact TEXT, updated_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS employment_certificates (
+      id TEXT PRIMARY KEY, certificate_no TEXT NOT NULL UNIQUE, employee_user_id TEXT NOT NULL,
+      employee_name_ko TEXT NOT NULL, employee_name_hanja TEXT, birth_or_registration TEXT NOT NULL,
+      address TEXT NOT NULL, department TEXT NOT NULL, position_grade TEXT NOT NULL,
+      employment_start_date TEXT NOT NULL, employment_end_date TEXT, purpose TEXT NOT NULL,
+      issue_date TEXT NOT NULL, issuer_user_id TEXT NOT NULL, issuer_name TEXT NOT NULL,
+      manager_name TEXT, contact TEXT, status TEXT NOT NULL DEFAULT '발급', canceled_at TEXT,
+      canceled_by_user_id TEXT, canceled_by_name TEXT, cancel_reason TEXT,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS management_audit_logs (
+      id TEXT PRIMARY KEY, category TEXT NOT NULL, action TEXT NOT NULL, target_id TEXT NOT NULL,
+      actor_user_id TEXT NOT NULL, actor_name TEXT NOT NULL, details_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL
+    )`),
   ]);
 
   // 2단계: 운영 중인 구버전 DB에 필요한 컬럼을 순차적으로 추가합니다.
@@ -1011,6 +1041,13 @@ const runSchemaMigration = async (db: D1Database) => {
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_reviewer ON documents (reviewer_user_id, status)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_drafter ON documents (drafter_user_id, status)`),
     db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_documents_request_id ON documents (client_request_id) WHERE client_request_id IS NOT NULL`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_management_registers_type_date ON management_registers(record_type, request_date DESC, created_at DESC)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_management_registers_applicant ON management_registers(applicant_user_id, created_at DESC)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_management_registers_status ON management_registers(status, created_at DESC)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_management_register_attachments_record ON management_register_attachments(register_id, created_at)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_employment_certificates_employee ON employment_certificates(employee_user_id, issue_date DESC)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_employment_certificates_status ON employment_certificates(status, issue_date DESC)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_management_audit_target ON management_audit_logs(category, target_id, created_at)`),
   ]);
 
   await seedTemplates(db);
@@ -1033,6 +1070,11 @@ const hasCurrentSchema = async (db: D1Database) => {
       hasColumns(db, 'documents', ['id', 'approval_mode', 'status', 'client_request_id']),
       hasColumns(db, 'document_approval_lines', ['id', 'document_id', 'line_order', 'line_type', 'user_id', 'status']),
       hasColumns(db, 'document_dispatch_links', ['document_id', 'registry_id', 'created_at']),
+      hasColumns(db, 'management_registers', ['id', 'request_no', 'record_type', 'applicant_user_id', 'status', 'request_date']),
+      hasColumns(db, 'management_register_attachments', ['id', 'register_id', 'storage_type', 'r2_key']),
+      hasColumns(db, 'employee_profiles', ['user_id', 'employment_start_date', 'updated_at']),
+      hasColumns(db, 'employment_certificates', ['id', 'certificate_no', 'employee_user_id', 'status', 'issue_date']),
+      hasColumns(db, 'management_audit_logs', ['id', 'category', 'action', 'target_id', 'created_at']),
     ]);
     return checks.every(Boolean);
   } catch {
