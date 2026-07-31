@@ -1,7 +1,8 @@
 ---
 import ManagementLayout from '../layouts/ManagementLayout.astro';
 ---
-<ManagementLayout title="임·직원 재직증명서" active="employment">
+<ManagementLayout title="임·직원 재직증명서" active="employment" showCurrentUser={false}>
+  <div data-employment-certificate-version="2026-08-01-v50" hidden></div>
   <div class="page-heading">
     <div><p class="page-heading__kicker">EMPLOYMENT CERTIFICATE</p><h1>임·직원 재직증명서</h1><p>임·직원의 인적·재직사항을 확인하여 재직증명서를 발급하고 발급대장을 관리합니다.</p></div>
   </div>
@@ -14,11 +15,11 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         <div class="form-field"><label for="employee-name">성명(한글)</label><input id="employee-name" data-employee-name readonly /></div>
         <div class="form-field"><label for="employee-hanja">성명(한자·선택)</label><input id="employee-hanja" name="nameHanja" maxlength="60" /></div>
         <div class="form-field"><label for="employee-identity">생년월일 또는 주민등록번호</label><input id="employee-identity" name="birthOrRegistration" maxlength="30" placeholder="예: 1980-01-01 또는 800101-1234567" required /></div>
-        <div class="form-field"><label for="employee-start">재직 시작일</label><input id="employee-start" name="employmentStartDate" type="date" data-weekday required /></div>
+        <div class="form-field"><label for="employee-start">재직 시작일</label><input id="employee-start" name="employmentStartDate" type="date" required /></div>
         <div class="form-field form-field--full"><label for="employee-address">주소</label><input id="employee-address" name="address" maxlength="500" required /></div>
         <div class="form-field"><label for="employee-department">소속</label><input id="employee-department" name="department" maxlength="100" required /></div>
         <div class="form-field"><label for="employee-position">직위 또는 직급</label><input id="employee-position" name="positionGrade" maxlength="100" required /></div>
-        <div class="form-field"><label for="certificate-issue-date">발급일</label><input id="certificate-issue-date" name="issueDate" type="date" data-weekday required /></div>
+        <div class="form-field"><label for="certificate-issue-date">발급일</label><input id="certificate-issue-date" name="issueDate" type="date" required /></div>
         <div class="form-field"><label for="certificate-purpose">용도</label><input id="certificate-purpose" name="purpose" maxlength="300" placeholder="예: 금융기관 제출용" required /></div>
         <div class="form-field"><label for="certificate-manager">담당자</label><input id="certificate-manager" name="managerName" maxlength="60" /></div>
         <div class="form-field"><label for="certificate-contact">연락처</label><input id="certificate-contact" name="contact" maxlength="80" placeholder="예: 054-000-0000" /></div>
@@ -53,38 +54,109 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       const koreanDate=v=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(v||'');return m?`${Number(m[1])}년 ${Number(m[2])}월 ${Number(m[3])}일`:v||''};
       const setMessage=(sel,msg,type='')=>{const el=$(sel);el.textContent=msg||'';el.className=`status-message ${type}`};
       const selectedUser=()=>users.find(u=>String(u.id)===String($('[data-employee-select]').value));
-      const syncManagedDates=(root=document)=>window.__MILGYO_SYNC_MANAGED_DATES__?.(root);
-      const fillUser=()=>{const u=selectedUser()||{};$('[data-employee-name]').value=u.name||'';$('[name=nameHanja]').value=u.name_hanja||'';$('[name=birthOrRegistration]').value=u.birth_or_registration||'';$('[name=address]').value=u.address||'';$('[name=employmentStartDate]').value=u.employment_start_date||'';$('[name=department]').value=u.department||'';$('[name=positionGrade]').value=[u.position,u.grade].filter(Boolean).join(' / ');syncManagedDates($('[data-issue-form]'));};
+      const fillUser=()=>{const u=selectedUser()||{};$('[data-employee-name]').value=u.name||'';$('[name=nameHanja]').value=u.name_hanja||'';$('[name=birthOrRegistration]').value=u.birth_or_registration||'';$('[name=address]').value=u.address||'';$('[name=employmentStartDate]').value=u.employment_start_date||'';$('[name=department]').value=u.department||'';$('[name=positionGrade]').value=[u.position,u.grade].filter(Boolean).join(' / ');requestAnimationFrame(()=>window.__MILGYO_SYNC_MANAGEMENT_DATES__?.($('[data-issue-form]')));};
       const formRecord=(certificateNo='미리보기')=>{const f=new FormData($('[data-issue-form]'));return {certificate_no:certificateNo,employee_name_ko:$('[data-employee-name]').value,employee_name_hanja:f.get('nameHanja'),birth_or_registration:f.get('birthOrRegistration'),address:f.get('address'),department:f.get('department'),position_grade:f.get('positionGrade'),employment_start_date:f.get('employmentStartDate'),purpose:f.get('purpose'),issue_date:f.get('issueDate'),manager_name:f.get('managerName')||session.user.name,contact:f.get('contact'),status:'발급'};};
       const displayCertificateNo=(value)=>{const text=String(value||'').trim();if(!text||text==='미리보기')return '미리보기';return text.replace(/^재직[-\s]*/,'');};
-      const certificateCss=`*{box-sizing:border-box}body{margin:0;background:#fff;color:#111;font-family:Batang,"Noto Serif KR",serif}.employment-certificate-paper{position:relative;width:793px;height:1123px;margin:0 auto;background:#fff;overflow:hidden;font-family:Batang,"Noto Serif KR",serif;color:#111}.employment-certificate-template{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;z-index:0}.employment-certificate-value{position:absolute;z-index:2;display:flex;align-items:center;justify-content:center;padding:2px 5px;font-size:16px;line-height:1.35;white-space:pre-wrap;word-break:keep-all;text-align:center}.employment-certificate-number{left:88px;top:244px;width:82px;height:26px;font-size:11px}.employment-certificate-manager{left:614px;top:211px;width:128px;height:26px;justify-content:flex-start;text-align:left}.employment-certificate-contact{left:614px;top:244px;width:128px;height:26px;justify-content:flex-start;text-align:left}.employment-certificate-name-ko{left:264px;top:264px;width:181px;height:49px}.employment-certificate-name-hanja{left:264px;top:313px;width:181px;height:49px}.employment-certificate-identity{left:529px;top:264px;width:219px;height:98px}.employment-certificate-address{left:264px;top:362px;width:484px;height:60px}.employment-certificate-department{left:264px;top:422px;width:484px;height:61px}.employment-certificate-position{left:264px;top:483px;width:484px;height:61px}.employment-certificate-period{left:330px;top:544px;width:165px;height:31px;justify-content:flex-end;text-align:right;padding-right:2px}.employment-certificate-purpose{left:124px;top:607px;width:602px;height:42px}.employment-certificate-issue-date{position:absolute;z-index:2;left:0;top:811px;width:100%;text-align:center;font-size:17px}.employment-certificate-issuer{position:absolute;z-index:2;left:50%;top:891px;width:360px;transform:translateX(-50%);font-size:24px;line-height:1.55;text-align:right;font-weight:700}.employment-certificate-issuer-line{position:relative;z-index:2;white-space:nowrap;padding-right:58px}.employment-certificate-seal{position:absolute;z-index:1;right:0;top:-12px;width:104px;height:104px;object-fit:contain;filter:saturate(1.2) contrast(1.08);opacity:.58}.print-action{width:793px;margin:12px auto 24px;text-align:right}.print-action button{padding:7px 18px}@media print{body{background:#fff}.print-action{display:none}.employment-certificate-paper{margin:0}@page{size:A4;margin:0}}`;
-      const certificateMarkup=(r)=>`<article class="employment-certificate-paper">
-        <img class="employment-certificate-template" src="/employment-certificate-template.png" alt="재직증명서 양식" />
-        <span class="employment-certificate-value employment-certificate-number">${esc(displayCertificateNo(r.certificate_no))}</span>
-        <span class="employment-certificate-value employment-certificate-manager">${esc(r.manager_name||'-')}</span>
-        <span class="employment-certificate-value employment-certificate-contact">${esc(r.contact||'-')}</span>
-        <span class="employment-certificate-value employment-certificate-name-ko">${esc(r.employee_name_ko)}</span>
-        <span class="employment-certificate-value employment-certificate-name-hanja">${esc(r.employee_name_hanja||'-')}</span>
-        <span class="employment-certificate-value employment-certificate-identity">${esc(r.birth_or_registration)}</span>
-        <span class="employment-certificate-value employment-certificate-address">${esc(r.address)}</span>
-        <span class="employment-certificate-value employment-certificate-department">${esc(r.department)}</span>
-        <span class="employment-certificate-value employment-certificate-position">${esc(r.position_grade)}</span>
-        <span class="employment-certificate-value employment-certificate-period">${esc(koreanDate(r.employment_start_date))}</span>
-        <span class="employment-certificate-value employment-certificate-purpose">${esc(r.purpose)}</span>
-        <div class="employment-certificate-issue-date">${esc(koreanDate(r.issue_date))}</div>
+      const certificateCoreCss=`
+        .employment-certificate-preview-root,.employment-certificate-preview-root *{box-sizing:border-box}
+        .employment-certificate-preview-root{background:#dfe4ea;padding:1rem}
+        .employment-certificate-paper{width:794px;min-height:1123px;margin:0 auto;background:#fff;padding:78px 64px 74px;color:#111;font-family:"Nanum Myeongjo","Noto Serif KR","Malgun Myeongjo",Batang,serif}
+        .employment-certificate-title{display:table;margin:0 auto 56px;padding:0 20px 8px;border-bottom:4px double #111;font-size:34px;line-height:1.1;font-weight:700;letter-spacing:.42em;text-indent:.42em;white-space:nowrap}
+        .employment-certificate-head{display:flex;justify-content:space-between;align-items:flex-start;gap:28px;margin:0 6px 10px}
+        .employment-certificate-number{padding-top:34px;font-size:16px;line-height:1.4;white-space:nowrap}
+        .employment-certificate-number strong{display:inline-block;min-width:78px;text-align:center;font-weight:400}
+        .employment-certificate-meta{display:flex;flex-direction:column;gap:8px;min-width:240px;font-size:16px;line-height:1.35;white-space:nowrap}
+        .employment-certificate-meta-row{display:flex;align-items:flex-start;gap:8px}
+        .employment-certificate-meta-label{min-width:72px;font-weight:600}
+        .employment-certificate-meta-value{flex:1;letter-spacing:.04em}
+        .employment-certificate-table{width:100%;border-collapse:collapse;table-layout:fixed;border:1.6px solid #222;font-size:17px}
+        .employment-certificate-table th,.employment-certificate-table td{border:1.3px solid #222;padding:10px 8px;text-align:center;vertical-align:middle;line-height:1.5;font-weight:400;word-break:keep-all;overflow-wrap:anywhere}
+        .employment-certificate-table th{font-weight:600}
+        .employment-certificate-table .employment-section-label{font-size:18px;line-height:1.85;letter-spacing:.18em}
+        .employment-certificate-table .employment-value{padding:12px 14px;text-align:center}
+        .employment-certificate-table .employment-address{padding:12px 16px;text-align:center}
+        .employment-certificate-table .employment-period{line-height:1.8}
+        .employment-certificate-purpose{text-align:center;padding:12px 14px!important}
+        .employment-certificate-purpose-note{display:block;margin-top:6px;text-align:right;font-size:14px}
+        .employment-certificate-statement{text-align:center;margin:48px 0 44px;font-size:18px;letter-spacing:.28em}
+        .employment-certificate-date{text-align:center;margin:0 0 36px;font-size:17px}
+        .employment-certificate-issuer{position:relative;width:360px;margin:0 auto;text-align:center;font-size:20px;line-height:1.72;font-weight:600}
+        .employment-certificate-issuer-line{position:relative;z-index:2;white-space:nowrap;letter-spacing:.08em}
+        .employment-certificate-seal{position:absolute;z-index:1;left:65%;top:26px;width:114px;height:114px;transform:translateX(-50%);object-fit:contain;opacity:.95;mix-blend-mode:multiply;filter:saturate(2.2) contrast(1.14) brightness(.92)}
+        .employment-certificate-print-action{width:794px;margin:12px auto 24px;text-align:right}
+        .employment-certificate-print-action button{padding:7px 18px}
+        @media print{
+          .employment-certificate-preview-root{background:#fff;padding:0}
+          .employment-certificate-print-action{display:none}
+          .employment-certificate-paper{margin:0}
+          @page{size:A4;margin:0}
+        }
+      `;
+      const certificateMarkup=(r)=>`<div class="employment-certificate-preview-root"><article class="employment-certificate-paper">
+        <div class="employment-certificate-title">재 직 증 명 서</div>
+        <div class="employment-certificate-head">
+          <div class="employment-certificate-number">제 <strong>${esc(displayCertificateNo(r.certificate_no))}</strong> 호</div>
+          <div class="employment-certificate-meta">
+            <div class="employment-certificate-meta-row"><span class="employment-certificate-meta-label">담당자 :</span><span class="employment-certificate-meta-value">${esc(r.manager_name||'-')}</span></div>
+            <div class="employment-certificate-meta-row"><span class="employment-certificate-meta-label">연락처 :</span><span class="employment-certificate-meta-value">${esc(r.contact||'-')}</span></div>
+          </div>
+        </div>
+        <table class="employment-certificate-table">
+          <colgroup>
+            <col style="width:10%"><col style="width:10.5%"><col style="width:10%"><col style="width:27.5%"><col style="width:14.5%"><col style="width:27.5%">
+          </colgroup>
+          <tbody>
+            <tr>
+              <th rowspan="3" class="employment-section-label">인 적<br/>사 항</th>
+              <th rowspan="2">성 명</th>
+              <th>한 글</th>
+              <td class="employment-value">${esc(r.employee_name_ko||'-')}</td>
+              <th rowspan="2">생년월일<br/>또는<br/>주민등록<br/>번 호</th>
+              <td rowspan="2" class="employment-value">${esc(r.birth_or_registration||'-')}</td>
+            </tr>
+            <tr>
+              <th>한 자</th>
+              <td class="employment-value">${esc(r.employee_name_hanja||'-')}</td>
+            </tr>
+            <tr>
+              <th colspan="2">주 소</th>
+              <td colspan="3" class="employment-address">${esc(r.address||'-')}</td>
+            </tr>
+            <tr>
+              <th rowspan="3" class="employment-section-label">재 직<br/>사 항</th>
+              <th colspan="2">소 속</th>
+              <td colspan="3" class="employment-value">${esc(r.department||'-')}</td>
+            </tr>
+            <tr>
+              <th colspan="2">직위 또는 직급</th>
+              <td colspan="3" class="employment-value">${esc(r.position_grade||'-')}</td>
+            </tr>
+            <tr>
+              <th colspan="2">기 간</th>
+              <td colspan="3" class="employment-period"><div>${esc(koreanDate(r.employment_start_date))}부터</div><div>현재</div></td>
+            </tr>
+            <tr>
+              <th class="employment-section-label">용 도</th>
+              <td colspan="5" class="employment-certificate-purpose">${esc(r.purpose||'-')}<span class="employment-certificate-purpose-note">(타 용도로는 사용할 수 없음)</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="employment-certificate-statement">위 와 같 이 재 직 을 증 명 합 니 다.</p>
+        <p class="employment-certificate-date">${esc(koreanDate(r.issue_date))}</p>
         <div class="employment-certificate-issuer">
           <div class="employment-certificate-issuer-line">(사) 대한불교밀교종</div>
           <div class="employment-certificate-issuer-line">이사장 김 양 휘</div>
           <img class="employment-certificate-seal" src="/organization-seal.png" alt="대한불교밀교종 직인" />
         </div>
-      </article>`;
-      const certificateHtml=(r)=>`<style>${certificateCss}</style>${certificateMarkup(r)}`;
-      const openPreview=(r)=>{lastPreview=r;$('[data-preview-container]').innerHTML=certificateHtml(r);$('[data-preview-modal]').hidden=false;};
+      </article></div>`;
+      const certificatePreviewHtml=(r)=>`<style>${certificateCoreCss}</style>${certificateMarkup(r)}`;
+      const certificatePrintHtml=(r)=>`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(r.certificate_no)} 재직증명서</title><style>body{margin:0;background:#fff;color:#111;font-family:"Nanum Myeongjo","Noto Serif KR","Malgun Myeongjo",Batang,serif}${certificateCoreCss}</style></head><body>${certificateMarkup(r)}<div class="employment-certificate-print-action"><button onclick="window.print()">인쇄</button></div></body></html>`;
+      const openPreview=(r)=>{lastPreview=r;$('[data-preview-container]').innerHTML=certificatePreviewHtml(r);$('[data-preview-modal]').hidden=false;};
       const closePreview=()=>{$('[data-preview-modal]').hidden=true};$$('[data-close-preview]').forEach(b=>b.addEventListener('click',closePreview));
-      const printRecord=r=>{const w=window.open('','_blank','width=980,height=1080');if(!w){alert('팝업 차단을 해제해 주세요.');return;}w.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(r.certificate_no)} 재직증명서</title><style>${certificateCss}</style></head><body>${certificateMarkup(r)}<div class="print-action"><button onclick="window.print()">인쇄</button></div></body></html>`);w.document.close();};
+      const printRecord=r=>{const w=window.open('','_blank','width=980,height=1080');if(!w){alert('팝업 차단을 해제해 주세요.');return;}w.document.write(certificatePrintHtml(r));w.document.close();};
       $('[data-preview]').addEventListener('click',()=>{if(!$('[data-issue-form]').reportValidity())return;openPreview(formRecord())});$('[data-print-preview]').addEventListener('click',()=>{if(lastPreview)printRecord(lastPreview)});
       const loadOptions=async()=>{const d=await api('/api/employment/query',{operation:'options'});if(!d.ok){setMessage('[data-issue-status]',d.message,'error');return;}users=d.users||[];canManage=!!d.canManage;if(!d.canIssue){$('[data-issue-button]').hidden=true;$('[data-preview]').hidden=true;$$('[data-issue-form] input,[data-issue-form] select').forEach(el=>el.disabled=true);setMessage('[data-issue-status]','재직증명서는 관리자 계정에서 발급할 수 있습니다.','');}const select=$('[data-employee-select]');select.innerHTML=users.map(u=>`<option value="${esc(u.id)}">${esc(u.name)} · ${esc(u.department||'소속 미지정')} · ${esc(u.position||u.grade||'직위 미지정')}</option>`).join('');if(!users.length){select.innerHTML='<option value="">발급 가능한 임·직원이 없습니다.</option>';$('[data-issue-button]').disabled=true;}fillUser();loadLedger();};
-      $('[data-employee-select]').addEventListener('change',fillUser);$('[name=issueDate]').value=today();$('[name=managerName]').value=session.user.name||'';window.addEventListener('milgyo:managed-dates-ready',()=>syncManagedDates(document),{once:true});syncManagedDates(document);
+      $('[data-employee-select]').addEventListener('change',fillUser);$('[name=issueDate]').value=today();$('[name=managerName]').value=session.user.name||'';requestAnimationFrame(()=>window.__MILGYO_SYNC_MANAGEMENT_DATES__?.($('[data-issue-form]')));
       $('[data-issue-form]').addEventListener('submit',async e=>{e.preventDefault();if(!e.currentTarget.reportValidity())return;setMessage('[data-issue-status]','발급 중입니다...');const f=new FormData(e.currentTarget);const d=await api('/api/employment/action',{operation:'issue',employeeUserId:f.get('employeeUserId'),nameHanja:f.get('nameHanja'),birthOrRegistration:f.get('birthOrRegistration'),address:f.get('address'),employmentStartDate:f.get('employmentStartDate'),department:f.get('department'),positionGrade:f.get('positionGrade'),purpose:f.get('purpose'),issueDate:f.get('issueDate'),managerName:f.get('managerName'),contact:f.get('contact')});if(!d.ok){setMessage('[data-issue-status]',d.message,'error');return;}setMessage('[data-issue-status]',d.message,'ok');printRecord(d.row);page=1;await loadLedger();});
       const loadLedger=async()=>{setMessage('[data-ledger-status-message]','불러오는 중입니다...');const d=await api('/api/employment/query',{query:$('[data-ledger-query]').value.trim(),status:$('[data-ledger-status]').value,page,pageSize:Number($('[data-ledger-size]').value)});if(!d.ok){setMessage('[data-ledger-status-message]',d.message,'error');return;}currentRows=d.rows||[];pages=d.pages||1;canManage=!!d.canManage;const body=$('[data-ledger-body]');body.innerHTML=currentRows.length?currentRows.map(r=>`<tr><td>${esc(r.certificate_no)}</td><td>${esc(r.issue_date)}</td><td>${esc(r.employee_name_ko)}</td><td>${esc(r.birth_or_registration_masked||'-')}</td><td>${esc(r.department)}</td><td>${esc(r.position_grade)}</td><td class="text-left">${esc(r.purpose)}</td><td><span class="badge badge--${esc(r.status)}">${esc(r.status)}</span></td><td><div class="row-actions"><button type="button" class="btn btn-outline btn-sm" data-print-id="${esc(r.id)}">출력</button>${canManage&&r.status==='발급'?`<button type="button" class="btn btn-outline btn-sm danger" data-cancel-id="${esc(r.id)}">취소</button>`:''}</div></td></tr>`).join(''):'<tr><td colspan="9">발급내역이 없습니다.</td></tr>';$$('[data-print-id]',body).forEach(b=>b.addEventListener('click',async()=>{const d=await api('/api/employment/query',{operation:'detail',id:b.dataset.printId});if(!d.ok){alert(d.message);return;}printRecord(d.row)}));$$('[data-cancel-id]',body).forEach(b=>b.addEventListener('click',async()=>{const reason=prompt('취소 사유를 입력해 주세요.');if(!reason)return;const d=await api('/api/employment/action',{operation:'cancel',id:b.dataset.cancelId,reason});if(!d.ok){alert(d.message);return;}loadLedger()}));renderPagination();setMessage('[data-ledger-status-message]',`총 ${Number(d.total||0).toLocaleString('ko-KR')}건`);};
       const renderPagination=()=>{const box=$('[data-ledger-pagination]');const s=Math.max(1,page-2),e=Math.min(pages,page+2);let h=`<button data-page="${Math.max(1,page-1)}" ${page===1?'disabled':''}>‹</button>`;for(let i=s;i<=e;i++)h+=`<button data-page="${i}" class="${i===page?'active':''}">${i}</button>`;h+=`<button data-page="${Math.min(pages,page+1)}" ${page===pages?'disabled':''}>›</button>`;box.innerHTML=h;$$('[data-page]',box).forEach(b=>b.addEventListener('click',()=>{page=Number(b.dataset.page);loadLedger()}));};
@@ -95,6 +167,6 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
   </script>
 
   <style>
-    .certificate-issue-panel{margin-bottom:1rem}.section-title{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;margin-bottom:1rem}.section-title h2{margin:0;font-size:1.12rem}.section-title p{margin:.2rem 0 0;color:var(--gov-muted);font-size:.8rem}.privacy-note{font-size:.76rem;color:#6e520a;background:#fff8e6;border:1px solid #ead49a;padding:.4rem .55rem;border-radius:5px}.certificate-form-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.certificate-form-grid .form-field--full{grid-column:1/-1}.form-actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--gov-border)}.ledger-filters input{min-width:260px}.certificate-table th:last-child,.certificate-table td:last-child{width:125px}.row-actions{display:flex;justify-content:center;gap:.4rem}.danger{color:#a12626;border-color:#dfb4b4}.certificate-preview-modal{width:min(980px,calc(100vw - 2rem))}.certificate-preview-modal [data-preview-container]{overflow:auto;background:#dfe4ea;padding:1rem}.certificate-preview-modal :global(.employment-certificate-paper){transform-origin:top center}@media(max-width:1100px){.certificate-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:700px){.certificate-form-grid{grid-template-columns:1fr}.section-title{align-items:flex-start;flex-direction:column}.ledger-filters input{min-width:0;width:100%}.certificate-preview-modal :global(.employment-certificate-paper){transform:scale(.72);margin-bottom:-314px}}
+    .certificate-issue-panel{margin-bottom:1rem}.section-title{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;margin-bottom:1rem}.section-title h2{margin:0;font-size:1.12rem}.section-title p{margin:.2rem 0 0;color:var(--gov-muted);font-size:.8rem}.privacy-note{font-size:.76rem;color:#6e520a;background:#fff8e6;border:1px solid #ead49a;padding:.4rem .55rem;border-radius:5px}.certificate-form-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.certificate-form-grid .form-field--full{grid-column:1/-1}.form-actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--gov-border)}.ledger-filters input{min-width:260px}.certificate-table th:last-child,.certificate-table td:last-child{width:125px}.row-actions{display:flex;justify-content:center;gap:.4rem}.danger{color:#a12626;border-color:#dfb4b4}.certificate-preview-modal{width:min(980px,calc(100vw - 2rem))}.certificate-preview-modal [data-preview-container]{overflow:auto;background:#dfe4ea;padding:1rem}.certificate-preview-modal .employment-certificate-paper{transform-origin:top center}@media(max-width:1100px){.certificate-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:700px){.certificate-form-grid{grid-template-columns:1fr}.section-title{align-items:flex-start;flex-direction:column}.ledger-filters input{min-width:0;width:100%}.certificate-preview-modal .employment-certificate-paper{transform:scale(.72);margin-bottom:-314px}}
   </style>
 </ManagementLayout>
