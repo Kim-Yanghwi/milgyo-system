@@ -22,11 +22,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
   if (operation === 'detail') {
     const id = clean(payload.id, 80);
-    const row = await env.DB.prepare(`SELECT * FROM management_registers WHERE id=?`).bind(id).first<Record<string, unknown>>();
+    const [rowResult, attachmentResult] = await env.DB.batch([
+      env.DB.prepare(`SELECT * FROM management_registers WHERE id=?`).bind(id),
+      env.DB.prepare(`SELECT id,file_name,mime_type,size_bytes,storage_type,created_at FROM management_register_attachments WHERE register_id=? ORDER BY created_at`).bind(id),
+    ]);
+    const row = (rowResult.results?.[0] || null) as Record<string, unknown> | null;
     if (!row) return json({ ok: false, message: '대장 신청내역을 찾을 수 없습니다.' }, 404);
-    const attachments = await env.DB.prepare(`SELECT id,file_name,mime_type,size_bytes,storage_type,created_at FROM management_register_attachments WHERE register_id=? ORDER BY created_at`)
-      .bind(id).all();
-    return json({ ok: true, row: { ...row, content: parseContent(row.content_json, {}) }, attachments: attachments.results || [], me: auth.user, canManage: auth.user.role === 'admin' });
+    return json({
+      ok: true,
+      row: { ...row, content: parseContent(row.content_json, {}) },
+      attachments: attachmentResult.results || [],
+      me: auth.user,
+      canManage: auth.user.role === 'admin',
+    });
   }
 
   const type = clean(payload.type, 40);
