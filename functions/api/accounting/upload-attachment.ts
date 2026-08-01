@@ -21,6 +21,7 @@ import {
   recordAccountingAttachmentOperation,
   retentionDate,
 } from '../../_shared/accounting-attachment-ops';
+import { assertAccountingR2Key } from '../../_shared/r2-scope-guard';
 
 interface Env {
   DB: D1Database;
@@ -176,7 +177,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       message: '회계 첨부파일이 등록되었습니다.',
     });
   } catch (error) {
-    try { await env.ACCOUNTING_FILES.delete(objectKey); }
+    try { await env.ACCOUNTING_FILES.delete(assertAccountingR2Key(objectKey, '회계 첨부 메타데이터 보상 삭제')); }
     catch (cleanupError) {
       await recordAccountingAttachmentOperation(env.ACCOUNTING_DB, {
         operationType: 'compensation_delete', objectKey, referenceType, referenceId, error: cleanupError,

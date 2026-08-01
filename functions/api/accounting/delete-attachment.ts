@@ -9,6 +9,7 @@ import {
   getAccountingAttachmentPolicy,
   recordAccountingAttachmentOperation,
 } from '../../_shared/accounting-attachment-ops';
+import { assertAccountingR2Key } from '../../_shared/r2-scope-guard';
 
 interface Env {
   DB: D1Database;
@@ -62,7 +63,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!marked) return json({ ok: false, message: '첨부파일이 이미 삭제 중이거나 상태가 변경되었습니다.' }, 409);
 
   try {
-    await env.ACCOUNTING_FILES.delete(String(attachment.object_key || ''));
+    await env.ACCOUNTING_FILES.delete(assertAccountingR2Key(attachment.object_key, '회계 첨부파일 삭제'));
     await env.ACCOUNTING_DB.prepare(`
       UPDATE accounting_attachments
       SET deleted_at=?,deleted_by=?,delete_status='deleted',delete_error=NULL,last_checked_at=?

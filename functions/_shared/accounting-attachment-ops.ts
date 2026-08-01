@@ -1,4 +1,5 @@
 import { clean, randomHex, type SessionUser } from './helpers';
+import { ACCOUNTING_R2_PREFIX, assertAccountingR2Key } from './r2-scope-guard';
 
 export type AccountingAttachmentPolicy = {
   allowedExtensions: string[];
@@ -251,7 +252,7 @@ export const runAccountingAttachmentIntegrityScan = async (
     let cursor: string | undefined;
     let listed = 0;
     do {
-      const result = await bucket.list({ prefix: 'accounting/', cursor, limit: 1000 }) as R2ListResult;
+      const result = await bucket.list({ prefix: ACCOUNTING_R2_PREFIX, cursor, limit: 1000 }) as R2ListResult;
       const objects = result.objects || [];
       for (const object of objects) {
         listed += 1;
@@ -299,7 +300,7 @@ export const retryAccountingAttachmentOperation = async (
   if (operation.status === 'succeeded') return { ok: true, duplicate: true };
   const now = new Date().toISOString();
   try {
-    await bucket.delete(String(operation.object_key || ''));
+    await bucket.delete(assertAccountingR2Key(operation.object_key, '회계 첨부 오류 재처리'));
     if (operation.operation_type === 'attachment_delete' && operation.attachment_id) {
       await db.prepare(`
         UPDATE accounting_attachments

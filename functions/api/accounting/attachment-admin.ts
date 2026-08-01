@@ -7,6 +7,7 @@ import {
   saveAccountingAttachmentPolicy,
 } from '../../_shared/accounting-attachment-ops';
 import { getTestResetPreview, resetAllTestData, TEST_RESET_CONFIRMATION } from '../../_shared/test-data-reset';
+import { assertAccountingR2Key } from '../../_shared/r2-scope-guard';
 
 interface Env {
   DB: D1Database;
@@ -100,7 +101,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
       if (resolution === 'delete-r2') {
         if (issue.issue_type !== 'R2_ONLY') return json({ ok: false, message: 'R2 단독 파일에만 사용할 수 있는 처리입니다.' }, 400);
-        await env.ACCOUNTING_FILES.delete(String(issue.object_key || ''));
+        await env.ACCOUNTING_FILES.delete(assertAccountingR2Key(issue.object_key, '회계 무결성 점검 R2 삭제'));
       } else if (resolution === 'mark-d1-deleted') {
         if (issue.issue_type !== 'D1_ONLY' || !issue.attachment_id) return json({ ok: false, message: 'D1 단독 메타정보에만 사용할 수 있는 처리입니다.' }, 400);
         await env.ACCOUNTING_DB.prepare(`

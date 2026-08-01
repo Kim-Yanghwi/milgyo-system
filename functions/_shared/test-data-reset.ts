@@ -1,4 +1,5 @@
 import type { SessionUser } from './helpers';
+import { ACCOUNTING_R2_PREFIX, MAIN_R2_PREFIXES, assertR2KeysWithinPrefixes } from './r2-scope-guard';
 
 export const TEST_RESET_CONFIRMATION = '테스트자료 전체삭제';
 const MAX_RESET_OBJECTS = 5000;
@@ -61,17 +62,23 @@ const collectAccountingFileKeys = async (env: ResetEnv) => {
     SELECT object_key FROM accounting_attachments WHERE object_key IS NOT NULL AND object_key<>''
   `).all<{ object_key: string }>();
   const metadataKeys = (metadataRows.results || []).map((row) => String(row.object_key || ''));
-  const bucketKeys = env.ACCOUNTING_FILES ? await listBucketKeys(env.ACCOUNTING_FILES) : [];
+  const bucketKeys = env.ACCOUNTING_FILES ? await listBucketKeys(env.ACCOUNTING_FILES, ACCOUNTING_R2_PREFIX) : [];
   return { metadataKeys: unique(metadataKeys), bucketKeys: unique(bucketKeys) };
 };
 
-const deleteBucketKeys = async (bucket: R2Bucket | undefined, keys: string[], label: string) => {
+const deleteBucketKeys = async (
+  bucket: R2Bucket | undefined,
+  keys: string[],
+  label: string,
+  allowedPrefixes: readonly string[],
+) => {
   if (!keys.length) return 0;
   if (!bucket) throw new Error(`${label} R2 저장소가 연결되지 않아 파일을 삭제할 수 없습니다.`);
-  for (let index = 0; index < keys.length; index += R2_DELETE_CHUNK) {
-    await bucket.delete(keys.slice(index, index + R2_DELETE_CHUNK));
+  const safeKeys = assertR2KeysWithinPrefixes(keys, allowedPrefixes, `${label} 테스트자료 초기화`);
+  for (let index = 0; index < safeKeys.length; index += R2_DELETE_CHUNK) {
+    await bucket.delete(safeKeys.slice(index, index + R2_DELETE_CHUNK));
   }
-  return keys.length;
+  return safeKeys.length;
 };
 
 export const getTestResetPreview = async (env: ResetEnv) => {
@@ -199,8 +206,10 @@ export const resetAllTestData = async (env: ResetEnv, user: SessionUser) => {
   if (mainR2Keys.length && !env.FILES) throw new Error('전자문서 R2 저장소(FILES)가 연결되지 않아 초기화를 중단했습니다.');
   if (accountingR2Keys.length && !env.ACCOUNTING_FILES) throw new Error('회계 R2 저장소(ACCOUNTING_FILES)가 연결되지 않아 초기화를 중단했습니다.');
 
-  const deletedMainR2 = await deleteBucketKeys(env.FILES, mainR2Keys, '전자문서');
-  const deletedAccountingR2 = await deleteBucketKeys(env.ACCOUNTING_FILES, accountingR2Keys, '회계');
+  const deletedMainR2 = await deleteBucketKeys(env.FILES, mainR2Keys, '전자문서', MAIN_R2_PREFIXES);
+  const deletedAccountingR2 = await deleteBucketKeys(
+    env.ACCOUNTING_FILES, accountingR2Keys, '회계', [ACCOUNTING_R2_PREFIX],
+  );
   const now = new Date().toISOString();
 
   await env.DB.batch([
