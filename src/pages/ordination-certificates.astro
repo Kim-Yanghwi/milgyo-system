@@ -2,7 +2,7 @@
 import ManagementLayout from '../layouts/ManagementLayout.astro';
 ---
 <ManagementLayout title="수계증서 발급·대장" active="ordination">
-  <div data-ordination-certificate-version="2026-08-02-v60" hidden></div>
+  <div data-ordination-certificate-version="2026-08-02-v61" hidden></div>
   <div class="page-heading">
     <div>
       <p class="page-heading__kicker">ORDINATION CERTIFICATE</p>
@@ -24,10 +24,10 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
           <label for="ordination-birth-date">생년월일</label>
           <div class="birth-date-control">
             <input id="ordination-birth-date" name="birthDate" type="text" inputmode="numeric" maxlength="10" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}" placeholder="예: 1957-01-19 또는 19570119" autocomplete="bday" required />
-            <span class="birth-date-picker-shell" title="달력에서 생년월일 선택">
+            <button type="button" class="birth-date-picker-shell" data-open-birth-date-picker title="달력에서 생년월일 선택" aria-label="달력에서 생년월일 선택" aria-haspopup="dialog">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2v3M17 2v3M3.5 9h17M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" /></svg>
-              <input type="date" data-birth-date-picker data-no-weekday aria-label="달력에서 생년월일 선택" />
-            </span>
+            </button>
+            <input type="date" class="birth-date-native-picker" data-birth-date-picker data-no-weekday tabindex="-1" aria-hidden="true" />
           </div>
           <small class="field-hint">숫자 8자리(예: 19570119)를 입력하면 1957-01-19 형식으로 자동 변환됩니다.</small>
         </div>
@@ -130,7 +130,13 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       const today=()=>new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
       const dateParts=value=>{const match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value||''));return match?{year:Number(match[1]),month:Number(match[2]),day:Number(match[3])}:null;};
       const validDate=value=>{const parts=dateParts(value);if(!parts)return false;const date=new Date(Date.UTC(parts.year,parts.month-1,parts.day));return date.getUTCFullYear()===parts.year&&date.getUTCMonth()===parts.month-1&&date.getUTCDate()===parts.day;};
-      const formatDateInput=value=>{const raw=String(value||'').trim();const separated=/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})$/.exec(raw);if(separated)return `${separated[1]}-${separated[2].padStart(2,'0')}-${separated[3].padStart(2,'0')}`;const digits=raw.replace(/\D/g,'').slice(0,8);if(digits.length<=4)return digits;if(digits.length<=6)return `${digits.slice(0,4)}-${digits.slice(4)}`;return `${digits.slice(0,4)}-${digits.slice(4,6)}-${digits.slice(6)}`;};
+      const normalizeDateInput=value=>{
+        const raw=String(value||'').trim();
+        const separated=/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})$/.exec(raw);
+        if(separated)return `${separated[1]}-${separated[2].padStart(2,'0')}-${separated[3].padStart(2,'0')}`;
+        if(/^\d{8}$/.test(raw))return `${raw.slice(0,4)}-${raw.slice(4,6)}-${raw.slice(6,8)}`;
+        return raw;
+      };
       const buddhistYear=value=>{const parts=dateParts(value);return parts?parts.year+544:'';};
       const displayName=value=>{const normalized=String(value||'').trim().replace(/\s+/g,' ');if(!normalized)return '-';return normalized.includes(' ')?normalized:Array.from(normalized).join(' ');};
       const displayCertificateNo=value=>{const text=String(value||'').trim();return text&&text!=='미리보기'?text:'0000-00';};
@@ -141,14 +147,26 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       const form=$('[data-ordination-form]');
       const birthDateInput=form.elements.birthDate;
       const birthDatePicker=$('[data-birth-date-picker]');
-      const syncBirthDate=(validate=false)=>{
-        const formatted=formatDateInput(birthDateInput.value);
-        if(birthDateInput.value!==formatted)birthDateInput.value=formatted;
-        const complete=formatted.length===10;
-        const valid=complete&&validDate(formatted)&&formatted<=today();
-        birthDatePicker.value=valid?formatted:'';
+      const birthDatePickerButton=$('[data-open-birth-date-picker]');
+      const syncBirthDate=({normalize=false,validate=false}={})=>{
+        const raw=String(birthDateInput.value||'');
+        const normalized=normalizeDateInput(raw);
+        if(normalize&&raw!==normalized)birthDateInput.value=normalized;
+        const valid=validDate(normalized)&&normalized<=today();
+        birthDatePicker.value=valid?normalized:'';
         birthDateInput.setCustomValidity(validate&&!valid?'생년월일을 YYYY-MM-DD 형식의 실제 날짜로 입력해 주세요.':'');
         return valid;
+      };
+      const openBirthDatePicker=()=>{
+        syncBirthDate({normalize:true,validate:false});
+        try{
+          if(typeof birthDatePicker.showPicker==='function')birthDatePicker.showPicker();
+          else{birthDatePicker.focus({preventScroll:true});birthDatePicker.click();}
+        }catch(error){
+          console.warn('native birth date picker could not be opened',error);
+          birthDatePicker.focus({preventScroll:true});
+          birthDatePicker.click();
+        }
       };
 
       const syncDerivedFields=()=>{
@@ -160,10 +178,16 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       birthDatePicker.max=today();
       Object.entries(defaults).forEach(([name,value])=>{if(form.elements[name])form.elements[name].value=value;});
       syncDerivedFields();
-      birthDateInput.addEventListener('input',()=>syncBirthDate(false));
-      birthDateInput.addEventListener('blur',()=>syncBirthDate(true));
-      birthDatePicker.addEventListener('input',()=>{if(birthDatePicker.value){birthDateInput.value=birthDatePicker.value;syncBirthDate(true);}});
-      birthDatePicker.addEventListener('change',()=>{if(birthDatePicker.value){birthDateInput.value=birthDatePicker.value;syncBirthDate(true);}});
+      birthDateInput.addEventListener('input',event=>{
+        birthDateInput.setCustomValidity('');
+        const raw=String(birthDateInput.value||'');
+        const deleting=String(event.inputType||'').startsWith('delete');
+        syncBirthDate({normalize:!deleting&&/^\d{8}$/.test(raw),validate:false});
+      });
+      birthDateInput.addEventListener('blur',()=>syncBirthDate({normalize:true,validate:true}));
+      birthDatePickerButton.addEventListener('click',openBirthDatePicker);
+      birthDatePicker.addEventListener('input',()=>{if(birthDatePicker.value){birthDateInput.value=birthDatePicker.value;syncBirthDate({normalize:true,validate:true});}});
+      birthDatePicker.addEventListener('change',()=>{if(birthDatePicker.value){birthDateInput.value=birthDatePicker.value;syncBirthDate({normalize:true,validate:true});}});
       form.elements.ordinationDate.addEventListener('input',syncDerivedFields);
       form.elements.ordinationDate.addEventListener('change',syncDerivedFields);
       requestAnimationFrame(()=>window.__MILGYO_SYNC_MANAGED_DATES__?.(form));
@@ -196,11 +220,11 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       const certificateCoreCss=`
         .ordination-certificate-root,.ordination-certificate-root *{box-sizing:border-box}
         .ordination-certificate-root{background:#dfe4ea;padding:16px;min-width:826px}
-        .ordination-certificate-paper{position:relative;width:794px;height:1123px;margin:0 auto;overflow:hidden;background:#fff;color:#000;font-synthesis:none;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+        .ordination-certificate-paper{position:relative;width:794px;height:1123px;margin:0 auto;overflow:hidden;background:#fff;color:#000;font-synthesis:weight;-webkit-print-color-adjust:exact;print-color-adjust:exact}
         .ordination-certificate-background{position:absolute;z-index:0;inset:0;width:100%;height:100%;object-fit:cover}
         .ordination-art{position:absolute;z-index:1;pointer-events:none;object-fit:contain}
         .ordination-top-seal{left:49px;top:38px;width:120px;height:121px}
-        .ordination-bodhisattva{right:14px;top:29px;width:206px;height:202px}
+        .ordination-bodhisattva{right:24px;top:18px;width:170px;height:170px}
         .ordination-org-seal{right:45px;top:918px;width:116px;height:114px;z-index:4}
         .ordination-text{position:absolute;z-index:3;white-space:nowrap;color:#000}
         .ordination-cancel-watermark{position:absolute;z-index:8;left:50%;top:48%;transform:translate(-50%,-50%) rotate(-18deg);padding:10px 22px;border:7px solid rgba(180,0,0,.38);color:rgba(180,0,0,.42);font-family:"Malgun Gothic",sans-serif;font-size:56pt;font-weight:900;line-height:1;letter-spacing:.12em;white-space:nowrap;pointer-events:none}
@@ -208,7 +232,9 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         .font-gungseo{font-family:"궁서","Gungsuh","Batang","Noto Serif CJK KR",serif}
         .font-gungseoche{font-family:"궁서체","GungsuhChe","궁서","Batang","Noto Serif CJK KR",serif}
         .font-sm-gungseo{font-family:"신명 궁서","SMGungsuh","궁서체","궁서","Batang","Noto Serif CJK KR",serif}
-        .ordination-title{top:79px;left:0;width:100%;text-align:center;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:48pt;line-height:1;font-weight:900;letter-spacing:.02em}
+        .ordination-bold-render{font-weight:900!important;font-synthesis:weight;-webkit-text-stroke:.28px currentColor;text-shadow:.18px 0 currentColor,-.18px 0 currentColor}
+        .ordination-title{top:79px;left:0;width:100%;text-align:center;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:48pt;line-height:1;font-weight:900;letter-spacing:.02em;-webkit-text-stroke:.48px currentColor;text-shadow:.3px 0 currentColor,-.3px 0 currentColor}
+        .ordination-name,.ordination-birth,.ordination-dharma{font-weight:900!important;-webkit-text-stroke:.28px currentColor}
         .ordination-name{top:166px;left:351px;font-size:17pt;line-height:1.15;font-weight:700;transform:scaleX(.9);transform-origin:left top}
         .ordination-number{top:194px;left:55px;font-size:17pt;line-height:1.15;font-weight:700;transform:scaleX(.9);transform-origin:left top}
         .ordination-birth{top:194px;left:351px;font-size:17pt;line-height:1.15;font-weight:700;transform:scaleX(.9);transform-origin:left top}
@@ -216,7 +242,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         .ordination-section-title{left:56px;font-size:30pt;line-height:1;display:flex;align-items:baseline;font-weight:800}
         .ordination-section-title .wheel{font-family:"Segoe UI Symbol","Arial Unicode MS",sans-serif;font-size:27pt;margin-right:2px}
         .ordination-section-title .section-number{font-family:"궁서","Gungsuh",serif;font-weight:900}
-        .ordination-section-title .section-name{font-family:"신명 궁서","SMGungsuh","궁서체","궁서",serif;font-weight:900}
+        .ordination-section-title .section-name{font-family:"신명 궁서","SMGungsuh","궁서체","궁서",serif;font-weight:900;-webkit-text-stroke:.36px currentColor;text-shadow:.2px 0 currentColor,-.2px 0 currentColor}
         .ordination-command-title{top:247px}.ordination-precepts-title{top:400px}
         .ordination-command{position:absolute;z-index:3;top:288px;left:45px;width:704px;text-align:center;font-family:"궁서체","GungsuhChe","궁서",serif;font-size:17.5pt;line-height:1.12;font-weight:700}
         .ordination-command-line{display:block;position:relative;left:50%;width:max-content;white-space:nowrap;transform:translateX(-50%) scaleX(.9);transform-origin:center top}.ordination-command-name{font-family:"한양해서","HYhaeseo","Batang",serif}
@@ -225,14 +251,14 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         .ordination-precept-line{display:grid;grid-template-columns:30px 202px minmax(0,1fr);align-items:baseline;white-space:nowrap}
         .ordination-precept-number{font-family:"궁서","Gungsuh",serif;min-width:0}
         .ordination-precept-label{display:inline-flex;align-items:baseline;white-space:nowrap}
-        .ordination-precept-name{color:#f00}.ordination-precept-hanja{font-family:"한양해서","HYhaeseo","Batang",serif}.ordination-precept-korean{font-family:"궁서체","GungsuhChe","궁서",serif}.ordination-precept-colon{color:#000}
+        .ordination-precept-name{color:#f00;font-weight:900!important;font-synthesis:weight;-webkit-text-stroke:.34px currentColor;text-shadow:.2px 0 currentColor,-.2px 0 currentColor}.ordination-precept-hanja{font-family:"한양해서","HYhaeseo","Batang",serif}.ordination-precept-korean{font-family:"궁서체","GungsuhChe","궁서",serif}.ordination-precept-colon{color:#000}
         .ordination-precept-text{white-space:nowrap}
         .ordination-signatures{position:absolute;z-index:3;top:858px;left:429px;width:270px;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:18pt;line-height:1.22;white-space:nowrap;font-weight:900}
         .ordination-signatures .latin{display:inline-block;font-family:"궁서","Gungsuh","Batang",serif;letter-spacing:-.06em;transform:scaleX(.82);transform-origin:left center;margin-right:-17%}
         .ordination-date-line{position:absolute;z-index:3;top:966px;left:248px;width:340px;display:flex;align-items:baseline;justify-content:center;gap:3px;text-align:center;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:19pt;line-height:1.2;white-space:nowrap;font-weight:900;letter-spacing:0}
         .ordination-date-line .number{font-family:"궁서","Gungsuh","Batang",serif;font-variant-numeric:tabular-nums;letter-spacing:.035em}
-        .ordination-organization{position:absolute;z-index:3;top:1013px;left:367px;width:300px;text-align:center;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:17pt;line-height:1.25;white-space:nowrap;font-weight:900}
-        .ordination-temple{position:absolute;z-index:3;top:1041px;left:349px;width:335px;text-align:center;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:17pt;line-height:1.25;white-space:nowrap;font-weight:900}
+        .ordination-organization{position:absolute;z-index:3;top:1013px;left:367px;width:300px;text-align:center;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:17pt;line-height:1.25;white-space:nowrap;font-weight:900;-webkit-text-stroke:.3px currentColor;text-shadow:.18px 0 currentColor,-.18px 0 currentColor}
+        .ordination-temple{position:absolute;z-index:3;top:1041px;left:349px;width:335px;text-align:center;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:17pt;line-height:1.25;white-space:nowrap;font-weight:900;-webkit-text-stroke:.3px currentColor;text-shadow:.18px 0 currentColor,-.18px 0 currentColor}
         .ordination-print-action{width:794px;margin:12px auto 24px;text-align:right}.ordination-print-action button{padding:7px 18px}
         @media print{html,body{margin:0!important;padding:0!important;background:#fff!important}.ordination-certificate-root{background:#fff;padding:0;min-width:0}.ordination-certificate-paper{margin:0}.ordination-print-action{display:none!important}@page{size:A4 portrait;margin:0}}
       `;
@@ -255,30 +281,30 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
           <img class="ordination-art ordination-bodhisattva" src="/certificates/ordination/bodhisattva.png" alt="" />
           <img class="ordination-art ordination-org-seal" src="/certificates/ordination/organization-seal.png" alt="" />
           ${record.status==='취소'?'<div class="ordination-cancel-watermark">취소본</div>':''}
-          <div class="ordination-text ordination-title">受　　戒</div>
-          <div class="ordination-text ordination-name"><span class="font-haeseo">姓名</span><span class="font-gungseoche">:${esc(displayName(record.recipient_name))}</span></div>
+          <div class="ordination-text ordination-title ordination-bold-render">受　　戒</div>
+          <div class="ordination-text ordination-name ordination-bold-render"><span class="font-haeseo">姓名</span><span class="font-gungseoche">:${esc(displayName(record.recipient_name))}</span></div>
           <div class="ordination-text ordination-number font-gungseoche">N:${esc(displayCertificateNo(record.certificate_no))}</div>
-          <div class="ordination-text ordination-birth"><span class="font-haeseo">生年月日</span><span class="font-gungseoche">:${esc(birthText(record.birth_calendar,record.birth_date))}</span></div>
-          <div class="ordination-text ordination-dharma"><span class="font-haeseo">法名</span><span class="font-gungseoche">:</span><span class="font-haeseo" style="font-size:${dharmaSize}">${esc(dharma)}</span><span class="font-gungseoche">(${esc(record.dharma_name_korean||'-')})</span></div>
-          <div class="ordination-text ordination-section-title ordination-command-title"><span class="wheel">☸</span><span class="section-number">1</span><span class="font-gungseoche">:</span><span class="section-name">戒命</span></div>
+          <div class="ordination-text ordination-birth ordination-bold-render"><span class="font-haeseo">生年月日</span><span class="font-gungseoche">:${esc(birthText(record.birth_calendar,record.birth_date))}</span></div>
+          <div class="ordination-text ordination-dharma ordination-bold-render"><span class="font-haeseo">法名</span><span class="font-gungseoche">:</span><span class="font-haeseo" style="font-size:${dharmaSize}">${esc(dharma)}</span><span class="font-gungseoche">(${esc(record.dharma_name_korean||'-')})</span></div>
+          <div class="ordination-text ordination-section-title ordination-command-title"><span class="wheel">☸</span><span class="section-number">1</span><span class="font-gungseoche">:</span><span class="section-name ordination-bold-render">戒命</span></div>
           <div class="ordination-command">
             <div class="ordination-command-line">본래 청정한 자기 성품을 찾아가는 <span class="ordination-command-name">${esc(dharma)}</span> 보람되고 성스러운</div>
             <div class="ordination-command-line">수행과 효도를 바탕으로 생사와 선악과 종교를 초월한 자성</div>
             <div class="ordination-command-line">자리에서 심신을 갈고 닦아 마침내 득도를 이루어</div>
             <div class="ordination-command-line">중생의 광명이 되리라.</div>
           </div>
-          <div class="ordination-text ordination-section-title ordination-precepts-title"><span class="wheel">☸</span><span class="section-number">2</span><span class="font-gungseoche">:</span><span class="section-name">五戒</span></div>
+          <div class="ordination-text ordination-section-title ordination-precepts-title"><span class="wheel">☸</span><span class="section-number">2</span><span class="font-gungseoche">:</span><span class="section-name ordination-bold-render">五戒</span></div>
           <div class="ordination-precepts">
-            <div class="ordination-precept"><div class="ordination-precept-line"><span class="ordination-precept-number">1.</span><span class="ordination-precept-label"><span class="ordination-precept-name ordination-precept-hanja">不殺生</span><span class="ordination-precept-name ordination-precept-korean">(불살생)</span><span class="ordination-precept-colon">:</span></span><span class="ordination-precept-text">생명이 있는 것은 불성이 있고</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">불성이 있는 것은 불자이니 생명을</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">존중히 여겨 함부로 죽이지 말자.</span></div></div>
-            <div class="ordination-precept"><div class="ordination-precept-line"><span class="ordination-precept-number">2.</span><span class="ordination-precept-label"><span class="ordination-precept-name ordination-precept-hanja">不偸盜</span><span class="ordination-precept-name ordination-precept-korean">(불투도)</span><span class="ordination-precept-colon">:</span></span><span class="ordination-precept-text">모든 물질은 입자로 구성된</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">오온의 화합이라 무상한 것이니</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">삼독심을 버리고 베풀되 훔치지 말자.</span></div></div>
-            <div class="ordination-precept"><div class="ordination-precept-line"><span class="ordination-precept-number">3.</span><span class="ordination-precept-label"><span class="ordination-precept-name ordination-precept-hanja">不邪淫</span><span class="ordination-precept-name ordination-precept-korean">(불사음)</span><span class="ordination-precept-colon">:</span></span><span class="ordination-precept-text">하늘에 부끄럽지 아니하고</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">마음에 거리낌 없는 청정한</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">심신을 지키되 음행하지 말자.</span></div></div>
-            <div class="ordination-precept"><div class="ordination-precept-line"><span class="ordination-precept-number">4.</span><span class="ordination-precept-label"><span class="ordination-precept-name ordination-precept-hanja">不妄語</span><span class="ordination-precept-name ordination-precept-korean">(불망어)</span><span class="ordination-precept-colon">:</span></span><span class="ordination-precept-text">화안, 애어로서 화합을 즐기고</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">항상 진실을 지키며 망어, 기어,</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">양설, 악구를 행하지 말자.</span></div></div>
-            <div class="ordination-precept"><div class="ordination-precept-line"><span class="ordination-precept-number">5.</span><span class="ordination-precept-label"><span class="ordination-precept-name ordination-precept-hanja">不飮酒</span><span class="ordination-precept-name ordination-precept-korean">(불음주)</span><span class="ordination-precept-colon">:</span></span><span class="ordination-precept-text">음욕은 윤회의 근본이요, 술은</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">파계의 근본이니 정견 정행으로서</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">필요 없는 술을 마시지 말자.</span></div></div>
+            <div class="ordination-precept"><div class="ordination-precept-line"><span class="ordination-precept-number">1.</span><span class="ordination-precept-label"><span class="ordination-precept-name ordination-precept-hanja ordination-bold-render">不殺生</span><span class="ordination-precept-name ordination-precept-korean ordination-bold-render">(불살생)</span><span class="ordination-precept-colon">:</span></span><span class="ordination-precept-text">생명이 있는 것은 불성이 있고</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">불성이 있는 것은 불자이니 생명을</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">존중히 여겨 함부로 죽이지 말자.</span></div></div>
+            <div class="ordination-precept"><div class="ordination-precept-line"><span class="ordination-precept-number">2.</span><span class="ordination-precept-label"><span class="ordination-precept-name ordination-precept-hanja ordination-bold-render">不偸盜</span><span class="ordination-precept-name ordination-precept-korean ordination-bold-render">(불투도)</span><span class="ordination-precept-colon">:</span></span><span class="ordination-precept-text">모든 물질은 입자로 구성된</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">오온의 화합이라 무상한 것이니</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">삼독심을 버리고 베풀되 훔치지 말자.</span></div></div>
+            <div class="ordination-precept"><div class="ordination-precept-line"><span class="ordination-precept-number">3.</span><span class="ordination-precept-label"><span class="ordination-precept-name ordination-precept-hanja ordination-bold-render">不邪淫</span><span class="ordination-precept-name ordination-precept-korean ordination-bold-render">(불사음)</span><span class="ordination-precept-colon">:</span></span><span class="ordination-precept-text">하늘에 부끄럽지 아니하고</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">마음에 거리낌 없는 청정한</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">심신을 지키되 음행하지 말자.</span></div></div>
+            <div class="ordination-precept"><div class="ordination-precept-line"><span class="ordination-precept-number">4.</span><span class="ordination-precept-label"><span class="ordination-precept-name ordination-precept-hanja ordination-bold-render">不妄語</span><span class="ordination-precept-name ordination-precept-korean ordination-bold-render">(불망어)</span><span class="ordination-precept-colon">:</span></span><span class="ordination-precept-text">화안, 애어로서 화합을 즐기고</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">항상 진실을 지키며 망어, 기어,</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">양설, 악구를 행하지 말자.</span></div></div>
+            <div class="ordination-precept"><div class="ordination-precept-line"><span class="ordination-precept-number">5.</span><span class="ordination-precept-label"><span class="ordination-precept-name ordination-precept-hanja ordination-bold-render">不飮酒</span><span class="ordination-precept-name ordination-precept-korean ordination-bold-render">(불음주)</span><span class="ordination-precept-colon">:</span></span><span class="ordination-precept-text">음욕은 윤회의 근본이요, 술은</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">파계의 근본이니 정견 정행으로서</span></div><div class="ordination-precept-line"><span></span><span></span><span class="ordination-precept-text">필요 없는 술을 마시지 말자.</span></div></div>
           </div>
           <div class="ordination-signatures"><div>恩師:${esc(record.teacher_name||defaults.teacherName)}</div><div>戒師:${esc(record.preceptor_name||defaults.preceptorName)}</div><div>證明:<span class="latin">${esc(record.witness_name||defaults.witnessName)}</span></div></div>
           <div class="ordination-date-line"><span>佛紀</span><span class="number">${esc(record.buddhist_year||date.year)}</span><span>年</span><span class="number">${esc(date.month)}</span><span>月</span><span class="number">${esc(date.day)}</span><span>日</span></div>
-          <div class="ordination-organization">${esc(record.organization_name||defaults.organizationName)}</div>
-          <div class="ordination-temple">${esc(record.temple_name||defaults.templeName)} ${esc(record.issuer_name||defaults.issuerName)} ${esc(record.closing_text||defaults.closingText)}</div>
+          <div class="ordination-organization ordination-bold-render">${esc(record.organization_name||defaults.organizationName)}</div>
+          <div class="ordination-temple ordination-bold-render">${esc(record.temple_name||defaults.templeName)} ${esc(record.issuer_name||defaults.issuerName)} ${esc(record.closing_text||defaults.closingText)}</div>
         </article></div>`;
       };
       const fitCertificateLines=root=>{
@@ -319,7 +345,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       };
       const closePreview=()=>{$('[data-preview-modal]').hidden=true;};
       $$('[data-close-preview]').forEach(button=>button.addEventListener('click',closePreview));
-      $('[data-preview]').addEventListener('click',()=>{if(syncBirthDate(true)&&form.reportValidity())openPreview(formRecord());});
+      $('[data-preview]').addEventListener('click',()=>{if(syncBirthDate({normalize:true,validate:true})&&form.reportValidity())openPreview(formRecord());});
       $('[data-print-preview]').addEventListener('click',()=>{if(lastPreview)openPrint(lastPreview,true);});
       const openPrint=(record,autoPrint=false,existingWindow=null)=>{
         const printWindow=existingWindow||window.open('','_blank','width=980,height=1080');
@@ -365,7 +391,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
 
       form.addEventListener('submit',async event=>{
         event.preventDefault();
-        if(issuing||!syncBirthDate(true)||!form.reportValidity())return;
+        if(issuing||!syncBirthDate({normalize:true,validate:true})||!form.reportValidity())return;
         issuing=true;
         const issueButton=$('[data-issue-button]');
         issueButton.disabled=true;
@@ -430,7 +456,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
   </script>
 
   <style is:global>
-    .ordination-issue-panel{margin-bottom:1rem}.section-title{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;margin-bottom:1rem}.section-title h2{margin:0;font-size:1.12rem}.section-title p{margin:.2rem 0 0;color:var(--gov-muted);font-size:.8rem}.privacy-note{font-size:.76rem;color:#6e520a;background:#fff8e6;border:1px solid #ead49a;padding:.4rem .55rem;border-radius:5px;white-space:nowrap}.ordination-form-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.ordination-form-grid .form-field--wide{grid-column:span 2}.birth-date-control{display:grid;grid-template-columns:minmax(0,1fr) 42px;gap:.4rem;align-items:stretch}.birth-date-control>input{width:100%}.birth-date-picker-shell{position:relative;display:flex;align-items:center;justify-content:center;min-width:42px;min-height:38px;border:1px solid var(--gov-border);border-radius:5px;background:#fff;color:#304b70;overflow:hidden}.birth-date-picker-shell:focus-within{outline:2px solid rgba(38,88,160,.22);outline-offset:1px}.birth-date-picker-shell svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}.birth-date-picker-shell input[type="date"]{position:absolute;inset:0;width:100%;height:100%;min-height:0;margin:0;padding:0;border:0;opacity:0;cursor:pointer}.field-hint{display:block;color:var(--gov-muted);font-size:.72rem;line-height:1.35}.ordination-seal-option{justify-content:flex-start}.seal-check{display:flex;align-items:center;gap:.55rem;min-height:38px;padding:.45rem .65rem;border:1px solid var(--gov-border);border-radius:5px;background:#f8fafc;font-size:.84rem;font-weight:700;cursor:pointer}.seal-check input[type="checkbox"]{width:17px;height:17px;min-height:0;margin:0;accent-color:var(--gov-accent)}.form-actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--gov-border)}.font-readiness{margin-top:.75rem;padding:.55rem .7rem;border-radius:4px;font-size:.78rem}.font-readiness.ok{background:#eef8f1;border:1px solid #bcd9c3;color:#276238}.font-readiness.warning,.preview-font-warning{background:#fff7e6;border:1px solid #e9cc8d;color:#785514}.preview-font-warning{margin-bottom:.7rem;padding:.6rem .75rem;border-radius:4px;font-size:.8rem}.ledger-section-title{align-items:flex-start}.ledger-filters{justify-content:flex-end;flex-wrap:wrap}.ledger-filters input[type="search"]{min-width:220px}.range-separator{display:inline-flex;align-items:center}.ordination-table{table-layout:fixed}.ordination-table th,.ordination-table td{text-align:center;vertical-align:middle}.ordination-table .col-number{width:12%}.ordination-table .col-date{width:10%}.ordination-table .col-name{width:9%}.ordination-table .col-dharma{width:17%}.ordination-table .col-birth{width:15%}.ordination-table .col-issuer{width:10%}.ordination-table .col-status{width:8%}.ordination-table .col-manage{width:19%}.dharma-hanja{font-family:"Batang","Noto Serif CJK KR",serif}.dharma-korean{display:inline-block;margin-left:.3rem}.row-actions{display:flex;justify-content:center;gap:.3rem;flex-wrap:wrap}.danger{color:#a12626;border-color:#dfb4b4}.ordination-preview-modal{width:min(1040px,calc(100vw - 2rem));max-height:calc(100vh - 2rem)}.ordination-preview-modal .modal__body{overflow:auto}.ordination-preview-modal [data-preview-container]{overflow:auto;background:#dfe4ea;padding:1rem}.ordination-preview-modal [data-preview-container] .ordination-certificate-paper{transform-origin:top center}.ordination-detail-modal{width:min(900px,calc(100vw - 2rem))}.ordination-detail-card{padding:.15rem}.detail-grid-table{width:100%;border-collapse:collapse;table-layout:fixed}.detail-grid-table th,.detail-grid-table td{border:1px solid var(--gov-border);padding:.75rem .7rem;text-align:center;vertical-align:middle;word-break:keep-all;overflow-wrap:anywhere}.detail-grid-table th{width:16%;background:#edf3fa;color:#263b55;font-weight:800}.detail-grid-table td{width:34%;background:#fff}.detail-grid-table .detail-long{text-align:left;white-space:pre-wrap}.modal__actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--gov-border)}
+    .ordination-issue-panel{margin-bottom:1rem}.section-title{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;margin-bottom:1rem}.section-title h2{margin:0;font-size:1.12rem}.section-title p{margin:.2rem 0 0;color:var(--gov-muted);font-size:.8rem}.privacy-note{font-size:.76rem;color:#6e520a;background:#fff8e6;border:1px solid #ead49a;padding:.4rem .55rem;border-radius:5px;white-space:nowrap}.ordination-form-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.ordination-form-grid .form-field--wide{grid-column:span 2}.birth-date-control{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 42px;gap:.4rem;align-items:stretch}.birth-date-control>input[type="text"]{width:100%}.birth-date-picker-shell{display:flex;align-items:center;justify-content:center;min-width:42px;min-height:38px;margin:0;padding:0;border:1px solid var(--gov-border);border-radius:5px;background:#fff;color:#304b70;cursor:pointer}.birth-date-picker-shell:hover{background:#f4f7fb}.birth-date-picker-shell:focus-visible{outline:2px solid rgba(38,88,160,.35);outline-offset:1px}.birth-date-picker-shell svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}.birth-date-native-picker{position:absolute!important;right:0;bottom:0;width:1px!important;height:1px!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;opacity:.01;pointer-events:none}.field-hint{display:block;color:var(--gov-muted);font-size:.72rem;line-height:1.35}.ordination-seal-option{justify-content:flex-start}.seal-check{display:flex;align-items:center;gap:.55rem;min-height:38px;padding:.45rem .65rem;border:1px solid var(--gov-border);border-radius:5px;background:#f8fafc;font-size:.84rem;font-weight:700;cursor:pointer}.seal-check input[type="checkbox"]{width:17px;height:17px;min-height:0;margin:0;accent-color:var(--gov-accent)}.form-actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--gov-border)}.font-readiness{margin-top:.75rem;padding:.55rem .7rem;border-radius:4px;font-size:.78rem}.font-readiness.ok{background:#eef8f1;border:1px solid #bcd9c3;color:#276238}.font-readiness.warning,.preview-font-warning{background:#fff7e6;border:1px solid #e9cc8d;color:#785514}.preview-font-warning{margin-bottom:.7rem;padding:.6rem .75rem;border-radius:4px;font-size:.8rem}.ledger-section-title{align-items:flex-start}.ledger-filters{justify-content:flex-end;flex-wrap:wrap}.ledger-filters input[type="search"]{min-width:220px}.range-separator{display:inline-flex;align-items:center}.ordination-table{table-layout:fixed}.ordination-table th,.ordination-table td{text-align:center;vertical-align:middle}.ordination-table .col-number{width:12%}.ordination-table .col-date{width:10%}.ordination-table .col-name{width:9%}.ordination-table .col-dharma{width:17%}.ordination-table .col-birth{width:15%}.ordination-table .col-issuer{width:10%}.ordination-table .col-status{width:8%}.ordination-table .col-manage{width:19%}.dharma-hanja{font-family:"Batang","Noto Serif CJK KR",serif}.dharma-korean{display:inline-block;margin-left:.3rem}.row-actions{display:flex;justify-content:center;gap:.3rem;flex-wrap:wrap}.danger{color:#a12626;border-color:#dfb4b4}.ordination-preview-modal{width:min(1040px,calc(100vw - 2rem));max-height:calc(100vh - 2rem)}.ordination-preview-modal .modal__body{overflow:auto}.ordination-preview-modal [data-preview-container]{overflow:auto;background:#dfe4ea;padding:1rem}.ordination-preview-modal [data-preview-container] .ordination-certificate-paper{transform-origin:top center}.ordination-detail-modal{width:min(900px,calc(100vw - 2rem))}.ordination-detail-card{padding:.15rem}.detail-grid-table{width:100%;border-collapse:collapse;table-layout:fixed}.detail-grid-table th,.detail-grid-table td{border:1px solid var(--gov-border);padding:.75rem .7rem;text-align:center;vertical-align:middle;word-break:keep-all;overflow-wrap:anywhere}.detail-grid-table th{width:16%;background:#edf3fa;color:#263b55;font-weight:800}.detail-grid-table td{width:34%;background:#fff}.detail-grid-table .detail-long{text-align:left;white-space:pre-wrap}.modal__actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--gov-border)}
     @media(max-width:1200px){.ordination-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ordination-form-grid .form-field--wide{grid-column:span 2}.ledger-section-title{flex-direction:column}.ledger-filters{justify-content:flex-start;width:100%}}
     @media(max-width:760px){.ordination-form-grid{grid-template-columns:1fr}.ordination-form-grid .form-field--wide{grid-column:auto}.section-title{align-items:flex-start;flex-direction:column}.privacy-note{white-space:normal}.ledger-filters>*{max-width:100%}.ledger-filters input[type="search"]{min-width:0;width:100%}.ordination-preview-modal [data-preview-container]{padding:.5rem}.ordination-preview-modal [data-preview-container] .ordination-certificate-root{transform:scale(.68);transform-origin:top left;margin-bottom:-359px}.detail-grid-table th,.detail-grid-table td{padding:.55rem .4rem;font-size:.8rem}}
   </style>
