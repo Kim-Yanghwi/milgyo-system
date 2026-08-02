@@ -806,7 +806,7 @@ let tablesEnsured = false;
 let tablesEnsurePromise: Promise<void> | null = null;
 let lastRateLimitCleanupAt = 0;
 const MAINTENANCE_COOLDOWN_MS = 10 * 60 * 1000;
-const SCHEMA_VERSION = '2026-07-31.12';
+const SCHEMA_VERSION = '2026-08-01.14';
 
 type TableColumnInfo = { name: string; type: string; notnull: number; dflt_value?: unknown; pk: number };
 
@@ -939,6 +939,21 @@ const runSchemaMigration = async (db: D1Database) => {
       canceled_by_user_id TEXT, canceled_by_name TEXT, cancel_reason TEXT,
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS ordination_certificates (
+      id TEXT PRIMARY KEY, certificate_no TEXT NOT NULL UNIQUE, request_id TEXT,
+      issue_year INTEGER NOT NULL, sequence_no INTEGER NOT NULL,
+      recipient_name TEXT NOT NULL, birth_calendar TEXT NOT NULL, birth_date TEXT NOT NULL,
+      dharma_name_hanja TEXT NOT NULL, dharma_name_korean TEXT NOT NULL,
+      ordination_date TEXT NOT NULL, buddhist_year INTEGER NOT NULL,
+      teacher_name TEXT NOT NULL, preceptor_name TEXT NOT NULL, witness_name TEXT NOT NULL,
+      organization_name TEXT NOT NULL, temple_name TEXT NOT NULL, issuer_name TEXT NOT NULL,
+      closing_text TEXT NOT NULL DEFAULT '合掌', note TEXT NOT NULL DEFAULT '',
+      template_version TEXT NOT NULL DEFAULT 'ordination-v1', certificate_snapshot TEXT NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT '발급', issued_by_user_id TEXT NOT NULL, issued_by_name TEXT NOT NULL,
+      issued_at TEXT NOT NULL, canceled_at TEXT, canceled_by_user_id TEXT, canceled_by_name TEXT,
+      cancel_reason TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      UNIQUE(issue_year, sequence_no)
+    )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS management_audit_logs (
       id TEXT PRIMARY KEY, category TEXT NOT NULL, action TEXT NOT NULL, target_id TEXT NOT NULL,
       actor_user_id TEXT NOT NULL, actor_name TEXT NOT NULL, details_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL
@@ -965,6 +980,7 @@ const runSchemaMigration = async (db: D1Database) => {
     ['received_documents', 'handled_by_user_id TEXT'], ['received_documents', 'updated_at TEXT'],
     ['document_attachments', `storage_type TEXT NOT NULL DEFAULT 'd1'`], ['document_attachments', 'r2_key TEXT'],
     ['received_attachments', `storage_type TEXT NOT NULL DEFAULT 'd1'`], ['received_attachments', 'r2_key TEXT'],
+    ['ordination_certificates', 'request_id TEXT'],
   ];
   // 이미 존재하는 컬럼마다 ALTER TABLE 오류를 발생시키면 D1 요청 수와 실행시간이 크게 늘어납니다.
   // 테이블별 컬럼 목록을 한 번만 조회하고, 실제로 누락된 컬럼만 순차 추가합니다.
@@ -1047,6 +1063,11 @@ const runSchemaMigration = async (db: D1Database) => {
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_management_register_attachments_record ON management_register_attachments(register_id, created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_employment_certificates_employee ON employment_certificates(employee_user_id, issue_date DESC)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_employment_certificates_status ON employment_certificates(status, issue_date DESC)`),
+    db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_ordination_certificates_request ON ordination_certificates(request_id) WHERE request_id IS NOT NULL`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_ordination_certificates_date ON ordination_certificates(ordination_date DESC, created_at DESC)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_ordination_certificates_recipient ON ordination_certificates(recipient_name, ordination_date DESC)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_ordination_certificates_dharma ON ordination_certificates(dharma_name_korean, dharma_name_hanja, ordination_date DESC)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_ordination_certificates_status ON ordination_certificates(status, ordination_date DESC)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_management_audit_target ON management_audit_logs(category, target_id, created_at)`),
   ]);
 
@@ -1074,6 +1095,7 @@ const hasCurrentSchema = async (db: D1Database) => {
       hasColumns(db, 'management_register_attachments', ['id', 'register_id', 'storage_type', 'r2_key']),
       hasColumns(db, 'employee_profiles', ['user_id', 'employment_start_date', 'updated_at']),
       hasColumns(db, 'employment_certificates', ['id', 'certificate_no', 'employee_user_id', 'status', 'issue_date']),
+      hasColumns(db, 'ordination_certificates', ['id', 'certificate_no', 'request_id', 'issue_year', 'sequence_no', 'recipient_name', 'birth_date', 'dharma_name_hanja', 'ordination_date', 'status']),
       hasColumns(db, 'management_audit_logs', ['id', 'category', 'action', 'target_id', 'created_at']),
     ]);
     return checks.every(Boolean);

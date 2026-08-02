@@ -49,6 +49,25 @@ export const makeEmploymentCertificateNumber = async (db: D1Database, issueDate:
   return nextManagedNumber(db, `EMPLOYMENT_CERT:${year}`, '재직', year, 'employment_certificates', 'certificate_no', 5);
 };
 
+export const makeOrdinationCertificateNumber = async (db: D1Database, ordinationDate: string) => {
+  const year = Number(ordinationDate.slice(0, 4)) || new Date().getUTCFullYear();
+  const seqKey = `ORDINATION_CERT:${year}`;
+  const existing = await db.prepare(`
+    SELECT MAX(CAST(substr(certificate_no, 6) AS INTEGER)) AS max_seq
+    FROM ordination_certificates
+    WHERE certificate_no LIKE ?
+  `).bind(`${year}-%`).first<{ max_seq?: number | null }>();
+  const existingMax = Number(existing?.max_seq || 0);
+  await db.prepare(`
+    INSERT INTO document_sequences (seq_key, last_seq) VALUES (?, ?)
+    ON CONFLICT(seq_key) DO UPDATE SET last_seq = MAX(document_sequences.last_seq, excluded.last_seq)
+  `).bind(seqKey, existingMax).run();
+  const row = await db.prepare(`UPDATE document_sequences SET last_seq=last_seq+1 WHERE seq_key=? RETURNING last_seq`)
+    .bind(seqKey).first<{ last_seq?: number }>();
+  const sequence = Number(row?.last_seq || existingMax + 1);
+  return { certificateNo: `${year}-${String(sequence).padStart(2, '0')}`, issueYear: year, sequence };
+};
+
 export const writeManagementAudit = async (
   db: D1Database,
   user: SessionUser,

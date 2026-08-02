@@ -1,0 +1,391 @@
+---
+import ManagementLayout from '../layouts/ManagementLayout.astro';
+---
+<ManagementLayout title="수계증서 발급·대장" active="ordination">
+  <div data-ordination-certificate-version="2026-08-01-v59" hidden></div>
+  <div class="page-heading">
+    <div>
+      <p class="page-heading__kicker">ORDINATION CERTIFICATE</p>
+      <h1>수계증서 발급·대장</h1>
+      <p>수계자 정보를 입력하여 원본 서식과 동일한 수계증서를 발급하고 발급대장을 관리합니다.</p>
+    </div>
+  </div>
+
+  <section class="surface ordination-issue-panel">
+    <div class="section-title">
+      <div><h2>수계증서 발급</h2><p>발급번호는 수계일의 연도를 기준으로 연도별 01번부터 자동 생성됩니다.</p></div>
+      <span class="privacy-note">생년월일은 발급대장 목록에서 일부 마스킹됩니다.</span>
+    </div>
+    <form data-ordination-form>
+      <div class="form-grid ordination-form-grid">
+        <div class="form-field"><label for="ordination-recipient">성명</label><input id="ordination-recipient" name="recipientName" maxlength="60" autocomplete="off" required /></div>
+        <div class="form-field"><label for="ordination-calendar">생년월일 기준</label><select id="ordination-calendar" name="birthCalendar" required><option value="음력">음력</option><option value="양력">양력</option></select></div>
+        <div class="form-field"><label for="ordination-birth-date">생년월일</label><input id="ordination-birth-date" name="birthDate" type="date" required /></div>
+        <div class="form-field"><label for="ordination-date">수계일</label><input id="ordination-date" name="ordinationDate" type="date" required /></div>
+
+        <div class="form-field"><label for="ordination-dharma-hanja">법명(한자)</label><input id="ordination-dharma-hanja" name="dharmaNameHanja" maxlength="60" autocomplete="off" required /></div>
+        <div class="form-field"><label for="ordination-dharma-korean">법명(한글)</label><input id="ordination-dharma-korean" name="dharmaNameKorean" maxlength="60" autocomplete="off" required /></div>
+        <div class="form-field"><label for="ordination-buddhist-year">불기</label><input id="ordination-buddhist-year" data-buddhist-year readonly /></div>
+        <div class="form-field"><label for="ordination-number-preview">발급번호</label><input id="ordination-number-preview" data-number-preview value="수계일 선택 후 자동 생성" readonly /></div>
+
+        <div class="form-field"><label for="ordination-teacher">은사</label><input id="ordination-teacher" name="teacherName" maxlength="80" required /></div>
+        <div class="form-field"><label for="ordination-preceptor">계사</label><input id="ordination-preceptor" name="preceptorName" maxlength="80" required /></div>
+        <div class="form-field"><label for="ordination-witness">증명</label><input id="ordination-witness" name="witnessName" maxlength="100" required /></div>
+        <div class="form-field"><label for="ordination-organization">발행기관</label><input id="ordination-organization" name="organizationName" maxlength="100" required /></div>
+
+        <div class="form-field"><label for="ordination-temple">사찰</label><input id="ordination-temple" name="templeName" maxlength="80" required /></div>
+        <div class="form-field"><label for="ordination-issuer">발행자</label><input id="ordination-issuer" name="issuerName" maxlength="80" required /></div>
+        <div class="form-field"><label for="ordination-closing">맺음말</label><input id="ordination-closing" name="closingText" maxlength="30" required /></div>
+        <div class="form-field form-field--wide"><label for="ordination-note">비고</label><input id="ordination-note" name="note" maxlength="1000" /></div>
+      </div>
+      <div class="font-readiness" data-font-readiness aria-live="polite"></div>
+      <div class="status-message" data-issue-status aria-live="polite"></div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-outline" data-preview>입력내용 미리보기</button>
+        <button type="submit" class="btn btn-primary" data-issue-button>수계증서 발급</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="surface ordination-ledger">
+    <div class="section-title ledger-section-title">
+      <div><h2>수계증서 발급대장</h2><p>발급번호, 수계자, 법명, 수계일, 상태와 재출력 여부를 확인합니다.</p></div>
+      <div class="toolbar ledger-filters">
+        <select data-ledger-status><option value="">전체 상태</option><option value="발급">발급</option><option value="취소">취소</option></select>
+        <input type="date" data-ledger-from aria-label="조회 시작일" />
+        <span class="range-separator">~</span>
+        <input type="date" data-ledger-to aria-label="조회 종료일" />
+        <input type="search" data-ledger-query placeholder="발급번호·성명·법명 검색" />
+        <select data-ledger-size><option value="10">10개</option><option value="20" selected>20개</option><option value="50">50개</option></select>
+        <button type="button" class="btn btn-outline" data-ledger-search>조회</button>
+        <button type="button" class="btn btn-outline" data-ledger-export>CSV</button>
+      </div>
+    </div>
+    <div class="status-message" data-ledger-status-message aria-live="polite"></div>
+    <div class="data-wrap">
+      <table class="data-table ordination-table">
+        <colgroup><col class="col-number"/><col class="col-date"/><col class="col-name"/><col class="col-dharma"/><col class="col-birth"/><col class="col-issuer"/><col class="col-status"/><col class="col-manage"/></colgroup>
+        <thead><tr><th>발급번호</th><th>수계일</th><th>성명</th><th>법명</th><th>생년월일</th><th>발급자</th><th>상태</th><th>관리</th></tr></thead>
+        <tbody data-ledger-body><tr><td colspan="8">불러오는 중입니다.</td></tr></tbody>
+      </table>
+    </div>
+    <div class="pagination" data-ledger-pagination></div>
+  </section>
+
+  <div class="modal-overlay" data-preview-modal hidden>
+    <section class="modal ordination-preview-modal" role="dialog" aria-modal="true" aria-labelledby="ordination-preview-title">
+      <header class="modal__header"><h2 id="ordination-preview-title">수계증서 미리보기</h2><button type="button" class="modal__close" data-close-preview aria-label="미리보기 닫기">×</button></header>
+      <div class="modal__body">
+        <div class="preview-font-warning" data-preview-font-warning hidden></div>
+        <div data-preview-container></div>
+        <div class="modal__actions"><button type="button" class="btn btn-outline" data-close-preview>닫기</button><button type="button" class="btn btn-primary" data-print-preview>인쇄</button></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-overlay" data-detail-modal hidden>
+    <section class="modal ordination-detail-modal" role="dialog" aria-modal="true" aria-labelledby="ordination-detail-title">
+      <header class="modal__header"><h2 id="ordination-detail-title">수계증서 발급 상세</h2><button type="button" class="modal__close" data-close-detail aria-label="상세 닫기">×</button></header>
+      <div class="modal__body" data-detail-container></div>
+    </section>
+  </div>
+
+  <script is:inline>
+    (() => {
+      const $=(selector,root=document)=>root.querySelector(selector);
+      const $$=(selector,root=document)=>Array.from(root.querySelectorAll(selector));
+      const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+      const session=(()=>{try{return JSON.parse(localStorage.getItem('milgyo-system-session')||'null')}catch{return null}})();
+      if(!session?.token)return;
+
+      let page=1,pages=1,currentRows=[],canManage=false,lastPreview=null,issuing=false,issueRequestId=null;
+      const defaults={teacherName:'睡翁 眞妙',preceptorName:'東翁 呑析',witnessName:'LAMA WANGDA',organizationName:'大韓佛敎 密敎宗',templeName:'香天寺',issuerName:'睡翁 眞妙',closingText:'合掌'};
+      const api=async(url,payload)=>{
+        try{
+          const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:session.token,...payload})});
+          const data=await response.json().catch(()=>({ok:false,message:'서버 응답을 확인할 수 없습니다.'}));
+          if(!data.ok&&response.status===401){localStorage.removeItem('milgyo-system-session');location.replace('/');return {ok:false,message:data.message||'로그인이 필요합니다.'};}
+          return data;
+        }catch(error){
+          console.error('ordination request failed',error);
+          return {ok:false,message:'네트워크 연결을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.'};
+        }
+      };
+      const createRequestId=()=>globalThis.crypto?.randomUUID?.()||`ordination_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const today=()=>new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
+      const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(String(value||''));
+      const dateParts=value=>{const match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value||''));return match?{year:Number(match[1]),month:Number(match[2]),day:Number(match[3])}:null;};
+      const buddhistYear=value=>{const parts=dateParts(value);return parts?parts.year+544:'';};
+      const displayName=value=>{const normalized=String(value||'').trim().replace(/\s+/g,' ');if(!normalized)return '-';return normalized.includes(' ')?normalized:Array.from(normalized).join(' ');};
+      const displayCertificateNo=value=>{const text=String(value||'').trim();return text&&text!=='미리보기'?text:'0000-00';};
+      const calendarHanja=value=>value==='양력'?'陽':'陰';
+      const birthText=(calendar,value)=>{const parts=dateParts(value);return parts?`${calendarHanja(calendar)}${parts.year}년 ${parts.month}월 ${parts.day}일생`:`${calendarHanja(calendar)}-`;};
+      const ordinationDateText=value=>{const parts=dateParts(value);return parts?{year:parts.year+544,month:parts.month,day:parts.day}:{year:'-',month:'-',day:'-'};};
+      const setMessage=(selector,message,type='')=>{const element=$(selector);if(!element)return;element.textContent=message||'';element.className=`status-message ${type}`;};
+      const form=$('[data-ordination-form]');
+
+      const syncDerivedFields=()=>{
+        const date=form.elements.ordinationDate.value;
+        $('[data-buddhist-year]').value=buddhistYear(date)||'';
+        $('[data-number-preview]').value=validDate(date)?`N:${date.slice(0,4)}-자동순번`:'수계일 선택 후 자동 생성';
+      };
+      form.elements.ordinationDate.value=today();
+      Object.entries(defaults).forEach(([name,value])=>{if(form.elements[name])form.elements[name].value=value;});
+      syncDerivedFields();
+      form.elements.ordinationDate.addEventListener('input',syncDerivedFields);
+      form.elements.ordinationDate.addEventListener('change',syncDerivedFields);
+      requestAnimationFrame(()=>window.__MILGYO_SYNC_MANAGED_DATES__?.(form));
+
+      const formRecord=(certificateNo='미리보기')=>{
+        const data=new FormData(form);
+        const ordinationDate=String(data.get('ordinationDate')||'');
+        return {
+          certificate_no:certificateNo,
+          recipient_name:String(data.get('recipientName')||''),
+          birth_calendar:String(data.get('birthCalendar')||'음력'),
+          birth_date:String(data.get('birthDate')||''),
+          dharma_name_hanja:String(data.get('dharmaNameHanja')||''),
+          dharma_name_korean:String(data.get('dharmaNameKorean')||''),
+          ordination_date:ordinationDate,
+          buddhist_year:buddhistYear(ordinationDate),
+          teacher_name:String(data.get('teacherName')||defaults.teacherName),
+          preceptor_name:String(data.get('preceptorName')||defaults.preceptorName),
+          witness_name:String(data.get('witnessName')||defaults.witnessName),
+          organization_name:String(data.get('organizationName')||defaults.organizationName),
+          temple_name:String(data.get('templeName')||defaults.templeName),
+          issuer_name:String(data.get('issuerName')||defaults.issuerName),
+          closing_text:String(data.get('closingText')||defaults.closingText),
+          note:String(data.get('note')||''),status:'발급',
+        };
+      };
+
+      const certificateCoreCss=`
+        .ordination-certificate-root,.ordination-certificate-root *{box-sizing:border-box}
+        .ordination-certificate-root{background:#dfe4ea;padding:16px;min-width:826px}
+        .ordination-certificate-paper{position:relative;width:794px;height:1123px;margin:0 auto;overflow:hidden;background:#fff;color:#000;font-synthesis:none;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+        .ordination-certificate-background{position:absolute;z-index:0;inset:0;width:100%;height:100%;object-fit:cover}
+        .ordination-art{position:absolute;z-index:1;pointer-events:none;object-fit:contain}
+        .ordination-top-seal{left:49px;top:38px;width:120px;height:121px}
+        .ordination-bodhisattva{right:31px;top:25px;width:171px;height:168px}
+        .ordination-org-seal{right:45px;top:918px;width:116px;height:114px;z-index:4}
+        .ordination-text{position:absolute;z-index:3;white-space:nowrap;color:#000}
+        .ordination-cancel-watermark{position:absolute;z-index:8;left:50%;top:48%;transform:translate(-50%,-50%) rotate(-18deg);padding:10px 22px;border:7px solid rgba(180,0,0,.38);color:rgba(180,0,0,.42);font-family:"Malgun Gothic",sans-serif;font-size:56pt;font-weight:900;line-height:1;letter-spacing:.12em;white-space:nowrap;pointer-events:none}
+        .font-haeseo{font-family:"한양해서","HYhaeseo","Batang","Noto Serif CJK KR",serif}
+        .font-gungseo{font-family:"궁서","Gungsuh","Batang","Noto Serif CJK KR",serif}
+        .font-gungseoche{font-family:"궁서체","GungsuhChe","궁서","Batang","Noto Serif CJK KR",serif}
+        .font-sm-gungseo{font-family:"신명 궁서","SMGungsuh","궁서체","궁서","Batang","Noto Serif CJK KR",serif}
+        .ordination-title{top:79px;left:0;width:100%;text-align:center;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:48pt;line-height:1;font-weight:400;letter-spacing:.02em}
+        .ordination-name{top:166px;left:351px;font-size:17pt;line-height:1.15;font-weight:700;transform:scaleX(.9);transform-origin:left top}
+        .ordination-number{top:194px;left:55px;font-size:17pt;line-height:1.15;font-weight:700;transform:scaleX(.9);transform-origin:left top}
+        .ordination-birth{top:194px;left:351px;font-size:17pt;line-height:1.15;font-weight:700;transform:scaleX(.9);transform-origin:left top}
+        .ordination-dharma{top:220px;left:351px;font-size:17pt;line-height:1.15;font-weight:700;transform:scaleX(.9);transform-origin:left top}
+        .ordination-section-title{left:56px;font-size:30pt;line-height:1;display:flex;align-items:baseline;font-weight:700}
+        .ordination-section-title .wheel{font-family:"Segoe UI Symbol","Arial Unicode MS",sans-serif;font-size:27pt;margin-right:2px}
+        .ordination-section-title .section-number{font-family:"궁서","Gungsuh",serif}
+        .ordination-section-title .section-name{font-family:"신명 궁서","SMGungsuh","궁서체","궁서",serif}
+        .ordination-command-title{top:247px}.ordination-precepts-title{top:388px}
+        .ordination-command{position:absolute;z-index:3;top:286px;left:45px;width:704px;text-align:center;font-family:"궁서체","GungsuhChe","궁서",serif;font-size:17pt;line-height:1.24;font-weight:700}
+        .ordination-command-line{display:block;position:relative;left:50%;width:max-content;white-space:nowrap;transform:translateX(-50%) scaleX(.9);transform-origin:center top}.ordination-command-name{font-family:"한양해서","HYhaeseo","Batang",serif}
+        .ordination-precepts{position:absolute;z-index:3;top:430px;left:55px;width:680px;font-family:"궁서체","GungsuhChe","궁서",serif;font-size:21pt;line-height:1.05;font-weight:700;letter-spacing:-.05em}
+        .ordination-precept{height:85px;white-space:nowrap}
+        .ordination-precept-first{display:flex;align-items:baseline;white-space:nowrap}
+        .ordination-precept-number{font-family:"궁서","Gungsuh",serif;min-width:30px}
+        .ordination-precept-name{color:#f00}.ordination-precept-hanja{font-family:"한양해서","HYhaeseo","Batang",serif}.ordination-precept-korean{font-family:"궁서체","GungsuhChe","궁서",serif}
+        .ordination-precept-cont{margin-left:229px;white-space:nowrap}
+        .ordination-signatures{position:absolute;z-index:3;top:866px;left:429px;width:270px;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:18pt;line-height:1.22;white-space:nowrap;font-weight:700}
+        .ordination-signatures .latin{display:inline-block;font-family:"궁서","Gungsuh","Batang",serif;letter-spacing:-.1em;transform:scaleX(.8);transform-origin:left center;margin-right:-20%}
+        .ordination-date-line{position:absolute;z-index:3;top:969px;left:278px;width:310px;text-align:left;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:19pt;line-height:1.2;white-space:nowrap;font-weight:700;letter-spacing:-.05em;transform:scaleX(.95);transform-origin:left top}
+        .ordination-date-line .number{font-family:"궁서","Gungsuh","Batang",serif}
+        .ordination-organization{position:absolute;z-index:3;top:1013px;left:367px;width:300px;text-align:center;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:17pt;line-height:1.25;white-space:nowrap;font-weight:700}
+        .ordination-temple{position:absolute;z-index:3;top:1041px;left:349px;width:335px;text-align:center;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:17pt;line-height:1.25;white-space:nowrap;font-weight:700}
+        .ordination-print-action{width:794px;margin:12px auto 24px;text-align:right}.ordination-print-action button{padding:7px 18px}
+        @media print{html,body{margin:0!important;padding:0!important;background:#fff!important}.ordination-certificate-root{background:#fff;padding:0;min-width:0}.ordination-certificate-paper{margin:0}.ordination-print-action{display:none!important}@page{size:A4 portrait;margin:0}}
+      `;
+
+      const certificateMarkup=record=>{
+        const date=ordinationDateText(record.ordination_date);
+        const dharma=String(record.dharma_name_hanja||'-');
+        const dharmaSize=Array.from(dharma).length>5?'15pt':'17pt';
+        return `<div class="ordination-certificate-root"><article class="ordination-certificate-paper" aria-label="수계증서 N:${esc(displayCertificateNo(record.certificate_no))}">
+          <img class="ordination-certificate-background" src="/certificates/ordination/background.jpg" alt="" />
+          <img class="ordination-art ordination-top-seal" src="/certificates/ordination/top-seal.png" alt="" />
+          <img class="ordination-art ordination-bodhisattva" src="/certificates/ordination/bodhisattva.png" alt="" />
+          <img class="ordination-art ordination-org-seal" src="/certificates/ordination/organization-seal.png" alt="" />
+          ${record.status==='취소'?'<div class="ordination-cancel-watermark">취소본</div>':''}
+          <div class="ordination-text ordination-title">受　　戒</div>
+          <div class="ordination-text ordination-name"><span class="font-haeseo">姓名</span><span class="font-gungseoche">:${esc(displayName(record.recipient_name))}</span></div>
+          <div class="ordination-text ordination-number font-gungseoche">N:${esc(displayCertificateNo(record.certificate_no))}</div>
+          <div class="ordination-text ordination-birth"><span class="font-haeseo">生年月日</span><span class="font-gungseoche">:${esc(birthText(record.birth_calendar,record.birth_date))}</span></div>
+          <div class="ordination-text ordination-dharma"><span class="font-haeseo">法名</span><span class="font-gungseoche">:</span><span class="font-haeseo" style="font-size:${dharmaSize}">${esc(dharma)}</span><span class="font-gungseoche">(${esc(record.dharma_name_korean||'-')})</span></div>
+          <div class="ordination-text ordination-section-title ordination-command-title"><span class="wheel">☸</span><span class="section-number">1</span><span class="font-gungseoche">:</span><span class="section-name">戒命</span></div>
+          <div class="ordination-command">
+            <div class="ordination-command-line">본래 청정한 자기 성품을 찾아가는 <span class="ordination-command-name">${esc(dharma)}</span> 보람되고 성스러운</div>
+            <div class="ordination-command-line">수행과 효도를 바탕으로 생사와 선악과 종교를 초월한 자성 자리에서 심신을 갈고 닦아 마침내 득도를 이루어</div>
+            <div class="ordination-command-line">중생의 광명이 되리라.</div>
+          </div>
+          <div class="ordination-text ordination-section-title ordination-precepts-title"><span class="wheel">☸</span><span class="section-number">2</span><span class="font-gungseoche">:</span><span class="section-name">五戒</span></div>
+          <div class="ordination-precepts">
+            <div class="ordination-precept"><div class="ordination-precept-first"><span class="ordination-precept-number">1.</span><span class="ordination-precept-name ordination-precept-hanja">不殺生</span><span class="ordination-precept-name ordination-precept-korean">(불살생)</span><span>:생명이 있는 것은 불성이 있고</span></div><div class="ordination-precept-cont">불성이 있는 것은 불자이니 생명을</div><div class="ordination-precept-cont">존중히 여겨 함부로 죽이지 말자.</div></div>
+            <div class="ordination-precept"><div class="ordination-precept-first"><span class="ordination-precept-number">2.</span><span class="ordination-precept-name ordination-precept-hanja">不偸盜</span><span class="ordination-precept-name ordination-precept-korean">(불투도)</span><span>:모든 물질은 입자로 구성된</span></div><div class="ordination-precept-cont">오온의 화합이라 무상한 것이니</div><div class="ordination-precept-cont">삼독심을 버리고 베풀되 훔치지 말자.</div></div>
+            <div class="ordination-precept"><div class="ordination-precept-first"><span class="ordination-precept-number">3.</span><span class="ordination-precept-name ordination-precept-hanja">不邪淫</span><span class="ordination-precept-name ordination-precept-korean">(불사음)</span><span>:하늘에 부끄럽지 아니하고</span></div><div class="ordination-precept-cont">마음에 거리낌 없는 청정한</div><div class="ordination-precept-cont">심신을 지키되 음행하지 말자.</div></div>
+            <div class="ordination-precept"><div class="ordination-precept-first"><span class="ordination-precept-number">4.</span><span class="ordination-precept-name ordination-precept-hanja">不妄語</span><span class="ordination-precept-name ordination-precept-korean">(불망어)</span><span>:화안, 애어로서 화합을 즐기고</span></div><div class="ordination-precept-cont">항상 진실을 지키며 망어, 기어,</div><div class="ordination-precept-cont">양설, 악구를 행하지 말자.</div></div>
+            <div class="ordination-precept"><div class="ordination-precept-first"><span class="ordination-precept-number">5.</span><span class="ordination-precept-name ordination-precept-hanja">不飮酒</span><span class="ordination-precept-name ordination-precept-korean">(불음주)</span><span>:음욕은 윤회의 근본이요, 술은</span></div><div class="ordination-precept-cont">파계의 근본이니 정견 정행으로서</div><div class="ordination-precept-cont">필요 없는 술을 마시지 말자.</div></div>
+          </div>
+          <div class="ordination-signatures"><div>恩師:${esc(record.teacher_name||defaults.teacherName)}</div><div>戒師:${esc(record.preceptor_name||defaults.preceptorName)}</div><div>證明:<span class="latin">${esc(record.witness_name||defaults.witnessName)}</span></div></div>
+          <div class="ordination-date-line"><span>佛紀 </span><span class="number">${esc(record.buddhist_year||date.year)}</span><span>年 </span><span class="number">${esc(date.month)}</span><span>月 </span><span class="number">${esc(date.day)}</span><span>日</span></div>
+          <div class="ordination-organization">${esc(record.organization_name||defaults.organizationName)}</div>
+          <div class="ordination-temple">${esc(record.temple_name||defaults.templeName)} ${esc(record.issuer_name||defaults.issuerName)} ${esc(record.closing_text||defaults.closingText)}</div>
+        </article></div>`;
+      };
+      const fitCertificateLines=root=>{
+        const scope=root||document;
+        scope.querySelectorAll('.ordination-command-line').forEach(line=>{
+          line.style.transform='translateX(-50%) scaleX(1)';
+          const natural=Math.max(1,line.getBoundingClientRect().width);
+          const scale=Math.max(.68,Math.min(.9,690/natural));
+          line.style.transform=`translateX(-50%) scaleX(${scale})`;
+        });
+      };
+      const printFitCore=`const fit=()=>{document.querySelectorAll('.ordination-command-line').forEach(line=>{line.style.transform='translateX(-50%) scaleX(1)';const natural=Math.max(1,line.getBoundingClientRect().width);const scale=Math.max(.68,Math.min(.9,690/natural));line.style.transform='translateX(-50%) scaleX('+scale+')';});};`;
+      const previewHtml=record=>`<style>${certificateCoreCss}</style>${certificateMarkup(record)}`;
+      const printHtml=(record,autoPrint=true)=>`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>N:${esc(displayCertificateNo(record.certificate_no))} 수계증서</title><style>${certificateCoreCss}</style></head><body>${certificateMarkup(record)}<script>${printFitCore}window.addEventListener('load',async()=>{try{await document.fonts.ready;}catch{}fit();${autoPrint?'setTimeout(()=>window.print(),350);':''}});<\/script></body></html>`;
+      const missingFonts=()=>{
+        if(!document.fonts?.check)return [];
+        return [['한양해서','17pt "한양해서"'],['궁서체','17pt "궁서체"'],['궁서','19pt "궁서"'],['신명 궁서','30pt "신명 궁서"']].filter(([,rule])=>!document.fonts.check(rule)).map(([name])=>name);
+      };
+      const updateFontReadiness=()=>{
+        const missing=missingFonts();
+        const box=$('[data-font-readiness]');
+        if(!box)return;
+        box.className=`font-readiness ${missing.length?'warning':'ok'}`;
+        box.textContent=missing.length?`원본 글꼴 중 ${missing.join(', ')} 글꼴을 확인하지 못했습니다. 원본과 동일한 출력을 위해 한컴오피스 글꼴이 설치된 PC에서 인쇄해 주세요.`:'원본 서식 글꼴을 사용할 수 있습니다.';
+      };
+      document.fonts?.ready?.then(updateFontReadiness);updateFontReadiness();
+
+      const openPreview=record=>{
+        lastPreview=record;
+        $('[data-preview-container]').innerHTML=previewHtml(record);
+        fitCertificateLines($('[data-preview-container]'));
+        document.fonts?.ready?.then(()=>fitCertificateLines($('[data-preview-container]')));
+        const missing=missingFonts(),warning=$('[data-preview-font-warning]');
+        warning.hidden=!missing.length;
+        warning.textContent=missing.length?`주의: ${missing.join(', ')} 글꼴이 설치되어 있지 않아 화면과 출력물이 원본과 다르게 보일 수 있습니다.`:'';
+        $('[data-preview-modal]').hidden=false;
+      };
+      const closePreview=()=>{$('[data-preview-modal]').hidden=true;};
+      $$('[data-close-preview]').forEach(button=>button.addEventListener('click',closePreview));
+      $('[data-preview]').addEventListener('click',()=>{if(form.reportValidity())openPreview(formRecord());});
+      $('[data-print-preview]').addEventListener('click',()=>{if(lastPreview)openPrint(lastPreview,true);});
+      const openPrint=(record,autoPrint=false,existingWindow=null)=>{
+        const printWindow=existingWindow||window.open('','_blank','width=980,height=1080');
+        if(!printWindow){alert('팝업 차단을 해제한 뒤 다시 출력해 주세요.');return null;}
+        printWindow.document.open();
+        printWindow.document.write(printHtml(record,autoPrint));
+        printWindow.document.close();
+        return printWindow;
+      };
+
+      const detailRows=record=>[
+        ['발급번호',`N:${displayCertificateNo(record.certificate_no)}`,'상태',record.status||'-'],
+        ['수계일',record.ordination_date||'-','불기',record.buddhist_year||'-'],
+        ['성명',record.recipient_name||'-','생년월일',`${record.birth_calendar||''} ${record.birth_date||'-'}`.trim()],
+        ['법명(한자)',record.dharma_name_hanja||'-','법명(한글)',record.dharma_name_korean||'-'],
+        ['은사',record.teacher_name||'-','계사',record.preceptor_name||'-'],
+        ['증명',record.witness_name||'-','발급자',record.issued_by_name||'-'],
+        ['발행기관',record.organization_name||'-','사찰·발행자',`${record.temple_name||''} ${record.issuer_name||''} ${record.closing_text||''}`.trim()],
+      ];
+      const detailHtml=record=>`<div class="ordination-detail-card"><table class="detail-grid-table"><tbody>${detailRows(record).map(row=>`<tr><th>${esc(row[0])}</th><td>${esc(row[1])}</td><th>${esc(row[2])}</th><td>${esc(row[3])}</td></tr>`).join('')}<tr><th>비고</th><td colspan="3" class="detail-long">${esc(record.note||'-')}</td></tr>${record.status==='취소'?`<tr><th>취소일시</th><td>${esc(record.canceled_at||'-')}</td><th>취소사유</th><td>${esc(record.cancel_reason||'-')}</td></tr>`:''}</tbody></table><div class="modal__actions"><button type="button" class="btn btn-outline" data-detail-print>출력</button><button type="button" class="btn btn-outline" data-close-detail>닫기</button></div></div>`;
+      const closeDetail=()=>{$('[data-detail-modal]').hidden=true;$('[data-detail-container]').innerHTML='';};
+      $$('[data-close-detail]').forEach(button=>button.addEventListener('click',closeDetail));
+      const openDetail=async id=>{
+        const data=await api('/api/ordination/query',{operation:'detail',id});
+        if(!data.ok){alert(data.message);return;}
+        $('[data-detail-container]').innerHTML=detailHtml(data.row);
+        $('[data-detail-container] [data-close-detail]').addEventListener('click',closeDetail);
+        $('[data-detail-container] [data-detail-print]').addEventListener('click',()=>openPrint(data.row,true));
+        $('[data-detail-modal]').hidden=false;
+      };
+      $$('[data-preview-modal],[data-detail-modal]').forEach(overlay=>overlay.addEventListener('click',event=>{if(event.target===overlay){if(overlay.hasAttribute('data-preview-modal'))closePreview();else closeDetail();}}));
+      document.addEventListener('keydown',event=>{if(event.key==='Escape'){closePreview();closeDetail();}});
+
+      const loadOptions=async()=>{
+        const data=await api('/api/ordination/query',{operation:'options'});
+        if(!data.ok){setMessage('[data-issue-status]',data.message,'error');$$('[data-ordination-form] input,[data-ordination-form] select,[data-ordination-form] button').forEach(element=>element.disabled=true);return;}
+        Object.entries(data.defaults||{}).forEach(([name,value])=>{if(form.elements[name]&&!form.elements[name].value)form.elements[name].value=value;});
+        canManage=!!data.canManage;
+        if(!data.canIssue){$('[data-issue-button]').hidden=true;$('[data-preview]').hidden=true;$$('[data-ordination-form] input,[data-ordination-form] select').forEach(element=>element.disabled=true);setMessage('[data-issue-status]','수계증서는 관리자 계정에서 발급할 수 있습니다.','');}
+        loadLedger();
+      };
+
+      form.addEventListener('submit',async event=>{
+        event.preventDefault();
+        if(issuing||!form.reportValidity())return;
+        issuing=true;
+        const issueButton=$('[data-issue-button]');
+        issueButton.disabled=true;
+        issueRequestId=issueRequestId||createRequestId();
+        const pendingWindow=window.open('','_blank','width=980,height=1080');
+        if(pendingWindow){pendingWindow.document.write('<!doctype html><meta charset="utf-8"><title>수계증서 발급 중</title><p style="font-family:sans-serif;padding:2rem">수계증서를 발급하고 있습니다...</p>');pendingWindow.document.close();}
+        setMessage('[data-issue-status]','수계증서를 발급하고 있습니다...');
+        try{
+          const data=new FormData(form);
+          const response=await api('/api/ordination/action',{
+            operation:'issue',requestId:issueRequestId,recipientName:data.get('recipientName'),birthCalendar:data.get('birthCalendar'),birthDate:data.get('birthDate'),
+            dharmaNameHanja:data.get('dharmaNameHanja'),dharmaNameKorean:data.get('dharmaNameKorean'),ordinationDate:data.get('ordinationDate'),
+            teacherName:data.get('teacherName'),preceptorName:data.get('preceptorName'),witnessName:data.get('witnessName'),organizationName:data.get('organizationName'),
+            templeName:data.get('templeName'),issuerName:data.get('issuerName'),closingText:data.get('closingText'),note:data.get('note'),
+          });
+          if(!response.ok){pendingWindow?.close();setMessage('[data-issue-status]',response.message,'error');return;}
+          issueRequestId=null;
+          setMessage('[data-issue-status]',response.message,'ok');
+          openPrint(response.row,true,pendingWindow);
+          page=1;await loadLedger();
+        }finally{
+          issuing=false;
+          issueButton.disabled=false;
+        }
+      });
+
+      const renderPagination=()=>{
+        const box=$('[data-ledger-pagination]');
+        const start=Math.max(1,page-2),end=Math.min(pages,page+2);
+        let html=`<button data-page="${Math.max(1,page-1)}" ${page===1?'disabled':''}>‹</button>`;
+        for(let index=start;index<=end;index++)html+=`<button data-page="${index}" class="${index===page?'active':''}">${index}</button>`;
+        html+=`<button data-page="${Math.min(pages,page+1)}" ${page===pages?'disabled':''}>›</button>`;
+        box.innerHTML=html;
+        $$('[data-page]',box).forEach(button=>button.addEventListener('click',()=>{page=Number(button.dataset.page);loadLedger();}));
+      };
+      const loadLedger=async()=>{
+        setMessage('[data-ledger-status-message]','불러오는 중입니다...');
+        const data=await api('/api/ordination/query',{
+          query:$('[data-ledger-query]').value.trim(),status:$('[data-ledger-status]').value,dateFrom:$('[data-ledger-from]').value,dateTo:$('[data-ledger-to]').value,
+          page,pageSize:Number($('[data-ledger-size]').value),
+        });
+        if(!data.ok){setMessage('[data-ledger-status-message]',data.message,'error');return;}
+        currentRows=data.rows||[];pages=data.pages||1;canManage=!!data.canManage;
+        const body=$('[data-ledger-body]');
+        body.innerHTML=currentRows.length?currentRows.map(record=>`<tr><td>N:${esc(record.certificate_no)}</td><td>${esc(record.ordination_date)}</td><td>${esc(record.recipient_name)}</td><td><span class="dharma-hanja">${esc(record.dharma_name_hanja)}</span><span class="dharma-korean">(${esc(record.dharma_name_korean)})</span></td><td>${esc(record.birth_calendar)} ${esc(record.birth_date_masked||'-')}</td><td>${esc(record.issued_by_name||'-')}</td><td><span class="badge badge--${esc(record.status)}">${esc(record.status)}</span></td><td><div class="row-actions"><button type="button" class="btn btn-outline btn-sm" data-detail-id="${esc(record.id)}">상세</button><button type="button" class="btn btn-outline btn-sm" data-print-id="${esc(record.id)}">${record.status==='취소'?'취소본 출력':'출력'}</button>${canManage&&record.status==='발급'?`<button type="button" class="btn btn-outline btn-sm danger" data-cancel-id="${esc(record.id)}">취소</button>`:''}</div></td></tr>`).join(''):'<tr><td colspan="8">발급내역이 없습니다.</td></tr>';
+        $$('[data-detail-id]',body).forEach(button=>button.addEventListener('click',()=>openDetail(button.dataset.detailId)));
+        $$('[data-print-id]',body).forEach(button=>button.addEventListener('click',async()=>{const detail=await api('/api/ordination/query',{operation:'detail',id:button.dataset.printId});if(!detail.ok){alert(detail.message);return;}openPrint(detail.row,true);}));
+        $$('[data-cancel-id]',body).forEach(button=>button.addEventListener('click',async()=>{const reason=prompt('취소 사유를 입력해 주세요.');if(!reason)return;const result=await api('/api/ordination/action',{operation:'cancel',id:button.dataset.cancelId,reason});if(!result.ok){alert(result.message);return;}await loadLedger();}));
+        renderPagination();setMessage('[data-ledger-status-message]',`총 ${Number(data.total||0).toLocaleString('ko-KR')}건`);
+      };
+      $('[data-ledger-search]').addEventListener('click',()=>{page=1;loadLedger();});
+      $('[data-ledger-query]').addEventListener('keydown',event=>{if(event.key==='Enter'){page=1;loadLedger();}});
+      $$('[data-ledger-status],[data-ledger-size],[data-ledger-from],[data-ledger-to]').forEach(element=>element.addEventListener('change',()=>{page=1;loadLedger();}));
+      $('[data-ledger-export]').addEventListener('click',()=>{
+        const quote=value=>`"${String(value??'').replace(/"/g,'""')}"`;
+        const rows=[['발급번호','수계일','성명','법명(한자)','법명(한글)','생년월일 구분','생년월일','발급자','상태'],...currentRows.map(record=>[`N:${record.certificate_no}`,record.ordination_date,record.recipient_name,record.dharma_name_hanja,record.dharma_name_korean,record.birth_calendar,record.birth_date_masked,record.issued_by_name,record.status])];
+        const blob=new Blob(['\ufeff'+rows.map(row=>row.map(quote).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
+        const url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=`수계증서_발급대장_${today()}.csv`;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      });
+      loadOptions();
+    })();
+  </script>
+
+  <style is:global>
+    .ordination-issue-panel{margin-bottom:1rem}.section-title{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;margin-bottom:1rem}.section-title h2{margin:0;font-size:1.12rem}.section-title p{margin:.2rem 0 0;color:var(--gov-muted);font-size:.8rem}.privacy-note{font-size:.76rem;color:#6e520a;background:#fff8e6;border:1px solid #ead49a;padding:.4rem .55rem;border-radius:5px;white-space:nowrap}.ordination-form-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.ordination-form-grid .form-field--wide{grid-column:span 2}.form-actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--gov-border)}.font-readiness{margin-top:.75rem;padding:.55rem .7rem;border-radius:4px;font-size:.78rem}.font-readiness.ok{background:#eef8f1;border:1px solid #bcd9c3;color:#276238}.font-readiness.warning,.preview-font-warning{background:#fff7e6;border:1px solid #e9cc8d;color:#785514}.preview-font-warning{margin-bottom:.7rem;padding:.6rem .75rem;border-radius:4px;font-size:.8rem}.ledger-section-title{align-items:flex-start}.ledger-filters{justify-content:flex-end;flex-wrap:wrap}.ledger-filters input[type="search"]{min-width:220px}.range-separator{display:inline-flex;align-items:center}.ordination-table{table-layout:fixed}.ordination-table th,.ordination-table td{text-align:center;vertical-align:middle}.ordination-table .col-number{width:12%}.ordination-table .col-date{width:10%}.ordination-table .col-name{width:9%}.ordination-table .col-dharma{width:17%}.ordination-table .col-birth{width:15%}.ordination-table .col-issuer{width:10%}.ordination-table .col-status{width:8%}.ordination-table .col-manage{width:19%}.dharma-hanja{font-family:"Batang","Noto Serif CJK KR",serif}.dharma-korean{display:inline-block;margin-left:.3rem}.row-actions{display:flex;justify-content:center;gap:.3rem;flex-wrap:wrap}.danger{color:#a12626;border-color:#dfb4b4}.ordination-preview-modal{width:min(1040px,calc(100vw - 2rem));max-height:calc(100vh - 2rem)}.ordination-preview-modal .modal__body{overflow:auto}.ordination-preview-modal [data-preview-container]{overflow:auto;background:#dfe4ea;padding:1rem}.ordination-preview-modal [data-preview-container] .ordination-certificate-paper{transform-origin:top center}.ordination-detail-modal{width:min(900px,calc(100vw - 2rem))}.ordination-detail-card{padding:.15rem}.detail-grid-table{width:100%;border-collapse:collapse;table-layout:fixed}.detail-grid-table th,.detail-grid-table td{border:1px solid var(--gov-border);padding:.75rem .7rem;text-align:center;vertical-align:middle;word-break:keep-all;overflow-wrap:anywhere}.detail-grid-table th{width:16%;background:#edf3fa;color:#263b55;font-weight:800}.detail-grid-table td{width:34%;background:#fff}.detail-grid-table .detail-long{text-align:left;white-space:pre-wrap}.modal__actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--gov-border)}
+    @media(max-width:1200px){.ordination-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ordination-form-grid .form-field--wide{grid-column:span 2}.ledger-section-title{flex-direction:column}.ledger-filters{justify-content:flex-start;width:100%}}
+    @media(max-width:760px){.ordination-form-grid{grid-template-columns:1fr}.ordination-form-grid .form-field--wide{grid-column:auto}.section-title{align-items:flex-start;flex-direction:column}.privacy-note{white-space:normal}.ledger-filters>*{max-width:100%}.ledger-filters input[type="search"]{min-width:0;width:100%}.ordination-preview-modal [data-preview-container]{padding:.5rem}.ordination-preview-modal [data-preview-container] .ordination-certificate-root{transform:scale(.68);transform-origin:top left;margin-bottom:-359px}.detail-grid-table th,.detail-grid-table td{padding:.55rem .4rem;font-size:.8rem}}
+  </style>
+</ManagementLayout>

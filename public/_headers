@@ -17,3 +17,6 @@
 
 /favicon.png
   Cache-Control: public, max-age=86400
+
+/certificates/ordination/*
+  Cache-Control: public, max-age=31536000, immutable
