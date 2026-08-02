@@ -195,7 +195,7 @@ CREATE TABLE IF NOT EXISTS system_meta (
 );
 
 INSERT INTO system_meta (meta_key, meta_value, updated_at)
-VALUES ('schema_version', '2026-08-01.14', CURRENT_TIMESTAMP)
+VALUES ('schema_version', '2026-08-02.15', CURRENT_TIMESTAMP)
 ON CONFLICT(meta_key) DO UPDATE SET meta_value=excluded.meta_value, updated_at=excluded.updated_at;
 
 -- v26 회계 전용 DB 연계 대기열
@@ -249,7 +249,7 @@ CREATE TABLE IF NOT EXISTS management_audit_logs (
 );
 
 
--- v59 수계증서 발급·대장
+-- v60 수계증서 발급·대장(선택형 사찰 도장 포함)
 CREATE TABLE IF NOT EXISTS ordination_certificates (
   id TEXT PRIMARY KEY,
   certificate_no TEXT NOT NULL UNIQUE,
@@ -270,8 +270,10 @@ CREATE TABLE IF NOT EXISTS ordination_certificates (
   temple_name TEXT NOT NULL,
   issuer_name TEXT NOT NULL,
   closing_text TEXT NOT NULL DEFAULT '合掌',
+  include_top_seal INTEGER NOT NULL DEFAULT 1,
+  top_seal_key TEXT NOT NULL DEFAULT 'hyangcheonsa',
   note TEXT NOT NULL DEFAULT '',
-  template_version TEXT NOT NULL DEFAULT 'ordination-v1',
+  template_version TEXT NOT NULL DEFAULT 'ordination-v2',
   certificate_snapshot TEXT NOT NULL DEFAULT '{}',
   status TEXT NOT NULL DEFAULT '발급',
   issued_by_user_id TEXT NOT NULL,

@@ -19,12 +19,14 @@ type Payload = {
   templeName?: string;
   issuerName?: string;
   closingText?: string;
+  includeTopSeal?: boolean | number | string;
   note?: string;
   id?: string;
   reason?: string;
 };
 
-const TEMPLATE_VERSION = 'ordination-v1';
+const TEMPLATE_VERSION = 'ordination-v2';
+const TOP_SEAL_KEY = 'hyangcheonsa';
 const BIRTH_CALENDARS = ['음력', '양력'] as const;
 const DEFAULTS = {
   teacherName: '睡翁 眞妙',
@@ -40,8 +42,12 @@ const fixedCertificateText = {
   ordinationTitle: '受 戒',
   commandTitle: '戒命',
   preceptsTitle: '五戒',
-  commandPrefix: '본래 청정한 자기 성품을 찾아가는',
-  commandSuffix: '보람되고 성스러운 수행과 효도를 바탕으로 생사와 선악과 종교를 초월한 자성 자리에서 심신을 갈고 닦아 마침내 득도를 이루어 중생의 광명이 되리라.',
+  commandLines: [
+    '본래 청정한 자기 성품을 찾아가는 {법명} 보람되고 성스러운',
+    '수행과 효도를 바탕으로 생사와 선악과 종교를 초월한 자성',
+    '자리에서 심신을 갈고 닦아 마침내 득도를 이루어',
+    '중생의 광명이 되리라.',
+  ],
   precepts: [
     { hanja: '不殺生', korean: '불살생', text: '생명이 있는 것은 불성이 있고 불성이 있는 것은 불자이니 생명을 존중히 여겨 함부로 죽이지 말자.' },
     { hanja: '不偸盜', korean: '불투도', text: '모든 물질은 입자로 구성된 오온의 화합이라 무상한 것이니 삼독심을 버리고 베풀되 훔치지 말자.' },
@@ -100,6 +106,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const templeName = clean(payload.templeName, 80) || DEFAULTS.templeName;
     const issuerName = clean(payload.issuerName, 80) || DEFAULTS.issuerName;
     const closingText = clean(payload.closingText, 30) || DEFAULTS.closingText;
+    const includeTopSeal = payload.includeTopSeal === undefined
+      ? true
+      : payload.includeTopSeal === true || payload.includeTopSeal === 1
+        || payload.includeTopSeal === '1' || payload.includeTopSeal === 'true' || payload.includeTopSeal === 'on';
+    const topSealKey = TOP_SEAL_KEY;
     const note = clean(payload.note, 1000);
     const buddhistYear = Number(ordinationDate.slice(0, 4)) + 544;
     const { certificateNo, issueYear, sequence } = await makeOrdinationCertificateNumber(env.DB, ordinationDate);
@@ -108,7 +119,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const snapshot = {
       certificateNo, recipientName, birthCalendar, birthDate, dharmaNameHanja, dharmaNameKorean,
       ordinationDate, buddhistYear, teacherName, preceptorName, witnessName, organizationName,
-      templeName, issuerName, closingText, note, templateVersion: TEMPLATE_VERSION, fixedCertificateText,
+      templeName, issuerName, closingText, includeTopSeal, topSealKey, note, templateVersion: TEMPLATE_VERSION, fixedCertificateText,
     };
 
     try {
@@ -117,14 +128,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           id,certificate_no,request_id,issue_year,sequence_no,recipient_name,birth_calendar,birth_date,
           dharma_name_hanja,dharma_name_korean,ordination_date,buddhist_year,
           teacher_name,preceptor_name,witness_name,organization_name,temple_name,issuer_name,closing_text,
-          note,template_version,certificate_snapshot,status,issued_by_user_id,issued_by_name,issued_at,
+          include_top_seal,top_seal_key,note,template_version,certificate_snapshot,status,issued_by_user_id,issued_by_name,issued_at,
           created_at,updated_at
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       `).bind(
         id, certificateNo, requestId, issueYear, sequence, recipientName, birthCalendar, birthDate,
         dharmaNameHanja, dharmaNameKorean, ordinationDate, buddhistYear,
         teacherName, preceptorName, witnessName, organizationName, templeName, issuerName, closingText,
-        note, TEMPLATE_VERSION, JSON.stringify(snapshot), '발급', auth.user.id, auth.user.name, now, now, now,
+        includeTopSeal ? 1 : 0, topSealKey, note, TEMPLATE_VERSION, JSON.stringify(snapshot), '발급', auth.user.id, auth.user.name, now, now, now,
       ).run();
     } catch (error) {
       console.error('ordination certificate issue failed', error);
@@ -132,7 +143,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     await writeManagementAudit(env.DB, auth.user, '수계증서', '발급', id, {
-      certificateNo, recipientName, dharmaNameHanja, dharmaNameKorean, ordinationDate,
+      certificateNo, recipientName, dharmaNameHanja, dharmaNameKorean, ordinationDate, includeTopSeal, topSealKey,
     });
     const row = await env.DB.prepare('SELECT * FROM ordination_certificates WHERE id=?').bind(id).first<any>();
     return json({ ok: true, row: { ...row, snapshot }, message: `N:${certificateNo} 수계증서가 발급되었습니다.` });

@@ -64,11 +64,8 @@ const { title, active } = Astro.props;
           <a class:list={["sidebar-link","sidebar-external-link", active === 'registers' && 'active']} href="/register-management">공고·관인·인영 대장</a>
         </div>
         <div class="sidebar-group">
-          <p class="sidebar-group__title">임·직원 증명서</p>
+          <p class="sidebar-group__title">증명서 발급·대장</p>
           <a class:list={["sidebar-link","sidebar-external-link", active === 'employment' && 'active']} href="/employee-certificates">재직증명서 발급·대장</a>
-        </div>
-        <div class="sidebar-group">
-          <p class="sidebar-group__title">수계증서</p>
           <a class:list={["sidebar-link","sidebar-external-link", active === 'ordination' && 'active']} href="/ordination-certificates">수계증서 발급·대장</a>
         </div>
         <div class="sidebar-group">

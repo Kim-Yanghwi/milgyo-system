@@ -21,6 +21,8 @@ const DEFAULTS = {
   templeName: '香天寺',
   issuerName: '睡翁 眞妙',
   closingText: '合掌',
+  includeTopSeal: true,
+  topSealKey: 'hyangcheonsa',
 };
 
 const maskBirthDate = (value: unknown) => {
