@@ -2,7 +2,7 @@
 import ManagementLayout from '../layouts/ManagementLayout.astro';
 ---
 <ManagementLayout title="수계증서 발급·대장" active="ordination">
-  <div data-ordination-certificate-version="2026-08-02-v62" hidden></div>
+  <div data-ordination-certificate-version="2026-08-02-v63" hidden></div>
   <div class="page-heading">
     <div>
       <p class="page-heading__kicker">ORDINATION CERTIFICATE</p>
@@ -220,7 +220,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       const certificateCoreCss=`
         .ordination-certificate-root,.ordination-certificate-root *{box-sizing:border-box}
         .ordination-certificate-root{background:#dfe4ea;padding:16px;min-width:826px}
-        .ordination-certificate-paper{position:relative;width:794px;height:1123px;margin:0 auto;overflow:hidden;background:#fff;color:#000;font-synthesis:weight;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+        .ordination-certificate-paper{position:relative;width:794px;height:1123px;margin:0 auto;overflow:hidden;background:#fff;color:#000;font-synthesis:weight;-webkit-print-color-adjust:exact;print-color-adjust:exact}
         .ordination-certificate-background{position:absolute;z-index:0;inset:0;width:100%;height:100%;object-fit:cover}
         .ordination-art{position:absolute;z-index:1;pointer-events:none;object-fit:contain}
         .ordination-top-seal{left:49px;top:38px;width:120px;height:121px}
@@ -232,9 +232,9 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         .font-gungseo{font-family:"궁서","Gungsuh","Batang","Noto Serif CJK KR",serif}
         .font-gungseoche{font-family:"궁서체","GungsuhChe","궁서","Batang","Noto Serif CJK KR",serif}
         .font-sm-gungseo{font-family:"신명 궁서","SMGungsuh","궁서체","궁서","Batang","Noto Serif CJK KR",serif}
-        .ordination-bold-render{font-weight:900!important;font-synthesis:weight;text-shadow:none!important;-webkit-text-stroke:0 transparent!important;-webkit-text-fill-color:currentColor;paint-order:normal}
-        .ordination-title{top:79px;left:0;width:100%;text-align:center;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:48pt;line-height:1;font-weight:900;letter-spacing:.02em;text-shadow:none;-webkit-text-stroke:0 transparent;-webkit-text-fill-color:#000}
-        .ordination-name,.ordination-birth,.ordination-dharma{font-weight:900!important;text-shadow:none;-webkit-text-stroke:0 transparent;-webkit-text-fill-color:#000}
+        .ordination-bold-render{font-weight:900!important;font-synthesis:weight;text-shadow:.38px 0 0 currentColor,.76px 0 0 currentColor!important}
+        .ordination-title{top:79px;left:0;width:100%;text-align:center;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:48pt;line-height:1;font-weight:900;letter-spacing:.02em;color:#000;text-shadow:.5px 0 0 #000,1px 0 0 #000!important}
+        .ordination-name,.ordination-birth,.ordination-dharma{font-weight:900!important;color:#000;text-shadow:.35px 0 0 #000,.7px 0 0 #000!important}
         .ordination-name{top:166px;left:351px;font-size:17pt;line-height:1.15;font-weight:700;transform:scaleX(.9);transform-origin:left top}
         .ordination-number{top:194px;left:55px;font-size:17pt;line-height:1.15;font-weight:700;transform:scaleX(.9);transform-origin:left top}
         .ordination-birth{top:194px;left:351px;font-size:17pt;line-height:1.15;font-weight:700;transform:scaleX(.9);transform-origin:left top}
@@ -242,7 +242,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         .ordination-section-title{left:56px;font-size:30pt;line-height:1;display:flex;align-items:baseline;font-weight:800}
         .ordination-section-title .wheel{font-family:"Segoe UI Symbol","Arial Unicode MS",sans-serif;font-size:27pt;margin-right:2px}
         .ordination-section-title .section-number{font-family:"궁서","Gungsuh",serif;font-weight:900}
-        .ordination-section-title .section-name{font-family:"신명 궁서","SMGungsuh","궁서체","궁서",serif;font-weight:900;font-synthesis:weight;text-shadow:none;-webkit-text-stroke:0 transparent;-webkit-text-fill-color:#000}
+        .ordination-section-title .section-name{font-family:"신명 궁서","SMGungsuh","궁서체","궁서",serif;font-weight:900;font-synthesis:weight;color:#000;text-shadow:.42px 0 0 #000,.84px 0 0 #000!important}
         .ordination-command-title{top:247px}.ordination-precepts-title{top:400px}
         .ordination-command{position:absolute;z-index:3;top:288px;left:45px;width:704px;text-align:center;font-family:"궁서체","GungsuhChe","궁서",serif;font-size:17.5pt;line-height:1.12;font-weight:700}
         .ordination-command-line{display:block;position:relative;left:50%;width:max-content;white-space:nowrap;transform:translateX(-50%) scaleX(.9);transform-origin:center top}.ordination-command-name{font-family:"한양해서","HYhaeseo","Batang",serif}
@@ -251,14 +251,14 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         .ordination-precept-line{display:grid;grid-template-columns:30px 202px minmax(0,1fr);align-items:baseline;white-space:nowrap}
         .ordination-precept-number{font-family:"궁서","Gungsuh",serif;min-width:0}
         .ordination-precept-label{display:inline-flex;align-items:baseline;white-space:nowrap}
-        .ordination-precept-name{color:#f00;font-weight:900!important;font-synthesis:weight;text-shadow:none!important;-webkit-text-stroke:0 transparent!important;-webkit-text-fill-color:#f00;paint-order:normal}.ordination-precept-hanja{font-family:"한양해서","HYhaeseo","Batang",serif}.ordination-precept-korean{font-family:"궁서체","GungsuhChe","궁서",serif}.ordination-precept-colon{color:#000}
+        .ordination-precept-name{color:#f00;font-weight:900!important;font-synthesis:weight;text-shadow:.38px 0 0 #f00,.76px 0 0 #f00!important}.ordination-precept-hanja{font-family:"한양해서","HYhaeseo","Batang",serif}.ordination-precept-korean{font-family:"궁서체","GungsuhChe","궁서",serif}.ordination-precept-colon{color:#000}
         .ordination-precept-text{white-space:nowrap}
-        .ordination-signatures{position:absolute;z-index:3;top:858px;left:429px;width:270px;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:18pt;line-height:1.22;white-space:nowrap;font-weight:900}
+        .ordination-signatures{position:absolute;z-index:3;top:858px;left:429px;width:270px;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:18pt;line-height:1.22;white-space:nowrap;font-weight:900;font-synthesis:weight;color:#000;text-shadow:.38px 0 0 #000,.76px 0 0 #000}
         .ordination-signatures .latin{display:inline-block;font-family:"궁서","Gungsuh","Batang",serif;letter-spacing:-.06em;transform:scaleX(.82);transform-origin:left center;margin-right:-17%}
-        .ordination-date-line{position:absolute;z-index:3;top:966px;left:248px;width:340px;display:flex;align-items:baseline;justify-content:center;gap:3px;text-align:center;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:19pt;line-height:1.2;white-space:nowrap;font-weight:900;letter-spacing:0}
+        .ordination-date-line{position:absolute;z-index:3;top:966px;left:248px;width:340px;display:flex;align-items:baseline;justify-content:center;gap:3px;text-align:center;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:19pt;line-height:1.2;white-space:nowrap;font-weight:900;letter-spacing:0;font-synthesis:weight;color:#000;text-shadow:.38px 0 0 #000,.76px 0 0 #000}
         .ordination-date-line .number{font-family:"궁서","Gungsuh","Batang",serif;font-variant-numeric:tabular-nums;letter-spacing:.035em}
-        .ordination-organization{position:absolute;z-index:3;top:1013px;left:367px;width:300px;text-align:center;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:17pt;line-height:1.25;white-space:nowrap;font-weight:900;font-synthesis:weight;text-shadow:none;-webkit-text-stroke:0 transparent;-webkit-text-fill-color:#000}
-        .ordination-temple{position:absolute;z-index:3;top:1041px;left:349px;width:335px;text-align:center;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:17pt;line-height:1.25;white-space:nowrap;font-weight:900;font-synthesis:weight;text-shadow:none;-webkit-text-stroke:0 transparent;-webkit-text-fill-color:#000}
+        .ordination-organization{position:absolute;z-index:3;top:1013px;left:367px;width:300px;text-align:center;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:17pt;line-height:1.25;white-space:nowrap;font-weight:900;font-synthesis:weight;color:#000;text-shadow:.35px 0 0 #000,.7px 0 0 #000!important}
+        .ordination-temple{position:absolute;z-index:3;top:1041px;left:349px;width:335px;text-align:center;font-family:"한양해서","HYhaeseo","Batang",serif;font-size:17pt;line-height:1.25;white-space:nowrap;font-weight:900;font-synthesis:weight;color:#000;text-shadow:.35px 0 0 #000,.7px 0 0 #000!important}
         .ordination-print-action{width:794px;margin:12px auto 24px;text-align:right}.ordination-print-action button{padding:7px 18px}
         @media print{html,body{margin:0!important;padding:0!important;background:#fff!important}.ordination-certificate-root{background:#fff;padding:0;min-width:0}.ordination-certificate-paper{margin:0}.ordination-print-action{display:none!important}@page{size:A4 portrait;margin:0}}
       `;
