@@ -469,9 +469,9 @@ import GovLayout from '../layouts/GovLayout.astro';
             <label class="inline-check" data-user-active-row><input type="checkbox" name="active" checked /> 활성 계정</label>
           </div>
           <div class="compose-form__actions">
-            <button type="button" class="btn btn-outline danger" data-delete-user hidden>계정 삭제</button>
-            <button type="button" class="btn btn-outline" data-user-form-reset>새 계정 입력으로</button>
-            <button type="submit" class="btn btn-primary" data-user-form-submit>계정 추가</button>
+            <button type="button" class="btn btn-outline danger account-action-button" data-delete-user hidden><span>계정</span><span>삭제</span></button>
+            <button type="button" class="btn btn-outline account-action-button" data-user-form-reset><span>새 계정</span><span>입력으로</span></button>
+            <button type="submit" class="btn btn-primary account-action-button" data-user-form-submit><span>계정</span><span>추가</span></button>
           </div>
           <p class="hint" data-user-form-status></p>
         </form>
@@ -1621,7 +1621,8 @@ import GovLayout from '../layouts/GovLayout.astro';
 
       // 계정관리
       const usersModal=$('[data-users-modal]'),usersTable=$('[data-users-table]'),userForm=$('[data-user-form]'),deleteUserButton=$('[data-delete-user]');
-      const resetUserForm=()=>{userForm.reset();userForm.elements.id.value='';$('[data-user-form-title]').textContent='계정 추가';$('[data-user-password-label]').textContent='비밀번호(8자 이상)';userForm.elements.password.required=true;$('[data-user-active-row]').hidden=true;$('[data-user-form-submit]').textContent='계정 추가';$('[data-user-form-status]').textContent='';userForm.elements.username.disabled=false;deleteUserButton.hidden=true;};
+      const setUserSubmitLabel=(isEditing)=>{$('[data-user-form-submit]').innerHTML=isEditing?'<span>수정</span><span>저장</span>':'<span>계정</span><span>추가</span>';};
+      const resetUserForm=()=>{userForm.reset();userForm.elements.id.value='';$('[data-user-form-title]').textContent='계정 추가';$('[data-user-password-label]').textContent='비밀번호(8자 이상)';userForm.elements.password.required=true;$('[data-user-active-row]').hidden=true;setUserSubmitLabel(false);$('[data-user-form-status]').textContent='';userForm.elements.username.disabled=false;deleteUserButton.hidden=true;};
       $('[data-user-form-reset]').addEventListener('click',resetUserForm);
       const renderDepartmentCell=(value)=>{
         const path=resolveDepartmentPath(value);
@@ -1629,7 +1630,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       };
       const renderUsersTable=(rows)=>{
         usersTable.innerHTML=`<table class="doc-table__frame doc-table__frame--users"><colgroup><col class="col-user-name" /><col class="col-user-id" /><col class="col-user-position" /><col class="col-user-grade" /><col class="col-user-department" /><col class="col-user-role" /><col class="col-user-approval" /><col class="col-user-accounting" /><col class="col-user-status" /><col class="col-user-action" /></colgroup><thead><tr><th>성명</th><th>아이디</th><th>직책</th><th>직급</th><th>담당부서</th><th>역할</th><th>결재권</th><th>회계권한</th><th>상태</th><th>관리</th></tr></thead><tbody>${rows.map((u)=>`<tr><td><strong>${esc(u.name)}</strong></td><td class="mono">${esc(u.username)}</td><td class="user-position-cell">${esc(u.position||'-')}</td><td class="user-grade-cell">${esc(u.grade||'-')}</td><td>${renderDepartmentCell(u.department)}</td><td>${u.role==='admin'?'관리자':u.role==='audit'?'감사':'일반'}</td><td><span class="status-chip ${u.can_approve?'status-chip--ok':''}">${u.can_approve?'부여':'없음'}</span></td><td><span class="status-chip ${(u.role==='admin'||u.can_accounting)?'status-chip--ok':''}">${(u.role==='admin'||u.can_accounting)?'부여':'없음'}</span></td><td><span class="status-chip ${u.active?'status-chip--ok':'status-chip--off'}">${u.active?'활성':'비활성'}</span></td><td><button type="button" class="btn btn-outline btn-sm" data-edit-user="${esc(u.id)}">수정</button></td></tr>`).join('')||'<tr class="doc-table__empty-row"><td colspan="10" class="empty"><strong>등록된 계정이 없습니다.</strong><span>오른쪽 입력영역에서 새 계정을 추가할 수 있습니다.</span></td></tr>'}</tbody></table>`;
-        $$('[data-edit-user]',usersTable).forEach((b)=>b.addEventListener('click',()=>{const u=rows.find((x)=>x.id===b.dataset.editUser);if(!u)return;userForm.elements.id.value=u.id;userForm.elements.name.value=u.name;userForm.elements.username.value=u.username;userForm.elements.username.disabled=true;userForm.elements.password.required=false;userForm.elements.position.value=u.position||'';userForm.elements.grade.value=u.grade||'';userForm.elements.department.value=u.department||'';userForm.elements.role.value=u.role;userForm.elements.canApprove.checked=!!u.can_approve;userForm.elements.canAccounting.checked=u.role==='admin'||!!u.can_accounting;userForm.elements.active.checked=!!u.active;$('[data-user-active-row]').hidden=false;$('[data-user-form-title]').textContent=`계정 수정 — ${u.name}`;$('[data-user-password-label]').textContent='새 비밀번호(변경 시에만 입력)';$('[data-user-form-submit]').textContent='수정 저장';deleteUserButton.hidden=false;}));
+        $$('[data-edit-user]',usersTable).forEach((b)=>b.addEventListener('click',()=>{const u=rows.find((x)=>x.id===b.dataset.editUser);if(!u)return;userForm.elements.id.value=u.id;userForm.elements.name.value=u.name;userForm.elements.username.value=u.username;userForm.elements.username.disabled=true;userForm.elements.password.required=false;userForm.elements.position.value=u.position||'';userForm.elements.grade.value=u.grade||'';userForm.elements.department.value=u.department||'';userForm.elements.role.value=u.role;userForm.elements.canApprove.checked=!!u.can_approve;userForm.elements.canAccounting.checked=u.role==='admin'||!!u.can_accounting;userForm.elements.active.checked=!!u.active;$('[data-user-active-row]').hidden=false;$('[data-user-form-title]').textContent=`계정 수정 — ${u.name}`;$('[data-user-password-label]').textContent='새 비밀번호(변경 시에만 입력)';setUserSubmitLabel(true);deleteUserButton.hidden=false;}));
       };
       const refreshUsersTable=async()=>{const d=await callApi('/api/users/list',{token:getToken(),includeInactive:true});if(d.ok)renderUsersTable(d.rows||[]);else $('[data-user-form-status]').textContent=d.message;};
       openUsersBtn.addEventListener('click',()=>{resetUserForm();renderUsersTable([]);usersModal.hidden=false;refreshUsersTable();});$$('[data-close-users]').forEach((b)=>b.addEventListener('click',()=>usersModal.hidden=true));
@@ -1648,7 +1649,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           if(result.ok){resetUserForm();await Promise.all([refreshUsersTable(),refreshUserOptions()]);$('[data-user-form-status]').textContent=result.message||'계정 정보가 저장되었습니다.';}
         }finally{
           submitButton.disabled=false;
-          submitButton.textContent=userForm.elements.id.value?'수정 저장':'계정 추가';
+          setUserSubmitLabel(!!userForm.elements.id.value);
           if(!submitButton.textContent)submitButton.textContent=originalText;
         }
       });
@@ -2036,6 +2037,11 @@ import GovLayout from '../layouts/GovLayout.astro';
     .signer-option-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; flex: 1 1 320px; }
     .hint { font-size: 0.8rem; color: var(--gov-muted); margin: -0.1rem 0 0; }
     .compose-form__actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 0.25rem; }
+    .account-action-button {
+      min-width: 70px; min-height: 58px; padding: 0.48rem 0.6rem;
+      flex-direction: column; gap: 0.12rem; white-space: normal; line-height: 1.15; text-align: center;
+    }
+    .account-action-button span { display: block; white-space: nowrap; }
 
     .compose-fieldset {
       border: 1px solid var(--gov-border); border-radius: 12px; padding: 1rem 1.1rem 1.05rem; margin: 0;
