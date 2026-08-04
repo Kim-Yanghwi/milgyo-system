@@ -38,8 +38,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     if (action === 'init') {
-      const [dimensions, accounts, banks, cards, rules, summary, pendingChanges, expiringContracts, exportErrors] = await Promise.all([
+      const [dimensions, fiscalYears, accounts, banks, cards, rules, summary, pendingChanges, expiringContracts, exportErrors] = await Promise.all([
         getDimensionMaster(db),
+        db.prepare(`SELECT year,name,start_date,end_date,base_currency,status FROM accounting_fiscal_years ORDER BY year`).all(),
         db.prepare(`SELECT code,name,account_type,normal_side FROM accounting_accounts WHERE active=1 ORDER BY code`).all(),
         db.prepare(`SELECT b.*,a.name AS settlement_account_name,bt.name AS book_type_name,e.name AS entity_name,f.name AS fund_name
           FROM accounting_bank_accounts b LEFT JOIN accounting_accounts a ON a.code=b.settlement_account_code
@@ -60,7 +61,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         db.prepare(`SELECT COUNT(*) AS count FROM accounting_contracts WHERE status='active' AND date(end_date)<=date('now','+45 days')`).first(),
         db.prepare(`SELECT COALESCE(SUM(error_count),0) AS count FROM accounting_donation_export_batches WHERE fiscal_year=? AND status='processed_with_errors'`).bind(year).first(),
       ]);
-      return json({ ok: true, me, year, permissions: { manager, canViewAll, audit: me.role === 'audit' }, ...dimensions, accounts: accounts.results || [], bankAccounts: banks.results || [], cards: cards.results || [], rules: rules.results || [], summary: summary || {}, alerts: { pendingBudgetChanges: Number((pendingChanges as any)?.count || 0), expiringContracts: Number((expiringContracts as any)?.count || 0), donationErrors: Number((exportErrors as any)?.count || 0) } });
+      return json({ ok: true, me, year, permissions: { manager, canViewAll, audit: me.role === 'audit' }, ...dimensions, fiscalYears: fiscalYears.results || [], accounts: accounts.results || [], bankAccounts: banks.results || [], cards: cards.results || [], rules: rules.results || [], summary: summary || {}, alerts: { pendingBudgetChanges: Number((pendingChanges as any)?.count || 0), expiringContracts: Number((expiringContracts as any)?.count || 0), donationErrors: Number((exportErrors as any)?.count || 0) } });
     }
 
     if (action === 'transactions') {
