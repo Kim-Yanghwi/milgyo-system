@@ -815,11 +815,6 @@ const getTableColumns = async (db: D1Database, table: string) => {
   return rows.results ?? [];
 };
 
-const hasColumns = async (db: D1Database, table: string, required: string[]) => {
-  const names = new Set((await getTableColumns(db, table)).map((column) => column.name));
-  return required.every((name) => names.has(name));
-};
-
 const ensureColumn = async (db: D1Database, table: string, columnDef: string) => {
   try {
     await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`).run();
@@ -1086,22 +1081,10 @@ const hasCurrentSchema = async (db: D1Database) => {
   try {
     const row = await db.prepare(`SELECT meta_value FROM system_meta WHERE meta_key = 'schema_version'`)
       .first<{ meta_value: string }>();
-    if (row?.meta_value !== SCHEMA_VERSION) return false;
-
-    // 버전 표식만 맞고 실제 컬럼이 누락된 운영 DB도 자동 복구할 수 있도록 핵심 구조를 함께 확인합니다.
-    const checks = await Promise.all([
-      hasColumns(db, 'system_users', ['id', 'name', 'username', 'password_hash', 'position', 'grade', 'department', 'role', 'can_approve', 'can_accounting', 'active', 'created_at']),
-      hasColumns(db, 'documents', ['id', 'approval_mode', 'status', 'client_request_id']),
-      hasColumns(db, 'document_approval_lines', ['id', 'document_id', 'line_order', 'line_type', 'user_id', 'status']),
-      hasColumns(db, 'document_dispatch_links', ['document_id', 'registry_id', 'created_at']),
-      hasColumns(db, 'management_registers', ['id', 'request_no', 'record_type', 'applicant_user_id', 'status', 'request_date']),
-      hasColumns(db, 'management_register_attachments', ['id', 'register_id', 'storage_type', 'r2_key']),
-      hasColumns(db, 'employee_profiles', ['user_id', 'employment_start_date', 'updated_at']),
-      hasColumns(db, 'employment_certificates', ['id', 'certificate_no', 'employee_user_id', 'status', 'issue_date']),
-      hasColumns(db, 'ordination_certificates', ['id', 'certificate_no', 'request_id', 'issue_year', 'sequence_no', 'recipient_name', 'birth_date', 'dharma_name_hanja', 'ordination_date', 'include_top_seal', 'top_seal_key', 'status']),
-      hasColumns(db, 'management_audit_logs', ['id', 'category', 'action', 'target_id', 'created_at']),
-    ]);
-    return checks.every(Boolean);
+    // 스키마 버전은 전체 마이그레이션이 성공한 마지막 단계에서만 기록됩니다.
+    // 매 Worker 기동마다 여러 PRAGMA를 재실행하면 모든 화면의 첫 조회가 지연되므로
+    // 정상 운영 요청은 버전 표식 한 건만 확인하고, 불일치 시에만 전체 복구를 수행합니다.
+    return row?.meta_value === SCHEMA_VERSION;
   } catch {
     return false;
   }

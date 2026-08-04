@@ -1,0 +1,46 @@
+# v39 회계 실무관리 성능·운영 개선
+
+## 반영 내용
+
+- 회계 실무관리 첫 조회의 기준정보 쿼리를 일괄 처리하도록 변경
+- 가용예산 계산을 예산 행별 반복 조회에서 집계 조인 1회 조회로 변경
+- 계약 연도 조회를 `substr()` 조건에서 날짜 범위 조건으로 변경
+- 화면을 30초 이내 다시 열 때 동일 자료를 불필요하게 재조회하지 않도록 보완
+- 회계 실무관리의 모든 표 셀에 실선을 적용하고 전체 내용을 가운데 정렬
+- 테스트자료 일괄 초기화에 대사·예산변경·거래처·계약·기부금 일괄처리 자료 포함
+- 계정 수정 화면에 계정 삭제 기능 추가
+  - 본인 계정 삭제 금지
+  - 마지막 활성 관리자 삭제 금지
+  - 미처리 결재선에 지정된 계정 삭제 금지
+  - 삭제 시 해당 계정의 로그인 세션 제거 및 감사기록 저장
+
+## 배포 전 회계 DB 마이그레이션
+
+기존 `0009_v38_finance_operations.sql`을 이미 적용한 운영 DB에는 성능 인덱스 마이그레이션만 추가로 적용합니다.
+
+PowerShell에서 프로젝트 폴더로 이동한 뒤 미적용 목록을 확인합니다.
+
+```powershell
+npx.cmd wrangler d1 migrations list milgyo-accounting-db --remote
+```
+
+다음 파일만 미적용으로 표시되어야 합니다.
+
+```text
+0010_v39_operations_performance.sql
+```
+
+확인 후 적용합니다.
+
+```powershell
+npx.cmd wrangler d1 migrations apply milgyo-accounting-db --remote
+```
+
+적용 후 다시 확인했을 때 미적용 마이그레이션이 없어야 합니다.
+
+```powershell
+npx.cmd wrangler d1 migrations list milgyo-accounting-db --remote
+```
+
+`0009` 또는 예상하지 못한 다른 마이그레이션이 함께 표시되면 적용하지 말고 원인을 먼저 확인합니다.
+

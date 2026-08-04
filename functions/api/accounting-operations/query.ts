@@ -1,11 +1,7 @@
 import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
 import { canViewAllAccounting, ensureAccountingTables, hasAccountingAccess, isAccountingManager } from '../../_shared/accounting';
 import { getDimensionMaster } from '../../_shared/accounting-special';
-import {
-  ensureAccountingOperationsTables,
-  getBudgetCommittedAmount,
-  getBudgetExecutedAmount,
-} from '../../_shared/accounting-operations';
+import { ensureAccountingOperationsTables } from '../../_shared/accounting-operations';
 
 interface Env { DB: D1Database; ACCOUNTING_DB: D1Database; }
 type Payload = Record<string, unknown> & { token?: string; action?: string };
@@ -38,30 +34,51 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     if (action === 'init') {
-      const [dimensions, fiscalYears, accounts, banks, cards, rules, summary, pendingChanges, expiringContracts, exportErrors] = await Promise.all([
+      const [dimensions, masterResults, summary] = await Promise.all([
         getDimensionMaster(db),
-        db.prepare(`SELECT year,name,start_date,end_date,base_currency,status FROM accounting_fiscal_years ORDER BY year`).all(),
-        db.prepare(`SELECT code,name,account_type,normal_side FROM accounting_accounts WHERE active=1 ORDER BY code`).all(),
-        db.prepare(`SELECT b.*,a.name AS settlement_account_name,bt.name AS book_type_name,e.name AS entity_name,f.name AS fund_name
-          FROM accounting_bank_accounts b LEFT JOIN accounting_accounts a ON a.code=b.settlement_account_code
-          LEFT JOIN accounting_book_types bt ON bt.code=b.book_type_code LEFT JOIN accounting_entities e ON e.id=b.entity_id
-          LEFT JOIN accounting_funds f ON f.id=b.fund_id WHERE b.active=1 ORDER BY b.account_code`).all(),
-        db.prepare(`SELECT c.*,bt.name AS book_type_name,e.name AS entity_name FROM accounting_cards c
-          LEFT JOIN accounting_book_types bt ON bt.code=c.book_type_code LEFT JOIN accounting_entities e ON e.id=c.entity_id
-          WHERE c.active=1 ORDER BY c.card_code`).all(),
-        db.prepare(`SELECT r.*,a.name AS account_name FROM accounting_matching_rules r LEFT JOIN accounting_accounts a ON a.code=r.account_code WHERE r.active=1 ORDER BY r.priority,r.name`).all(),
+        db.batch([
+          db.prepare(`SELECT year,name,start_date,end_date,base_currency,status FROM accounting_fiscal_years ORDER BY year`),
+          db.prepare(`SELECT code,name,account_type,normal_side FROM accounting_accounts WHERE active=1 ORDER BY code`),
+          db.prepare(`SELECT b.*,a.name AS settlement_account_name,bt.name AS book_type_name,e.name AS entity_name,f.name AS fund_name
+            FROM accounting_bank_accounts b LEFT JOIN accounting_accounts a ON a.code=b.settlement_account_code
+            LEFT JOIN accounting_book_types bt ON bt.code=b.book_type_code LEFT JOIN accounting_entities e ON e.id=b.entity_id
+            LEFT JOIN accounting_funds f ON f.id=b.fund_id WHERE b.active=1 ORDER BY b.account_code`),
+          db.prepare(`SELECT c.*,bt.name AS book_type_name,e.name AS entity_name FROM accounting_cards c
+            LEFT JOIN accounting_book_types bt ON bt.code=c.book_type_code LEFT JOIN accounting_entities e ON e.id=c.entity_id
+            WHERE c.active=1 ORDER BY c.card_code`),
+          db.prepare(`SELECT r.*,a.name AS account_name FROM accounting_matching_rules r
+            LEFT JOIN accounting_accounts a ON a.code=r.account_code WHERE r.active=1 ORDER BY r.priority,r.name`),
+        ]),
         db.prepare(`SELECT
           (SELECT COUNT(*) FROM accounting_import_transactions WHERE status='unmatched') AS unmatched,
           (SELECT COUNT(*) FROM accounting_import_transactions WHERE status='suggested') AS suggested,
           (SELECT COUNT(*) FROM accounting_import_transactions WHERE status='matched') AS matched,
           (SELECT COUNT(*) FROM accounting_reconciliation_periods WHERE status='completed' AND fiscal_year=?) AS reconciled_periods,
           (SELECT COUNT(*) FROM accounting_budget_change_requests WHERE status='pending' AND fiscal_year=?) AS pending_budget_changes,
-          (SELECT COUNT(*) FROM accounting_vendor_bank_changes WHERE status='pending') AS pending_bank_changes`).bind(year, year).first(),
-        db.prepare(`SELECT COUNT(*) AS count FROM accounting_budget_change_requests WHERE status='pending' AND fiscal_year=?`).bind(year).first(),
-        db.prepare(`SELECT COUNT(*) AS count FROM accounting_contracts WHERE status='active' AND date(end_date)<=date('now','+45 days')`).first(),
-        db.prepare(`SELECT COALESCE(SUM(error_count),0) AS count FROM accounting_donation_export_batches WHERE fiscal_year=? AND status='processed_with_errors'`).bind(year).first(),
+          (SELECT COUNT(*) FROM accounting_vendor_bank_changes WHERE status='pending') AS pending_bank_changes,
+          (SELECT COUNT(*) FROM accounting_contracts WHERE status='active' AND end_date<=date('now','+45 days')) AS expiring_contracts,
+          (SELECT COALESCE(SUM(error_count),0) FROM accounting_donation_export_batches
+            WHERE fiscal_year=? AND status='processed_with_errors') AS donation_errors`).bind(year, year, year).first<any>(),
       ]);
-      return json({ ok: true, me, year, permissions: { manager, canViewAll, audit: me.role === 'audit' }, ...dimensions, fiscalYears: fiscalYears.results || [], accounts: accounts.results || [], bankAccounts: banks.results || [], cards: cards.results || [], rules: rules.results || [], summary: summary || {}, alerts: { pendingBudgetChanges: Number((pendingChanges as any)?.count || 0), expiringContracts: Number((expiringContracts as any)?.count || 0), donationErrors: Number((exportErrors as any)?.count || 0) } });
+      const [fiscalYears, accounts, banks, cards, rules] = masterResults;
+      return json({
+        ok: true,
+        me,
+        year,
+        permissions: { manager, canViewAll, audit: me.role === 'audit' },
+        ...dimensions,
+        fiscalYears: fiscalYears?.results || [],
+        accounts: accounts?.results || [],
+        bankAccounts: banks?.results || [],
+        cards: cards?.results || [],
+        rules: rules?.results || [],
+        summary: summary || {},
+        alerts: {
+          pendingBudgetChanges: Number(summary?.pending_budget_changes || 0),
+          expiringContracts: Number(summary?.expiring_contracts || 0),
+          donationErrors: Number(summary?.donation_errors || 0),
+        },
+      });
     }
 
     if (action === 'transactions') {
@@ -119,16 +136,45 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     if (action === 'budgets') {
-      const result = await db.prepare(`SELECT b.*,a.name AS account_name,bt.name AS book_type_name,e.name AS entity_name,f.name AS fund_name
+      const result = await db.prepare(`SELECT b.*,a.name AS account_name,bt.name AS book_type_name,e.name AS entity_name,f.name AS fund_name,
+        COALESCE(ms.executed_amount,0) AS executed_amount,COALESCE(cc.committed_amount,0) AS committed_amount
         FROM accounting_budget_plans b JOIN accounting_accounts a ON a.code=b.account_code
         LEFT JOIN accounting_book_types bt ON bt.code=b.book_type_code LEFT JOIN accounting_entities e ON e.id=b.entity_id
-        LEFT JOIN accounting_funds f ON f.id=b.fund_id WHERE b.fiscal_year=? ORDER BY b.department,b.project,b.account_code`).bind(year).all<any>();
-      const rows = [];
-      for (const budget of result.results || []) {
-        const executed = await getBudgetExecutedAmount(db, budget), committed = await getBudgetCommittedAmount(db, budget);
+        LEFT JOIN accounting_funds f ON f.id=b.fund_id
+        LEFT JOIN (
+          SELECT fiscal_year,COALESCE(book_type_code,'general') AS book_type_code,
+            COALESCE(NULLIF(entity_id,''),'ENTITY-HQ') AS entity_id,COALESCE(fund_id,'') AS fund_id,
+            account_code,COALESCE(department,'') AS department,COALESCE(project,'') AS project,
+            SUM(debit_total-credit_total) AS executed_amount
+          FROM accounting_monthly_summary WHERE fiscal_year=?
+          GROUP BY fiscal_year,book_type_code,entity_id,fund_id,account_code,department,project
+        ) ms ON ms.fiscal_year=b.fiscal_year AND ms.book_type_code=COALESCE(NULLIF(b.book_type_code,''),'general')
+          AND ms.entity_id=COALESCE(NULLIF(b.entity_id,''),'ENTITY-HQ') AND ms.fund_id=COALESCE(b.fund_id,'')
+          AND ms.account_code=b.account_code AND ms.department=COALESCE(b.department,'') AND ms.project=COALESCE(b.project,'')
+        LEFT JOIN (
+          SELECT CAST(substr(c.contract_date,1,4) AS INTEGER) AS fiscal_year,
+            COALESCE(NULLIF(c.book_type_code,''),'general') AS book_type_code,
+            COALESCE(NULLIF(c.entity_id,''),'ENTITY-HQ') AS entity_id,COALESCE(c.fund_id,'') AS fund_id,
+            c.account_code,COALESCE(c.department,'') AS department,COALESCE(c.project,'') AS project,
+            SUM(CASE WHEN c.contract_amount>COALESCE(cp.paid_amount,0)
+              THEN c.contract_amount-COALESCE(cp.paid_amount,0) ELSE 0 END) AS committed_amount
+          FROM accounting_contracts c
+          LEFT JOIN (
+            SELECT contract_id,SUM(CASE WHEN status='paid' THEN amount ELSE 0 END) AS paid_amount
+            FROM accounting_contract_payments GROUP BY contract_id
+          ) cp ON cp.contract_id=c.id
+          WHERE c.status IN ('active','approved') AND c.contract_date>=? AND c.contract_date<?
+          GROUP BY fiscal_year,book_type_code,entity_id,fund_id,c.account_code,department,project
+        ) cc ON cc.fiscal_year=b.fiscal_year AND cc.book_type_code=COALESCE(NULLIF(b.book_type_code,''),'general')
+          AND cc.entity_id=COALESCE(NULLIF(b.entity_id,''),'ENTITY-HQ') AND cc.fund_id=COALESCE(b.fund_id,'')
+          AND cc.account_code=b.account_code AND cc.department=COALESCE(b.department,'') AND cc.project=COALESCE(b.project,'')
+        WHERE b.fiscal_year=? ORDER BY b.department,b.project,b.account_code`)
+        .bind(year, `${year}-01-01`, `${year + 1}-01-01`, year).all<any>();
+      const rows = (result.results || []).map((budget: any) => {
+        const executed = Number(budget.executed_amount || 0), committed = Number(budget.committed_amount || 0);
         const revised = Number(budget.original_amount || 0) + Number(budget.supplementary_amount || 0) + Number(budget.transfer_in || 0) - Number(budget.transfer_out || 0);
-        rows.push({ ...budget, revised_amount: revised, executed_amount: executed, committed_amount: committed, available_amount: revised - executed - committed });
-      }
+        return { ...budget, revised_amount: revised, executed_amount: executed, committed_amount: committed, available_amount: revised - executed - committed };
+      });
       const changes = await db.prepare(`SELECT c.*,t.department AS target_department,t.project AS target_project,t.account_code AS target_account_code,ta.name AS target_account_name,
         s.department AS source_department,s.project AS source_project,s.account_code AS source_account_code,sa.name AS source_account_name
         FROM accounting_budget_change_requests c JOIN accounting_budget_plans t ON t.id=c.target_budget_id
@@ -157,7 +203,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     if (action === 'contracts') {
-      const q = clean(payload.query, 120), status = clean(payload.status, 30), conditions = ['substr(c.contract_date,1,4)=?'], values: unknown[] = [String(year)];
+      const q = clean(payload.query, 120), status = clean(payload.status, 30), conditions = ['c.contract_date>=?', 'c.contract_date<?'], values: unknown[] = [`${year}-01-01`, `${year + 1}-01-01`];
       if (status) { conditions.push('c.status=?'); values.push(status); }
       if (q) { conditions.push('(c.title LIKE ? OR c.contract_no LIKE ? OR v.name LIKE ?)'); values.push(`%${q}%`, `%${q}%`, `%${q}%`); }
       const rows = await db.prepare(`SELECT c.*,v.vendor_code,v.name AS vendor_name,a.name AS account_name,bt.name AS book_type_name,e.name AS entity_name,f.name AS fund_name,

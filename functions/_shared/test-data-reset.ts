@@ -175,6 +175,19 @@ export const getTestResetPreview = async (env: ResetEnv) => {
       assets: n(accounting.assets),
       cards: n(accounting.cards),
       cardTransactions: n(accounting.card_transactions),
+      bankAccounts: n(accounting.bank_accounts),
+      importBatches: n(accounting.import_batches),
+      importTransactions: n(accounting.import_transactions),
+      matchingRules: n(accounting.matching_rules),
+      reconciliations: n(accounting.reconciliations),
+      budgetChanges: n(accounting.budget_changes),
+      budgetVersions: n(accounting.budget_versions),
+      vendors: n(accounting.vendors),
+      vendorBankChanges: n(accounting.vendor_bank_changes),
+      contracts: n(accounting.contracts),
+      contractPayments: n(accounting.contract_payments),
+      donationExportBatches: n(accounting.donation_export_batches),
+      donationExportItems: n(accounting.donation_export_items),
       branchReports: n(accounting.branch_reports),
       certificates: n(accounting.certificates),
       attachments: n(accounting.attachments),
@@ -303,7 +316,7 @@ export const resetAllTestData = async (env: ResetEnv, user: SessionUser) => {
     remainingRecords,
     verification,
     message: verified
-      ? '전자문서·재직증명서·수계증서·회계 테스트자료, 관련 로그·감사이력, 번호 카운트와 R2 파일을 모두 초기화하고 잔여 0건을 확인했습니다.'
+      ? '전자문서·재직증명서·수계증서·회계 및 실무관리 테스트자료, 관련 로그·감사이력, 번호 카운트와 R2 파일을 모두 초기화하고 잔여 0건을 확인했습니다.'
       : `초기화는 실행했으나 삭제 대상 ${remainingRecords.toLocaleString('ko-KR')}건이 남아 있습니다. 미리보기를 다시 실행해 잔여 항목을 확인해 주세요.`,
   };
 };
