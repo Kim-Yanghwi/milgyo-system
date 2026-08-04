@@ -94,6 +94,11 @@ export const prepareResolutionPosting=async(db:D1Database,resolution:{id:string;
     monthlySummaryStatement(db,resolution.resolution_date,{accountCode:debitAccount,debit:amount,credit:0,department:resolution.department,project:resolution.project},dimensions,now),
     monthlySummaryStatement(db,resolution.resolution_date,{accountCode:creditAccount,debit:0,credit:amount,department:resolution.department,project:resolution.project},dimensions,now),
     db.prepare(`UPDATE accounting_resolutions SET status='posted',journal_id=?,updated_at=? WHERE id=?`).bind(journalId,now,resolution.id),
+    db.prepare(`UPDATE accounting_contract_payments SET journal_id=?,status='paid',paid_at=?,updated_at=? WHERE resolution_id=?`).bind(journalId,now,now,resolution.id),
+    db.prepare(`UPDATE accounting_contracts SET status='completed',updated_at=? WHERE id IN (
+      SELECT c.id FROM accounting_contracts c JOIN accounting_contract_payments p ON p.contract_id=c.id
+      WHERE p.resolution_id=? GROUP BY c.id HAVING SUM(CASE WHEN p.status='paid' OR p.resolution_id=? THEN p.amount ELSE 0 END)>=c.contract_amount
+    )`).bind(now,resolution.id,resolution.id),
     db.prepare(`INSERT OR IGNORE INTO accounting_audit_logs (id,action,entity_type,entity_id,actor_name,detail_json,created_at) VALUES (?, 'post','resolution',?,?,?,?)`).bind(`POST-${resolution.id}`,resolution.id,approvedBy,JSON.stringify({journalNo,amount}),now),
   ];
   return {statements,journalId,duplicate:false};

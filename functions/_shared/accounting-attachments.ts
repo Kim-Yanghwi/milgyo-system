@@ -20,6 +20,12 @@ export const ACCOUNTING_ATTACHMENT_REFERENCE_TYPES = [
   'card_transaction',
   'branch_report',
   'closing',
+  'bank_account',
+  'import_batch',
+  'budget_change',
+  'vendor',
+  'contract',
+  'donation_export',
 ] as const;
 
 export type AccountingAttachmentReferenceType =
@@ -253,6 +259,28 @@ export const authorizeAccountingReference = async (
         ok: exists && (mode === 'read' || manager),
         exists,
         message: exists ? '결산·마감 첨부파일 등록·삭제 권한이 없습니다.' : '결산·마감 자료를 찾을 수 없습니다.',
+      };
+    }
+
+    case 'bank_account':
+    case 'import_batch':
+    case 'budget_change':
+    case 'vendor':
+    case 'contract':
+    case 'donation_export': {
+      const tableMap = {
+        bank_account: 'accounting_bank_accounts',
+        import_batch: 'accounting_import_batches',
+        budget_change: 'accounting_budget_change_requests',
+        vendor: 'accounting_vendors',
+        contract: 'accounting_contracts',
+        donation_export: 'accounting_donation_export_batches',
+      } as const;
+      const exists = await firstExists(db, `SELECT id FROM ${tableMap[referenceType]} WHERE id=?`, referenceId);
+      return {
+        ok: exists && viewAll && (mode === 'read' || manager),
+        exists,
+        message: exists ? '해당 실무 회계자료의 첨부파일 처리 권한이 없습니다.' : '실무 회계자료를 찾을 수 없습니다.',
       };
     }
   }

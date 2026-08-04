@@ -13,7 +13,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       </a>
       <div class="acc-topbar__right">
         <span data-user-label></span>
-        <a href="/accounting-files/" class="btn btn-outline attachment-ops-only">점검·정책</a><a href="/" class="btn btn-outline">전자문서</a>
+        <a href="/accounting-operations/" class="btn btn-outline">실무관리</a><a href="/accounting-files/" class="btn btn-outline attachment-ops-only">점검·정책</a><a href="/" class="btn btn-outline">전자문서</a>
         <button type="button" class="btn btn-outline" data-logout>로그아웃</button>
       </div>
     </header>
@@ -32,6 +32,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           <button class="acc-nav" data-tab="ledger">장부</button>
           <button class="acc-nav" data-tab="closing">결산·마감</button>
           <button class="acc-nav" data-tab="accounts">계정과목</button>
+          <a class="acc-special-link" href="/accounting-operations/">회계 실무관리</a>
           <a class="acc-special-link" href="/accounting-special/">종단 특화회계</a>
         </nav>
         <div class="acc-sidebar__note">
