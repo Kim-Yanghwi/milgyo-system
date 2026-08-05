@@ -806,7 +806,7 @@ let tablesEnsured = false;
 let tablesEnsurePromise: Promise<void> | null = null;
 let lastRateLimitCleanupAt = 0;
 const MAINTENANCE_COOLDOWN_MS = 10 * 60 * 1000;
-const SCHEMA_VERSION = '2026-08-02.15';
+const SCHEMA_VERSION = '2026-08-05.16';
 
 type TableColumnInfo = { name: string; type: string; notnull: number; dflt_value?: unknown; pk: number };
 
@@ -930,6 +930,8 @@ const runSchemaMigration = async (db: D1Database) => {
       address TEXT NOT NULL, department TEXT NOT NULL, position_grade TEXT NOT NULL,
       employment_start_date TEXT NOT NULL, employment_end_date TEXT, purpose TEXT NOT NULL,
       issue_date TEXT NOT NULL, issuer_user_id TEXT NOT NULL, issuer_name TEXT NOT NULL,
+      signatory_title TEXT NOT NULL DEFAULT '이사장', signatory_user_id TEXT,
+      signatory_name TEXT NOT NULL DEFAULT '김양휘',
       manager_name TEXT, contact TEXT, status TEXT NOT NULL DEFAULT '발급', canceled_at TEXT,
       canceled_by_user_id TEXT, canceled_by_name TEXT, cancel_reason TEXT,
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
@@ -976,6 +978,9 @@ const runSchemaMigration = async (db: D1Database) => {
     ['received_documents', 'handled_by_user_id TEXT'], ['received_documents', 'updated_at TEXT'],
     ['document_attachments', `storage_type TEXT NOT NULL DEFAULT 'd1'`], ['document_attachments', 'r2_key TEXT'],
     ['received_attachments', `storage_type TEXT NOT NULL DEFAULT 'd1'`], ['received_attachments', 'r2_key TEXT'],
+    ['employment_certificates', `signatory_title TEXT NOT NULL DEFAULT '이사장'`],
+    ['employment_certificates', 'signatory_user_id TEXT'],
+    ['employment_certificates', `signatory_name TEXT NOT NULL DEFAULT '김양휘'`],
     ['ordination_certificates', 'request_id TEXT'],
     ['ordination_certificates', 'include_top_seal INTEGER NOT NULL DEFAULT 1'],
     ['ordination_certificates', `top_seal_key TEXT NOT NULL DEFAULT 'hyangcheonsa'`],
