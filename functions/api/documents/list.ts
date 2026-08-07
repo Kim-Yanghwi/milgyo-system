@@ -3,7 +3,7 @@ import { authenticateSession, clean, ensureTables, json } from '../../_shared/he
 interface Env { DB: D1Database; }
 type ListPayload = {
   token?: string; view?: string; query?: string; page?: number; pageSize?: number;
-  dateFrom?: string; dateTo?: string; docType?: string; category?: string; sort?: string;
+  dateFrom?: string; dateTo?: string; docType?: string; category?: string; department?: string; sort?: string;
 };
 
 const VIEWS = ['임시저장', '진행', '결재대기', '발송대기', '완료', '반려', '전체'];
@@ -39,6 +39,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const dateTo = clean(payload.dateTo, 10);
   const docType = clean(payload.docType, 10);
   const category = clean(payload.category, 100);
+  const department = clean(payload.department, 80);
   const orderBy = SORTS[clean(payload.sort, 20)] || SORTS.newest;
 
   const filters: string[] = [];
@@ -103,6 +104,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
   if (docType && ['기안', '발송'].includes(docType)) { filters.push(`doc_type = ?`); bindings.push(docType); }
   if (category) { filters.push(`category = ?`); bindings.push(category); }
+  if (department) {
+    const parts = department.split(/\s+-\s+/).map((part) => part.trim()).filter(Boolean);
+    if (parts.length > 1) {
+      const leaf = parts[parts.length - 1];
+      filters.push(`(department = ? OR department = ?)`);
+      bindings.push(department, leaf);
+    } else {
+      filters.push(`(department = ? OR department LIKE ?)`);
+      bindings.push(department, `${department} - %`);
+    }
+  }
 
   const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
   try {

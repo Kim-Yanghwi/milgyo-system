@@ -4,6 +4,7 @@ import {
   ensureTables,
   isValidIsoDate,
   json,
+  makeDocumentNumber,
   makeReceivedNumber,
   randomHex,
 } from '../../_shared/helpers';
@@ -56,7 +57,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     let memo = clean(payload.memo, 3000);
     const receivedAt = clean(payload.receivedAt, 10);
     let department = clean(payload.department, 80);
-    const relatedDocumentId = clean(payload.relatedDocumentId, 60);
+    let relatedDocumentId = clean(payload.relatedDocumentId, 60);
 
     if (!VALID_DIRECTIONS.includes(direction)) {
       return json({ ok: false, message: '구분(접수/외부발송)을 선택해 주세요.' }, 400);
@@ -70,7 +71,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     let related: RelatedDocument | null = null;
-    if (relatedDocumentId) {
+    if (direction === '외부발송' && relatedDocumentId) {
       related = await env.DB.prepare(`
         SELECT id, doc_type, status, title, summary, recipient, department, CAST(drafter_user_id AS TEXT) AS drafter_user_id
         FROM documents WHERE id = ?
@@ -108,6 +109,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     const now = new Date();
     const nowIso = now.toISOString();
+    if (direction === '접수') relatedDocumentId = await makeDocumentNumber(env.DB, now);
     const id = await makeReceivedNumber(env.DB, now, direction);
     const finalDepartment = department || auth.user.department || null;
 
@@ -169,7 +171,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       documentStatus: direction === '외부발송' && related ? '발송완료' : null,
       message: direction === '외부발송' && related
         ? '외부발송대장에 등록하고 내부문서를 발송완료 처리했습니다.'
-        : '접수·발송대장에 등록되었습니다.',
+        : `접수·발송대장에 등록하고 내부문서 번호 ${relatedDocumentId}을(를) 자동 배정했습니다.`,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

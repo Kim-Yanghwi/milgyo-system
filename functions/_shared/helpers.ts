@@ -1305,27 +1305,46 @@ export const canReadDocument = (user: SessionUser, document: Record<string, unkn
   return [document.drafter_user_id, document.reviewer_user_id, document.approver_user_id].some((id) => String(id || '') === user.id);
 };
 
-const nextSequence = async (db: D1Database, seqKey: string, existingMax = 0, resetWhenEmpty = false) => {
-  // 실제 문서가 하나도 없으면 테스트 자료 전체 삭제 후 다시 001부터 시작할 수 있도록 순번도 0으로 맞춥니다.
-  // 문서가 남아 있으면 순번 테이블이 유실되거나 낮아져도 실제 최대 문서번호보다 작아지지 않도록 보정합니다.
+const nextSequence = async (db: D1Database, seqKey: string, existingMax = 0) => {
+  // 실제 자료와 순번 테이블 중 큰 값을 기준으로 원자적으로 증가시킵니다.
+  // 전체 테스트자료 초기화는 document_sequences도 함께 비우므로 여기서 기존 순번을 되돌리지 않습니다.
+  // 동시에 여러 문서를 등록해도 이미 증가한 순번을 0으로 되돌리지 않아 중복 번호가 생기지 않습니다.
   await db.prepare(`
     INSERT INTO document_sequences (seq_key, last_seq) VALUES (?, ?)
-    ON CONFLICT(seq_key) DO UPDATE SET last_seq =
-      CASE WHEN ? = 1 THEN excluded.last_seq ELSE MAX(document_sequences.last_seq, excluded.last_seq) END
-  `).bind(seqKey, existingMax, resetWhenEmpty ? 1 : 0).run();
+    ON CONFLICT(seq_key) DO UPDATE SET last_seq = MAX(document_sequences.last_seq, excluded.last_seq)
+  `).bind(seqKey, existingMax).run();
   const row = await db.prepare(`UPDATE document_sequences SET last_seq = last_seq + 1 WHERE seq_key = ? RETURNING last_seq`)
     .bind(seqKey).first<{ last_seq: number }>();
   return Number(row?.last_seq || existingMax + 1);
 };
 
-export const makeDocumentNumber = async (db: D1Database, now: Date) => {
+const documentNumberState = async (db: D1Database, now: Date) => {
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   const year = kst.getUTCFullYear();
   const prefix = `밀교종-${year}-`;
-  const existing = await db.prepare(`SELECT MAX(CAST(substr(id, ?) AS INTEGER)) AS max_seq FROM documents WHERE id LIKE ?`)
-    .bind(prefix.length + 1, `${prefix}%`).first<{ max_seq: number | null }>();
+  const existing = await db.prepare(`
+    SELECT MAX(sequence_no) AS max_seq FROM (
+      SELECT CAST(substr(id, ?) AS INTEGER) AS sequence_no
+      FROM documents WHERE id LIKE ?
+      UNION ALL
+      SELECT CAST(substr(related_document_id, ?) AS INTEGER) AS sequence_no
+      FROM received_documents
+      WHERE direction = '접수' AND related_document_id LIKE ?
+    )
+  `).bind(prefix.length + 1, `${prefix}%`, prefix.length + 1, `${prefix}%`).first<{ max_seq: number | null }>();
   const existingMax = Number(existing?.max_seq || 0);
-  const seq = await nextSequence(db, `DOC:${year}`, existingMax, existingMax === 0);
+  return { year, prefix, existingMax };
+};
+export const previewNextDocumentNumber = async (db: D1Database, now: Date) => {
+  const { year, prefix, existingMax } = await documentNumberState(db, now);
+  const sequenceRow = await db.prepare(`SELECT last_seq FROM document_sequences WHERE seq_key = ?`)
+    .bind(`DOC:${year}`).first<{ last_seq: number | null }>();
+  const sequenceMax = Math.max(existingMax, Number(sequenceRow?.last_seq || 0));
+  return `${prefix}${String(sequenceMax + 1).padStart(3, '0')}`;
+};
+export const makeDocumentNumber = async (db: D1Database, now: Date) => {
+  const { year, prefix, existingMax } = await documentNumberState(db, now);
+  const seq = await nextSequence(db, `DOC:${year}`, existingMax);
   return `${prefix}${String(seq).padStart(3, '0')}`;
 };
 export const makeReceivedNumber = async (db: D1Database, now: Date, direction: string) => {
@@ -1335,6 +1354,6 @@ export const makeReceivedNumber = async (db: D1Database, now: Date, direction: s
   const existing = await db.prepare(`SELECT MAX(CAST(substr(id, ?) AS INTEGER)) AS max_seq FROM received_documents WHERE id LIKE ?`)
     .bind(prefix.length + 1, `${prefix}%`).first<{ max_seq: number | null }>();
   const existingMax = Number(existing?.max_seq || 0);
-  const seq = await nextSequence(db, `${direction}:${year}`, existingMax, existingMax === 0);
+  const seq = await nextSequence(db, `${direction}:${year}`, existingMax);
   return `${prefix}${String(seq).padStart(3, '0')}`;
 };

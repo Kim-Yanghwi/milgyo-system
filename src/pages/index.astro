@@ -155,6 +155,7 @@ import GovLayout from '../layouts/GovLayout.astro';
             <div class="panel-header__tools panel-filter-grid">
               <select data-doc-type-filter><option value="">전체 문서구분</option><option value="기안">기안</option><option value="발송">발송</option></select>
               <select data-category-filter><option value="">전체 분류</option></select>
+              <select data-department-filter aria-label="담당부서별 문서 조회"><option value="">전체 부서</option></select>
               <input type="date" data-date-from aria-label="시작일" />
               <span class="filter-separator">~</span>
               <input type="date" data-date-to aria-label="종료일" />
@@ -374,8 +375,9 @@ import GovLayout from '../layouts/GovLayout.astro';
           <label><input type="radio" name="direction" value="외부발송" /> 외부발송(문서24 등으로 내보낸 문서)</label>
         </div>
         <div class="related-document-group" data-related-manual-row>
-          <label for="r-related-manual">연결 내부문서 번호(선택)</label>
-          <input id="r-related-manual" name="relatedDocumentId" type="text" maxlength="60" placeholder="예: 밀교종-YYYY-001" />
+          <label for="r-related-manual">내부문서 번호(자동)</label>
+          <input id="r-related-manual" name="relatedDocumentId" type="text" maxlength="60" readonly aria-readonly="true" placeholder="다음 문서번호를 확인하는 중입니다" />
+          <p class="hint" data-related-manual-help>사용하지 않은 다음 문서번호가 자동으로 배정되며, 등록할 때 서버에서 최종 확정됩니다.</p>
         </div>
         <div class="related-document-group" data-related-select-row hidden>
           <label for="r-related-select">연결 내부문서 번호(선택)</label>
@@ -738,6 +740,10 @@ import GovLayout from '../layouts/GovLayout.astro';
         if (!dep.children) return `<option value="${esc(dep.name)}">${esc(dep.name)}</option>`;
         return `<optgroup label="${esc(dep.name)}"><option value="${esc(dep.name)}">${esc(dep.name)}(전체)</option>${dep.children.map((child) => `<option value="${esc(dep.name)} - ${esc(child)}">　ㄴ ${esc(child)}</option>`).join('')}</optgroup>`;
       }).join('');
+      const renderDepartmentFilterOptions = () => '<option value="">전체 부서</option>' + departmentTree.map((dep) => {
+        if (!dep.children) return `<option value="${esc(dep.name)}">${esc(dep.name)}</option>`;
+        return `<optgroup label="${esc(dep.name)}"><option value="${esc(dep.name)}">${esc(dep.name)} 전체</option>${dep.children.map((child) => `<option value="${esc(dep.name)} - ${esc(child)}">　ㄴ ${esc(child)}</option>`).join('')}</optgroup>`;
+      }).join('');
       const resolveDepartmentPath = (value) => {
         const text = String(value || '').trim();
         if (!text) return { primary: '-', secondary: '' };
@@ -884,8 +890,10 @@ import GovLayout from '../layouts/GovLayout.astro';
       };
 
       const categoryFilter = $('[data-category-filter]');
+      const departmentFilter = $('[data-department-filter]');
       const templateCategory = $('[data-template-category]');
       categoryFilter.innerHTML = '<option value="">전체 분류</option>' + allCategories.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+      departmentFilter.innerHTML = renderDepartmentFilterOptions();
       templateCategory.innerHTML = allCategories.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
       $('[data-department-select]').innerHTML = renderDepartmentOptions();
       $('[data-user-department-select]').innerHTML = renderDepartmentOptions();
@@ -961,7 +969,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           token: getToken(), view: currentView, query: $('[data-query]').value.trim(), page: docPage,
           pageSize: Number($('[data-page-size]').value), dateFrom: $('[data-date-from]').value,
           dateTo: $('[data-date-to]').value, docType: $('[data-doc-type-filter]').value,
-          category: categoryFilter.value, sort: $('[data-sort]').value,
+          category: categoryFilter.value, department: departmentFilter.value, sort: $('[data-sort]').value,
         });
         if(requestSerial!==documentRequestSerial||requestView!==currentView)return;
         if (!data.ok) { statusEl.textContent = data.message || '조회에 실패했습니다.'; return; }
@@ -1037,7 +1045,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       $('[data-toggle-sidebar]').addEventListener('click', () => appShell.classList.toggle('sidebar-collapsed'));
       $('[data-refresh]').addEventListener('click', () => { docPage = 1; refreshDocuments(); });
       $('[data-query]').addEventListener('keydown', (event) => { if (event.key === 'Enter') { docPage = 1; refreshDocuments(); } });
-      $$('[data-doc-type-filter],[data-category-filter],[data-date-from],[data-date-to],[data-sort],[data-page-size]').forEach((el) => el.addEventListener('change', () => { docPage = 1; refreshDocuments(); }));
+      $$('[data-doc-type-filter],[data-category-filter],[data-department-filter],[data-date-from],[data-date-to],[data-sort],[data-page-size]').forEach((el) => el.addEventListener('change', () => { docPage = 1; refreshDocuments(); }));
       selectAll.addEventListener('change', () => { $$('[data-row-select]:not(:disabled)', docTable).forEach((box) => { box.checked = selectAll.checked; box.checked ? selectedIds.add(box.value) : selectedIds.delete(box.value); }); updateSelection(); });
 
       const downloadCsv = (filename, headers, rows) => {
@@ -1050,7 +1058,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         statusEl.textContent='전체 검색결과를 CSV로 준비 중입니다...';
         const rows=[];let page=1,pages=1;
         do {
-          const data=await callApi('/api/documents/list',{token:getToken(),view:currentView,query:$('[data-query]').value.trim(),page,pageSize:100,dateFrom:$('[data-date-from]').value,dateTo:$('[data-date-to]').value,docType:$('[data-doc-type-filter]').value,category:categoryFilter.value,sort:$('[data-sort]').value});
+          const data=await callApi('/api/documents/list',{token:getToken(),view:currentView,query:$('[data-query]').value.trim(),page,pageSize:100,dateFrom:$('[data-date-from]').value,dateTo:$('[data-date-to]').value,docType:$('[data-doc-type-filter]').value,category:categoryFilter.value,department:departmentFilter.value,sort:$('[data-sort]').value});
           if(!data.ok){statusEl.textContent=data.message||'CSV 생성에 실패했습니다.';return;}
           rows.push(...(data.rows||[]));pages=data.pages||1;page+=1;
         } while(page<=pages && rows.length<5000);
@@ -1542,6 +1550,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       const relatedManualRow=$('[data-related-manual-row]');
       const relatedSelectRow=$('[data-related-select-row]');
       const relatedManualInput=$('#r-related-manual');
+      const relatedManualHelp=$('[data-related-manual-help]');
       const relatedSelect=$('#r-related-select');
       const relatedSelectHelp=$('[data-related-select-help]');
       const renderReceivedPending=()=>{$('[data-received-pending-list]').innerHTML=pendingReceivedFiles.map((f,i)=>`<li class="attachment-pending-list__item"><span>${esc(f.name)}</span><button type="button" data-remove-received-file="${i}">×</button></li>`).join('');$$('[data-remove-received-file]').forEach((b)=>b.addEventListener('click',()=>{pendingReceivedFiles.splice(Number(b.dataset.removeReceivedFile),1);renderReceivedPending();}));};
@@ -1561,6 +1570,15 @@ import GovLayout from '../layouts/GovLayout.astro';
         if(!data.ok){sendQueueDocuments=[];renderSendQueueOptions();relatedSelectHelp.textContent=data.message||'발송대기 문서를 불러오지 못했습니다.';return false;}
         sendQueueDocuments=data.rows||[];renderSendQueueOptions(relatedSelect.value);relatedSelect.disabled=false;return true;
       };
+      const loadNextInternalDocumentNumber=async()=>{
+        relatedManualInput.value='';relatedManualInput.placeholder='다음 문서번호를 확인하는 중입니다';
+        relatedManualHelp.textContent='사용하지 않은 다음 문서번호를 확인하고 있습니다.';
+        const data=await callApi('/api/received/next-internal-number',{token:getToken()});
+        if(!data.ok){relatedManualInput.placeholder='등록 시 자동 배정';relatedManualHelp.textContent=data.message||'등록할 때 서버에서 사용하지 않은 다음 문서번호를 자동 배정합니다.';return false;}
+        relatedManualInput.value=data.documentNumber||'';
+        relatedManualHelp.textContent='표시된 번호는 예상번호이며, 등록할 때 서버에서 중복 여부를 다시 확인한 뒤 최종 확정합니다.';
+        return true;
+      };
       const fillReceivedFromSendQueue=(documentId)=>{
         const doc=sendQueueDocuments.find((item)=>item.id===documentId);if(!doc)return;
         receivedForm.elements.title.value=doc.title||'';
@@ -1576,6 +1594,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         relatedManualRow.hidden=external;relatedManualInput.disabled=external;
         relatedSelectRow.hidden=!external;relatedSelect.disabled=!external;relatedSelect.required=external;
         if(external)await loadSendQueueDocuments();
+        else if(!receivedForm.elements.id.value)await loadNextInternalDocumentNumber();
       };
       const openReceivedCreate=async(prefillDocument=null)=>{
         receivedForm.reset();receivedForm.elements.id.value='';receivedForm.elements.receivedAt.value=todayKst();
@@ -1602,8 +1621,8 @@ import GovLayout from '../layouts/GovLayout.astro';
         }finally{submitButton.disabled=false;}
       });
       const receivedDetailModal=$('[data-received-detail-modal]');$$('[data-close-received-detail]').forEach((b)=>b.addEventListener('click',()=>receivedDetailModal.hidden=true));
-      const openReceivedDetail=async(id)=>{const data=await callApi('/api/received/detail',{token:getToken(),id});if(!data.ok){receivedStatus.textContent=data.message;return;}currentReceivedDetailId=id;currentReceivedDetailDoc=data.document;const d=data.document;const me=getMe()||{};const canManageReceived=me.role==='admin'||d.handled_by_user_id===me.id;$('[data-edit-received-detail]').hidden=!canManageReceived;$('[data-delete-received-detail]').hidden=!canManageReceived;$('[data-received-detail-title]').textContent=`${d.id} · ${d.title}`;$('[data-received-detail-meta]').innerHTML=[['구분',d.direction],['접수·발송일',d.received_at],['상대기관',d.counterparty],['전달경로',d.source_system||'-'],['상대문서번호',d.external_doc_number||'-'],['담당부서',d.department||'-'],['연결 내부문서',d.related_document_id||'-'],['등록자',d.handled_by],['메모',d.memo||'-']].map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');const list=$('[data-received-detail-attachments]');list.innerHTML=(data.attachments||[]).map((a)=>`<li class="attachment-list__item"><span>${esc(a.file_name)}</span><button type="button" class="btn btn-outline" data-download-received="${esc(a.id)}">다운로드</button></li>`).join('')||'<li class="muted">첨부파일이 없습니다.</li>';$$('[data-download-received]',list).forEach((b)=>b.addEventListener('click',()=>downloadBase64('/api/received/attachment-data',b.dataset.downloadReceived)));receivedDetailModal.hidden=false;};
-      $('[data-edit-received-detail]').addEventListener('click',async()=>{const d=currentReceivedDetailDoc;if(!d)return;receivedForm.reset();receivedForm.elements.id.value=d.id;receivedForm.elements.direction.value=d.direction;receivedForm.elements.title.value=d.title||'';receivedForm.elements.counterparty.value=d.counterparty||'';receivedForm.elements.sourceSystem.value=d.source_system||'';receivedForm.elements.externalDocNumber.value=d.external_doc_number||'';receivedForm.elements.receivedAt.value=d.received_at||'';receivedForm.elements.department.value=d.department||'';receivedForm.elements.memo.value=d.memo||'';pendingReceivedFiles=[];renderReceivedPending();await syncReceivedDirection();if(d.direction==='외부발송'){renderSendQueueOptions(d.related_document_id||'',d);relatedSelect.value=d.related_document_id||'';}else{relatedManualInput.value=d.related_document_id||'';}$('[data-received-modal-title]').textContent=`접수·발송 수정 — ${d.id}`;receivedDetailModal.hidden=true;receivedModal.hidden=false;});
+      const openReceivedDetail=async(id)=>{const data=await callApi('/api/received/detail',{token:getToken(),id});if(!data.ok){receivedStatus.textContent=data.message;return;}currentReceivedDetailId=id;currentReceivedDetailDoc=data.document;const d=data.document;const me=getMe()||{};const canManageReceived=me.role==='admin'||d.handled_by_user_id===me.id;$('[data-edit-received-detail]').hidden=!canManageReceived;$('[data-delete-received-detail]').hidden=!canManageReceived;$('[data-received-detail-title]').textContent=`${d.id} · ${d.title}`;$('[data-received-detail-meta]').innerHTML=[['구분',d.direction],['접수·발송일',d.received_at],['상대기관',d.counterparty],['전달경로',d.source_system||'-'],['상대문서번호',d.external_doc_number||'-'],['담당부서',d.department||'-'],[d.direction==='접수'?'내부문서 번호':'연결 내부문서',d.related_document_id||'-'],['등록자',d.handled_by],['메모',d.memo||'-']].map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');const list=$('[data-received-detail-attachments]');list.innerHTML=(data.attachments||[]).map((a)=>`<li class="attachment-list__item"><span>${esc(a.file_name)}</span><button type="button" class="btn btn-outline" data-download-received="${esc(a.id)}">다운로드</button></li>`).join('')||'<li class="muted">첨부파일이 없습니다.</li>';$$('[data-download-received]',list).forEach((b)=>b.addEventListener('click',()=>downloadBase64('/api/received/attachment-data',b.dataset.downloadReceived)));receivedDetailModal.hidden=false;};
+      $('[data-edit-received-detail]').addEventListener('click',async()=>{const d=currentReceivedDetailDoc;if(!d)return;receivedForm.reset();receivedForm.elements.id.value=d.id;receivedForm.elements.direction.value=d.direction;receivedForm.elements.title.value=d.title||'';receivedForm.elements.counterparty.value=d.counterparty||'';receivedForm.elements.sourceSystem.value=d.source_system||'';receivedForm.elements.externalDocNumber.value=d.external_doc_number||'';receivedForm.elements.receivedAt.value=d.received_at||'';receivedForm.elements.department.value=d.department||'';receivedForm.elements.memo.value=d.memo||'';pendingReceivedFiles=[];renderReceivedPending();await syncReceivedDirection();if(d.direction==='외부발송'){renderSendQueueOptions(d.related_document_id||'',d);relatedSelect.value=d.related_document_id||'';}else{relatedManualInput.value=d.related_document_id||'';relatedManualHelp.textContent='등록 당시 자동 배정된 내부문서 번호이며 수정할 수 없습니다.';}$('[data-received-modal-title]').textContent=`접수·발송 수정 — ${d.id}`;receivedDetailModal.hidden=true;receivedModal.hidden=false;});
       $('[data-delete-received-detail]').addEventListener('click',async()=>{if(!currentReceivedDetailId||!confirm('이 접수·발송대장 기록과 첨부파일을 삭제하시겠습니까?'))return;const result=await callApi('/api/received/delete',{token:getToken(),id:currentReceivedDetailId});if(!result.ok){receivedStatus.textContent=result.message;return;}sendQueueDocuments=[];receivedDetailModal.hidden=true;receivedStatus.textContent=result.message;await Promise.all([refreshReceived(),refreshDashboard(true),refreshDocuments()]);});
 
       // 서식관리
