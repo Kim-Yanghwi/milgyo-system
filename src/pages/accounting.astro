@@ -13,7 +13,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       </a>
       <div class="acc-topbar__right">
         <span data-user-label></span>
-        <a href="/accounting-operations/" class="btn btn-outline">실무관리</a><a href="/accounting-tax/" class="btn btn-outline">세무·신고자료</a><a href="/accounting-files/" class="btn btn-outline attachment-ops-only">점검·정책</a><a href="/" class="btn btn-outline">전자문서</a>
+        <a href="/" class="btn btn-outline">전자문서</a><a href="/accounting-tax/" class="btn btn-outline">세무·신고자료</a><a href="/accounting-files/" class="btn btn-outline attachment-ops-only">점검·정책</a>
         <button type="button" class="btn btn-outline" data-logout>로그아웃</button>
       </div>
     </header>
@@ -32,7 +32,6 @@ import GovLayout from '../layouts/GovLayout.astro';
           <button class="acc-nav" data-tab="ledger">장부</button>
           <button class="acc-nav" data-tab="closing">결산·마감</button>
           <button class="acc-nav" data-tab="accounts">계정과목</button>
-          <a class="acc-special-link" href="/accounting/" aria-current="page">회계 실무관리</a>
           <a class="acc-special-link" href="/accounting-special/">종단 특화회계</a>
           <a class="acc-special-link" href="/accounting-operations/">거래대사·예산통제·계약</a>
           <a class="acc-special-link" href="/accounting-tax/">세무·신고자료·제출패키지</a>
@@ -542,14 +541,14 @@ import GovLayout from '../layouts/GovLayout.astro';
     .acc-brand__wordmark{display:block;width:158px;height:auto;max-height:25px;object-fit:contain;filter:brightness(0) invert(1);flex:0 0 auto}
     .acc-brand__system-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:"Noto Serif KR","Nanum Myeongjo",Batang,serif;font-size:.98rem;font-weight:700;letter-spacing:.025em}
     .acc-topbar__right{display:flex;align-items:center;gap:.7rem;font-size:.85rem}
-    .acc-shell{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:calc(100vh - 58px)}
+    .acc-shell{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:calc(100vh - 58px)}
     .acc-sidebar{background:#fff;border-right:1px solid #d4dce7;padding:18px 14px;display:flex;flex-direction:column}
     .acc-year-box{padding:12px;background:#f4f7fb;border:1px solid #d7dfeb;border-radius:8px;margin-bottom:14px}
     .acc-year-box label{display:block;font-size:12px;color:#667085;margin-bottom:6px}
     .acc-year-box select{width:100%}
     .acc-sidebar nav{display:grid;gap:4px}
     .acc-nav{display:flex;align-items:center;width:100%;text-decoration:none;border:0;background:transparent;text-align:left;padding:.58rem .65rem;border-radius:2px;font-family:inherit;font-size:.9rem;font-weight:400;line-height:1.35;color:#202733}
-    .acc-nav:hover{background:#f2f4f7}.acc-nav.active{background:#e8effe;color:#315f9f;font-weight:700}.acc-special-link{display:flex;align-items:center;justify-content:center;width:100%;box-sizing:border-box;margin-top:10px;padding:.68rem .75rem;border:1px solid #b9c8dc;border-radius:4px;background:#fff;color:#243a58;font-family:inherit;font-size:.9rem;font-weight:700;line-height:1.3;text-decoration:none;box-shadow:0 1px 2px #1f3e6610}.acc-special-link:hover{background:#f5f8fc;border-color:#8fa8c7;color:#1f4f88}
+    .acc-nav:hover{background:#f2f4f7}.acc-nav.active{background:#e8effe;color:#315f9f;font-weight:700}.acc-special-link{display:flex;align-items:center;justify-content:center;width:100%;box-sizing:border-box;margin-top:10px;padding:.68rem .5rem;border:1px solid #b9c8dc;border-radius:4px;background:#fff;color:#243a58;font-family:inherit;font-size:.84rem;font-weight:700;line-height:1.3;text-decoration:none;white-space:nowrap;box-shadow:0 1px 2px #1f3e6610}.acc-special-link:hover{background:#f5f8fc;border-color:#8fa8c7;color:#1f4f88}
     .acc-sidebar__note{margin-top:auto;padding:12px 6px;font-size:10px;line-height:1.55;letter-spacing:-.035em;color:#687386;border-top:1px solid #e2e8f0}
     .acc-sidebar__note span{display:block;white-space:nowrap}
     .acc-main{padding:22px;min-width:0}.tab-panel{display:none}.tab-panel.active{display:block}

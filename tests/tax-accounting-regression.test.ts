@@ -60,6 +60,23 @@ test('production verification SQL executes against the complete accounting schem
   assert.doesNotThrow(() => db.exec(verificationSql));
 });
 
+test('tax page boot does not collide with built-in HTML form properties', () => {
+  const source = fs.readFileSync('src/pages/accounting-tax.astro', 'utf8');
+  assert.match(source, /elements\.namedItem\(name\)/,
+    'form fields named id or name must be resolved through the form controls collection');
+  assert.doesNotMatch(source, /\bf\.(?:id|name)\.value\b/,
+    'HTMLFormElement.id and HTMLFormElement.name must not be treated as input controls');
+  assert.match(source, /catch\(error\)\{\$\('\[data-app\]'\)\.hidden=false;/,
+    'initialization failures must reveal the page before showing an error notice');
+});
+
+test('accounting navigation removes reload-like entries and keeps long labels on one line', () => {
+  const source = fs.readFileSync('src/pages/accounting.astro', 'utf8');
+  assert.doesNotMatch(source, />회계 실무관리<\/a>/);
+  assert.match(source, /<span data-user-label><\/span>\s*<a href="\/" class="btn btn-outline">전자문서<\/a>/);
+  assert.match(source, /\.acc-special-link\{[^}]*white-space:nowrap/);
+});
+
 test('v64 repairs only unambiguous v63 account migrations and leaves ambiguous rows for review', () => {
   const db = migrate('0011');
   const insertResolution = db.prepare(`INSERT INTO accounting_resolutions
