@@ -145,18 +145,22 @@ export const getTaxValidation = async (db: D1Database, year: number, entityId = 
     ? db.prepare(`SELECT CASE WHEN EXISTS (
         SELECT 1 FROM accounting_tax_profiles WHERE fiscal_year=? AND entity_id=? AND profile_status='confirmed'
       ) THEN 0 ELSE 1 END AS count`).bind(year, entityId)
-    : db.prepare(`WITH activity(entity_id) AS (
-        SELECT 'ENTITY-HQ'
-        UNION SELECT COALESCE(NULLIF(entity_id,''),'ENTITY-HQ') FROM accounting_monthly_summary WHERE fiscal_year=?
-        UNION SELECT COALESCE(NULLIF(entity_id,''),'ENTITY-HQ') FROM accounting_budget_plans WHERE fiscal_year=?
-        UNION SELECT COALESCE(NULLIF(d.entity_id,''),'ENTITY-HQ') FROM accounting_resolutions r
-          LEFT JOIN accounting_resolution_dimensions d ON d.resolution_id=r.id WHERE r.fiscal_year=?
-        UNION SELECT COALESCE(NULLIF(entity_id,''),'ENTITY-HQ') FROM accounting_donations WHERE fiscal_year=?
-        UNION SELECT COALESCE(NULLIF(entity_id,''),'ENTITY-HQ') FROM accounting_vat_records WHERE fiscal_year=? AND status<>'cancelled'
-        UNION SELECT COALESCE(NULLIF(entity_id,''),'ENTITY-HQ') FROM accounting_withholding_records WHERE fiscal_year=? AND filing_status<>'cancelled'
-      ) SELECT COUNT(*) AS count FROM activity a WHERE NOT EXISTS (
+    : db.prepare(`SELECT COUNT(*) AS count FROM accounting_entities a
+      WHERE a.active=1 AND (
+        a.id='ENTITY-HQ'
+        OR EXISTS (SELECT 1 FROM accounting_monthly_summary m WHERE m.fiscal_year=? AND COALESCE(NULLIF(m.entity_id,''),'ENTITY-HQ')=a.id)
+        OR EXISTS (SELECT 1 FROM accounting_budget_plans b WHERE b.fiscal_year=? AND COALESCE(NULLIF(b.entity_id,''),'ENTITY-HQ')=a.id)
+        OR EXISTS (SELECT 1 FROM accounting_resolutions r
+          LEFT JOIN accounting_resolution_dimensions d ON d.resolution_id=r.id
+          WHERE r.fiscal_year=? AND COALESCE(NULLIF(d.entity_id,''),'ENTITY-HQ')=a.id)
+        OR EXISTS (SELECT 1 FROM accounting_donations d WHERE d.fiscal_year=? AND COALESCE(NULLIF(d.entity_id,''),'ENTITY-HQ')=a.id)
+        OR EXISTS (SELECT 1 FROM accounting_vat_records v WHERE v.fiscal_year=? AND v.status<>'cancelled'
+          AND COALESCE(NULLIF(v.entity_id,''),'ENTITY-HQ')=a.id)
+        OR EXISTS (SELECT 1 FROM accounting_withholding_records w WHERE w.fiscal_year=? AND w.filing_status<>'cancelled'
+          AND COALESCE(NULLIF(w.entity_id,''),'ENTITY-HQ')=a.id)
+      ) AND NOT EXISTS (
         SELECT 1 FROM accounting_tax_profiles p
-        WHERE p.fiscal_year=? AND p.entity_id=a.entity_id AND p.profile_status='confirmed'
+        WHERE p.fiscal_year=? AND p.entity_id=a.id AND p.profile_status='confirmed'
       )`).bind(year, year, year, year, year, year, year);
   const results = await db.batch([
     profileValidation,
@@ -165,50 +169,49 @@ export const getTaxValidation = async (db: D1Database, year: number, entityId = 
       JOIN accounting_journal_lines l ON l.journal_id=j.id
       WHERE j.fiscal_year=? GROUP BY j.id HAVING SUM(l.debit)<>SUM(l.credit)
     )`).bind(year),
-    db.prepare(`SELECT COALESCE(SUM(count),0) AS count FROM (
-      SELECT COUNT(*) AS count FROM accounting_cards c
+    db.prepare(`SELECT
+      (SELECT COUNT(*) FROM accounting_cards c
         LEFT JOIN accounting_accounts a ON a.code=c.settlement_account_code
-        WHERE c.active=1 AND (a.code IS NULL OR a.active<>1 OR a.account_type<>'liability' OR a.normal_side<>'credit')
-      UNION ALL SELECT COUNT(*) FROM accounting_resolutions r
+        WHERE c.active=1 AND (a.code IS NULL OR a.active<>1 OR a.account_type<>'liability' OR a.normal_side<>'credit'))
+      + (SELECT COUNT(*) FROM accounting_resolutions r
         LEFT JOIN accounting_accounts a ON a.code=r.settlement_account_code
         WHERE r.fiscal_year=? AND (
           (r.payment_method='법인카드' AND (a.code IS NULL OR a.active<>1 OR a.account_type<>'liability' OR a.normal_side<>'credit'))
           OR (COALESCE(r.payment_method,'')<>'법인카드' AND (a.code IS NULL OR a.active<>1 OR a.account_type<>'asset' OR a.normal_side<>'debit'))
-        )
-      UNION ALL SELECT COUNT(*) FROM accounting_bank_accounts b LEFT JOIN accounting_accounts a ON a.code=b.settlement_account_code
-        WHERE b.active=1 AND (a.code IS NULL OR a.active<>1 OR a.account_type<>'asset' OR a.normal_side<>'debit')
-      UNION ALL SELECT COUNT(*) FROM accounting_donations d LEFT JOIN accounting_accounts a ON a.code=d.settlement_account_code
-        WHERE d.fiscal_year=? AND (a.code IS NULL OR a.active<>1 OR a.account_type<>'asset' OR a.normal_side<>'debit')
-      UNION ALL SELECT COUNT(*) FROM accounting_assets x LEFT JOIN accounting_accounts a ON a.code=x.asset_account_code
-        WHERE (a.code IS NULL OR a.active<>1 OR a.account_type<>'asset' OR a.normal_side<>'debit')
-      UNION ALL SELECT COUNT(*) FROM accounting_contracts c LEFT JOIN accounting_accounts a ON a.code=c.account_code
-        WHERE substr(c.contract_date,1,4)=? AND (a.code IS NULL OR a.active<>1 OR a.account_type<>'expense' OR a.normal_side<>'debit')
-      UNION ALL SELECT COUNT(*) FROM accounting_card_transactions t LEFT JOIN accounting_accounts a ON a.code=t.account_code
+        ))
+      + (SELECT COUNT(*) FROM accounting_bank_accounts b LEFT JOIN accounting_accounts a ON a.code=b.settlement_account_code
+        WHERE b.active=1 AND (a.code IS NULL OR a.active<>1 OR a.account_type<>'asset' OR a.normal_side<>'debit'))
+      + (SELECT COUNT(*) FROM accounting_donations d LEFT JOIN accounting_accounts a ON a.code=d.settlement_account_code
+        WHERE d.fiscal_year=? AND (a.code IS NULL OR a.active<>1 OR a.account_type<>'asset' OR a.normal_side<>'debit'))
+      + (SELECT COUNT(*) FROM accounting_assets x LEFT JOIN accounting_accounts a ON a.code=x.asset_account_code
+        WHERE (a.code IS NULL OR a.active<>1 OR a.account_type<>'asset' OR a.normal_side<>'debit'))
+      + (SELECT COUNT(*) FROM accounting_contracts c LEFT JOIN accounting_accounts a ON a.code=c.account_code
+        WHERE substr(c.contract_date,1,4)=? AND (a.code IS NULL OR a.active<>1 OR a.account_type<>'expense' OR a.normal_side<>'debit'))
+      + (SELECT COUNT(*) FROM accounting_card_transactions t LEFT JOIN accounting_accounts a ON a.code=t.account_code
         WHERE t.transaction_date>=? AND t.transaction_date<? AND t.account_code IS NOT NULL
-          AND (a.code IS NULL OR a.active<>1 OR a.account_type<>'expense' OR a.normal_side<>'debit')
-      UNION ALL SELECT COUNT(*) FROM accounting_card_transactions t JOIN accounting_cards c ON c.id=t.card_id
+          AND (a.code IS NULL OR a.active<>1 OR a.account_type<>'expense' OR a.normal_side<>'debit'))
+      + (SELECT COUNT(*) FROM accounting_card_transactions t JOIN accounting_cards c ON c.id=t.card_id
         WHERE t.transaction_date>=? AND t.transaction_date<? AND (
           COALESCE(NULLIF(t.book_type_code,''),'general')<>COALESCE(NULLIF(c.book_type_code,''),'general')
           OR COALESCE(NULLIF(t.entity_id,''),'ENTITY-HQ')<>COALESCE(NULLIF(c.entity_id,''),'ENTITY-HQ')
-        )
-    )`).bind(year, year, String(year), start, end, start, end),
-    db.prepare(`SELECT COALESCE(SUM(count),0) AS count FROM (
-      SELECT COUNT(*) AS count FROM accounting_journal_lines l
+        )) AS count`).bind(year, year, String(year), start, end, start, end),
+    db.prepare(`SELECT
+      (SELECT COUNT(*) FROM accounting_journal_lines l
         JOIN accounting_journals j ON j.id=l.journal_id
-        WHERE j.fiscal_year=? AND l.account_code='1130'
-      UNION ALL SELECT COUNT(*) FROM accounting_monthly_summary WHERE fiscal_year=? AND account_code='1130'
-      UNION ALL SELECT COUNT(*) FROM accounting_cards WHERE active=1 AND settlement_account_code='1130'
-      UNION ALL SELECT COUNT(*) FROM accounting_resolutions WHERE fiscal_year=? AND settlement_account_code='1130'
-      UNION ALL SELECT COUNT(*) FROM accounting_card_transactions
-        WHERE transaction_date>=? AND transaction_date<? AND account_code='1130'
-      UNION ALL SELECT COUNT(*) FROM accounting_bank_accounts WHERE active=1 AND settlement_account_code='1130'
-      UNION ALL SELECT COUNT(*) FROM accounting_donations WHERE fiscal_year=? AND settlement_account_code='1130'
-      UNION ALL SELECT COUNT(*) FROM accounting_matching_rules WHERE active=1 AND account_code='1130'
-      UNION ALL SELECT COUNT(*) FROM accounting_import_transactions
-        WHERE transaction_date>=? AND transaction_date<? AND classification_account_code='1130'
-      UNION ALL SELECT COUNT(*) FROM accounting_assets WHERE asset_account_code='1130'
-      UNION ALL SELECT COUNT(*) FROM accounting_contracts WHERE substr(contract_date,1,4)=? AND account_code='1130'
-    )`).bind(year, year, year, start, end, year, start, end, String(year)),
+        WHERE j.fiscal_year=? AND l.account_code='1130')
+      + (SELECT COUNT(*) FROM accounting_monthly_summary WHERE fiscal_year=? AND account_code='1130')
+      + (SELECT COUNT(*) FROM accounting_cards WHERE active=1 AND settlement_account_code='1130')
+      + (SELECT COUNT(*) FROM accounting_resolutions WHERE fiscal_year=? AND settlement_account_code='1130')
+      + (SELECT COUNT(*) FROM accounting_card_transactions
+        WHERE transaction_date>=? AND transaction_date<? AND account_code='1130')
+      + (SELECT COUNT(*) FROM accounting_bank_accounts WHERE active=1 AND settlement_account_code='1130')
+      + (SELECT COUNT(*) FROM accounting_donations WHERE fiscal_year=? AND settlement_account_code='1130')
+      + (SELECT COUNT(*) FROM accounting_matching_rules WHERE active=1 AND account_code='1130')
+      + (SELECT COUNT(*) FROM accounting_import_transactions
+        WHERE transaction_date>=? AND transaction_date<? AND classification_account_code='1130')
+      + (SELECT COUNT(*) FROM accounting_assets WHERE asset_account_code='1130')
+      + (SELECT COUNT(*) FROM accounting_contracts WHERE substr(contract_date,1,4)=? AND account_code='1130') AS count`)
+      .bind(year, year, year, start, end, year, start, end, String(year)),
     db.prepare(`SELECT COUNT(*) AS count FROM accounting_vat_records
       WHERE fiscal_year=? AND status<>'cancelled' AND (status='draft' OR deduction_status='pending')${entityCondition}`)
       .bind(year, ...entityValues),
@@ -269,17 +272,29 @@ export const getTaxValidation = async (db: D1Database, year: number, entityId = 
         OR COALESCE(SUM(CASE WHEN l.account_code='2220' THEN l.debit-l.credit ELSE 0 END),0)<>w.income_tax
         OR COALESCE(SUM(CASE WHEN l.account_code='2230' THEN l.debit-l.credit ELSE 0 END),0)<>w.local_income_tax
     )`).bind(year, ...entityValues),
-    db.prepare(`SELECT COUNT(*) AS count FROM (
-      SELECT v.source_type,v.source_id,SUM(v.total_amount) AS allocated,MAX(s.amount) AS source_amount
-      FROM accounting_vat_records v JOIN (
-        SELECT 'resolution' AS source_type,id,ABS(amount) AS amount FROM accounting_resolutions
-        UNION ALL SELECT 'card_transaction',id,ABS(amount) FROM accounting_card_transactions
-        UNION ALL SELECT 'import_transaction',id,ABS(amount) FROM accounting_import_transactions
-        UNION ALL SELECT 'donation',id,ABS(amount) FROM accounting_donations
-      ) s ON s.source_type=v.source_type AND s.id=v.source_id
-      WHERE v.fiscal_year=? AND v.status<>'cancelled'${entityCondition}
-      GROUP BY v.source_type,v.source_id HAVING SUM(v.total_amount)>MAX(s.amount)
-    )`).bind(year, ...entityValues),
+    db.prepare(`SELECT
+      (SELECT COUNT(*) FROM (
+        SELECT v.source_id FROM accounting_vat_records v JOIN accounting_resolutions s ON s.id=v.source_id
+        WHERE v.fiscal_year=? AND v.status<>'cancelled' AND v.source_type='resolution'${entityId ? ' AND v.entity_id=?' : ''}
+        GROUP BY v.source_id HAVING SUM(v.total_amount)>MAX(ABS(s.amount))
+      ))
+      + (SELECT COUNT(*) FROM (
+        SELECT v.source_id FROM accounting_vat_records v JOIN accounting_card_transactions s ON s.id=v.source_id
+        WHERE v.fiscal_year=? AND v.status<>'cancelled' AND v.source_type='card_transaction'${entityId ? ' AND v.entity_id=?' : ''}
+        GROUP BY v.source_id HAVING SUM(v.total_amount)>MAX(ABS(s.amount))
+      ))
+      + (SELECT COUNT(*) FROM (
+        SELECT v.source_id FROM accounting_vat_records v JOIN accounting_import_transactions s ON s.id=v.source_id
+        WHERE v.fiscal_year=? AND v.status<>'cancelled' AND v.source_type='import_transaction'${entityId ? ' AND v.entity_id=?' : ''}
+        GROUP BY v.source_id HAVING SUM(v.total_amount)>MAX(ABS(s.amount))
+      ))
+      + (SELECT COUNT(*) FROM (
+        SELECT v.source_id FROM accounting_vat_records v JOIN accounting_donations s ON s.id=v.source_id
+        WHERE v.fiscal_year=? AND v.status<>'cancelled' AND v.source_type='donation'${entityId ? ' AND v.entity_id=?' : ''}
+        GROUP BY v.source_id HAVING SUM(v.total_amount)>MAX(ABS(s.amount))
+      )) AS count`).bind(
+        year, ...entityValues, year, ...entityValues, year, ...entityValues, year, ...entityValues,
+      ),
     db.prepare(`SELECT COUNT(*) AS count FROM (
       SELECT w.source_resolution_id,SUM(w.gross_amount) AS allocated,MAX(ABS(r.amount)) AS source_amount
       FROM accounting_withholding_records w JOIN accounting_resolutions r ON r.id=w.source_resolution_id

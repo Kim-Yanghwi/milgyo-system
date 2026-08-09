@@ -19,6 +19,7 @@ import {
   postVatAdjustmentJournal,
 } from '../functions/_shared/accounting-tax-journal';
 import { assertAccountingAttachmentRetentionElapsed } from '../functions/_shared/accounting-attachment-ops';
+import { getTaxValidation } from '../functions/_shared/accounting-tax';
 
 const migrationFiles = () => fs.readdirSync('migrations/accounting')
   .filter((file) => /^00(0[4-9]|1[0-2]).*\.sql$/.test(file)).sort()
@@ -33,6 +34,23 @@ const migrate = (through = '0012') => {
   }
   return db;
 };
+
+const asD1 = (db: DatabaseSync) => ({
+  prepare(sql: string) {
+    const statement = {
+      sql,
+      values: [] as unknown[],
+      bind(...values: unknown[]) { this.values = values; return this; },
+    };
+    return statement;
+  },
+  async batch(statements: Array<{ sql: string; values: unknown[] }>) {
+    return statements.map((statement) => {
+      const row = db.prepare(statement.sql).get(...statement.values);
+      return { results: row === undefined ? [] : [row] };
+    });
+  },
+}) as unknown as D1Database;
 
 const insertJournal = (db: DatabaseSync, id: string, sourceType: string, sourceId: string, status = 'posted') => {
   db.prepare(`INSERT INTO accounting_journals
@@ -68,6 +86,36 @@ test('tax page boot does not collide with built-in HTML form properties', () => 
     'HTMLFormElement.id and HTMLFormElement.name must not be treated as input controls');
   assert.match(source, /catch\(error\)\{\$\('\[data-app\]'\)\.hidden=false;/,
     'initialization failures must reveal the page before showing an error notice');
+});
+
+test('runtime tax validation avoids D1 compound selects and executes on the complete schema', async () => {
+  const source = fs.readFileSync('functions/_shared/accounting-tax.ts', 'utf8');
+  assert.doesNotMatch(source, /\bUNION(?:\s+ALL)?\b/i,
+    'runtime tax validation must not use compound SELECT terms on D1');
+  const database = migrate();
+  const allEntities = await getTaxValidation(asD1(database), 2026);
+  const headquarters = await getTaxValidation(asD1(database), 2026, 'ENTITY-HQ');
+  assert.ok(Array.isArray(allEntities));
+  assert.ok(Array.isArray(headquarters));
+});
+
+test('site-wide date inputs accept eight typed digits while retaining native calendars', () => {
+  const helper = fs.readFileSync('public/milgyo-date-input.js', 'utf8');
+  const layout = fs.readFileSync('src/layouts/GovLayout.astro', 'utf8');
+  assert.match(layout, /src="\/milgyo-date-input\.js"/);
+  assert.match(helper, /input\.value = value/);
+  assert.match(helper, /\^\\d\{8\}\$/);
+  assert.match(helper, /clipboardData/);
+});
+
+test('tax UI keeps navigation, profile notes, payee search, tables and package guidance consistent', () => {
+  const source = fs.readFileSync('src/pages/accounting-tax.astro', 'utf8');
+  assert.match(source, /class="check-stack span-2 profile-checks"/);
+  assert.match(source, /확정본 변경 사유<\/label>|확정본 변경 사유<textarea/);
+  assert.match(source, /payee-list-head/);
+  assert.match(source, /세무사 전달용 자료 안내/);
+  assert.match(source, /th,td,td\.num\{border:1px solid #9eafc3!important;text-align:center!important/);
+  assert.match(source, /\.nav\{[^}]*font-family:inherit[^}]*font-size:\.9rem/);
 });
 
 test('accounting navigation removes reload-like entries and keeps long labels on one line', () => {
