@@ -7,6 +7,7 @@ import {
 } from '../../_shared/accounting-attachments';
 import {
   getAccountingAttachmentPolicy,
+  assertAccountingAttachmentRetentionElapsed,
   recordAccountingAttachmentOperation,
 } from '../../_shared/accounting-attachment-ops';
 import { assertAccountingR2Key } from '../../_shared/r2-scope-guard';
@@ -36,7 +37,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!Number.isInteger(attachmentId) || attachmentId <= 0) return json({ ok: false, message: '첨부파일 식별번호를 확인해 주세요.' }, 400);
 
   const attachment = await env.ACCOUNTING_DB.prepare(`
-    SELECT id,reference_type,reference_id,original_filename,object_key,uploaded_by,delete_status
+    SELECT id,reference_type,reference_id,original_filename,object_key,uploaded_by,delete_status,retention_until
     FROM accounting_attachments WHERE id=? AND deleted_at IS NULL
   `).bind(attachmentId).first<any>();
   if (!attachment) return json({ ok: false, message: '삭제할 회계 첨부파일을 찾을 수 없습니다.' }, 404);
@@ -54,6 +55,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (policy.requireDeleteReason && !reason) return json({ ok: false, message: '첨부파일 삭제 사유를 입력해 주세요.' }, 400);
 
   const now = new Date().toISOString();
+  try { assertAccountingAttachmentRetentionElapsed(attachment.retention_until,now); }
+  catch (error) {
+    return json({ ok: false, message: error instanceof Error ? error.message : '첨부파일 보존기한 전 삭제를 차단했습니다.' }, 409);
+  }
   const marked = await env.ACCOUNTING_DB.prepare(`
     UPDATE accounting_attachments
     SET delete_status='deleting',delete_reason=?,deleted_by=?,delete_error=NULL

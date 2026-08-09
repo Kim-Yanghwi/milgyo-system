@@ -481,7 +481,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (action === 'create-donation-export') {
       if (!manager) return json({ ok: false, message: '전자기부금영수증 일괄처리 권한이 없습니다.' }, 403);
-      const ids = listIds(payload.donationIds), year = validYear(payload.year);
+      const ids = listIds(payload.donationIds, 501), year = validYear(payload.year);
+      if (ids.length > 500) return json({ ok: false, message: '한 번에 최대 500건까지 처리할 수 있습니다. 500건씩 나누어 생성해 주세요.' }, 400);
       if (!year || !ids.length) return json({ ok: false, message: '일괄처리할 기부내역을 선택해 주세요.' }, 400);
       const rows = await db.prepare(`SELECT d.id,d.donation_no FROM accounting_donations d WHERE d.fiscal_year=? AND d.donor_id IS NOT NULL
         AND d.receipt_status NOT IN ('issued') AND d.id IN (${ids.map(() => '?').join(',')}) ORDER BY d.donation_date,d.id`).bind(year, ...ids).all<any>();
@@ -494,13 +495,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         (id,batch_id,donation_id,donation_no,export_status,created_at,updated_at) VALUES (?,?,?,?,'exported',?,?)`)
         .bind(`DEXI-${randomHex(20)}`, id, row.id, row.donation_no, now, now));
       statements.push(operationAudit(db, 'create', 'donation-export', id, me, { exportNo, year, itemCount: (rows.results || []).length }, now));
-      await db.batch(statements);
+      try {
+        await runStatements(db, statements);
+      } catch (error) {
+        await db.batch([
+          db.prepare(`DELETE FROM accounting_donation_export_items WHERE batch_id=?`).bind(id),
+          db.prepare(`DELETE FROM accounting_donation_export_batches WHERE id=?`).bind(id),
+        ]).catch((cleanupError) => console.error('donation export compensation failed', id, cleanupError));
+        throw error;
+      }
       return json({ ok: true, id, exportNo, itemCount: (rows.results || []).length, message: '홈택스 작업파일 생성 이력을 등록했습니다.' });
     }
 
     if (action === 'apply-donation-results') {
       if (!manager) return json({ ok: false, message: '전자기부금영수증 결과 반영 권한이 없습니다.' }, 403);
-      const batchId = clean(payload.batchId, 80), filename = clean(payload.filename, 200), resultRows = Array.isArray(payload.rows) ? (payload.rows as Array<Record<string, unknown>>).slice(0, 500) : [];
+      const rawResultRows = Array.isArray(payload.rows) ? payload.rows as Array<Record<string, unknown>> : [];
+      if (rawResultRows.length > 500) return json({ ok: false, message: '결과파일이 500건을 초과합니다. 일괄처리 건별 결과파일인지 확인해 주세요.' }, 400);
+      const batchId = clean(payload.batchId, 80), filename = clean(payload.filename, 200), resultRows = rawResultRows;
       const batch = await db.prepare(`SELECT * FROM accounting_donation_export_batches WHERE id=?`).bind(batchId).first<any>();
       if (!batch || !resultRows.length) return json({ ok: false, message: '결과를 반영할 일괄처리 건과 파일을 확인해 주세요.' }, 400);
       const now = new Date().toISOString(), statements: D1PreparedStatement[] = [];

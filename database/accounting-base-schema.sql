@@ -292,7 +292,7 @@ CREATE TABLE IF NOT EXISTS accounting_cards (
   book_type_code TEXT NOT NULL DEFAULT 'general',
   entity_id TEXT NOT NULL DEFAULT '',
   department TEXT NOT NULL DEFAULT '',
-  settlement_account_code TEXT NOT NULL DEFAULT '1130',
+  settlement_account_code TEXT NOT NULL DEFAULT '2110',
   active INTEGER NOT NULL DEFAULT 1,
   created_by TEXT,
   created_at TEXT NOT NULL,
@@ -367,6 +367,30 @@ CREATE TABLE IF NOT EXISTS accounting_monthly_summary (
   PRIMARY KEY (fiscal_year,period_month,book_type_code,entity_id,fund_id,account_code,department,project)
 );
 
+-- v27 이전 회계 첨부파일 기본 테이블입니다.
+-- 후속 0004_v27_attachment_operations.sql이 운영정책·보존·검사 열을 추가하므로,
+-- 신규 환경에서도 기준 스키마와 마이그레이션을 순서대로 재현할 수 있어야 합니다.
+CREATE TABLE IF NOT EXISTS accounting_attachments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  reference_type TEXT NOT NULL,
+  reference_id TEXT NOT NULL,
+  file_category TEXT NOT NULL DEFAULT 'general',
+  original_filename TEXT NOT NULL,
+  stored_filename TEXT NOT NULL,
+  object_key TEXT NOT NULL UNIQUE,
+  content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+  size_bytes INTEGER NOT NULL,
+  checksum_sha256 TEXT,
+  uploaded_by TEXT NOT NULL,
+  uploaded_at TEXT NOT NULL,
+  deleted_by TEXT,
+  deleted_at TEXT,
+  CHECK (size_bytes >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_accounting_attachments_reference
+  ON accounting_attachments(reference_type,reference_id,uploaded_at DESC,id DESC);
+
 CREATE INDEX IF NOT EXISTS idx_acc_budget_year
   ON accounting_budgets (fiscal_year, department, account_code);
 CREATE INDEX IF NOT EXISTS idx_acc_resolution_status
@@ -412,13 +436,17 @@ VALUES
 ('1100','현금및현금성자산','asset','debit','1000',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
 ('1110','현금','asset','debit','1100',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
 ('1120','보통예금','asset','debit','1100',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
-('1130','법인카드미결제','asset','debit','1100',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('1140','부가가치세대급금','asset','debit','1000',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
 ('1200','미수금','asset','debit','1000',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
 ('1300','선급금','asset','debit','1000',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
 ('1500','유형자산','asset','debit','1000',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
 ('2000','부채','liability','credit',NULL,1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
 ('2100','미지급금','liability','credit','2000',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('2110','법인카드미지급금','liability','credit','2100',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
 ('2200','예수금','liability','credit','2000',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('2210','부가가치세예수금','liability','credit','2200',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('2220','소득세예수금','liability','credit','2200',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('2230','지방소득세예수금','liability','credit','2200',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
 ('3000','순자산','equity','credit',NULL,1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
 ('3100','기본순자산','equity','credit','3000',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
 ('3200','이월잉여금','equity','credit','3000',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),

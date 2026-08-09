@@ -11,12 +11,21 @@ type D1Database = {
 };
 type PagesFunction<Env = unknown> = (context: { request: Request; env: Env; next: () => Promise<Response> }) => Promise<Response> | Response;
 
-type R2ObjectBody = { arrayBuffer: () => Promise<ArrayBuffer>; httpMetadata?: { contentType?: string } };
-type R2Object = { key: string; size?: number; uploaded?: Date };
+type R2ObjectBody = {
+  body: ReadableStream<Uint8Array>;
+  arrayBuffer: () => Promise<ArrayBuffer>;
+  text: () => Promise<string>;
+  size?: number;
+  etag?: string;
+  httpEtag?: string;
+  httpMetadata?: { contentType?: string; contentDisposition?: string };
+  customMetadata?: Record<string, string>;
+};
+type R2Object = { key: string; size?: number; uploaded?: Date; etag?: string; httpEtag?: string };
 type R2Objects = { objects?: R2Object[]; truncated?: boolean; cursor?: string };
 type R2Bucket = {
-  put: (key: string, value: ArrayBuffer | ArrayBufferView | string, options?: any) => Promise<any>;
-  get: (key: string) => Promise<R2ObjectBody | null>;
+  put: (key: string, value: ArrayBuffer | ArrayBufferView | string | ReadableStream<Uint8Array>, options?: any) => Promise<R2Object | null>;
+  get: (key: string, options?: { range?: { offset?: number; length?: number; suffix?: number } }) => Promise<R2ObjectBody | null>;
   head: (key: string) => Promise<R2Object | null>;
   list: (options?: { prefix?: string; cursor?: string; limit?: number }) => Promise<R2Objects>;
   delete: (keys: string | string[]) => Promise<void>;

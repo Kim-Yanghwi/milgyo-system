@@ -151,6 +151,22 @@ export const retentionDate = (now: string, retentionDays: number) => {
   return date.toISOString();
 };
 
+export const assertAccountingAttachmentRetentionElapsed = (
+  retentionUntil: unknown,
+  now = new Date().toISOString(),
+) => {
+  const retentionText = String(retentionUntil || '').trim();
+  const retentionTime = Date.parse(retentionText);
+  const nowTime = Date.parse(now);
+  if (!retentionText || !Number.isFinite(retentionTime) || !Number.isFinite(nowTime)) {
+    throw new Error('첨부파일 보존기한을 확인할 수 없어 삭제를 차단했습니다. 운영관리자에게 무결성 점검을 요청해 주세요.');
+  }
+  if (nowTime < retentionTime) {
+    throw new Error(`첨부파일 보존기한(${retentionText}) 전에는 원본을 삭제할 수 없습니다.`);
+  }
+  return retentionText;
+};
+
 export const recordAccountingAttachmentOperation = async (
   db: D1Database,
   input: {
@@ -299,6 +315,11 @@ export const retryAccountingAttachmentOperation = async (
   if (!operation) throw new Error('재처리할 첨부파일 작업을 찾을 수 없습니다.');
   if (operation.status === 'succeeded') return { ok: true, duplicate: true };
   const now = new Date().toISOString();
+  if (operation.operation_type === 'attachment_delete' && operation.attachment_id) {
+    const attachment = await db.prepare(`SELECT retention_until FROM accounting_attachments WHERE id=?`)
+      .bind(operation.attachment_id).first<{ retention_until: string | null }>();
+    assertAccountingAttachmentRetentionElapsed(attachment?.retention_until,now);
+  }
   try {
     await bucket.delete(assertAccountingR2Key(operation.object_key, '회계 첨부 오류 재처리'));
     if (operation.operation_type === 'attachment_delete' && operation.attachment_id) {

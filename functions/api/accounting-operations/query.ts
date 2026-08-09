@@ -233,13 +233,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     if (action === 'donation-export-candidates') {
-      const rows = await db.prepare(`SELECT d.id,d.donation_no,d.donation_date,d.amount,d.receipt_status,d.receipt_no,d.receipt_donation_code,d.receipt_description,
+      const [countResult, rows, batches] = await db.batch([
+        db.prepare(`SELECT COUNT(*) AS count FROM accounting_donations
+          WHERE fiscal_year=? AND receipt_status NOT IN ('issued') AND donor_id IS NOT NULL`).bind(year),
+        db.prepare(`SELECT d.id,d.donation_no,d.donation_date,d.amount,d.receipt_status,d.receipt_no,d.receipt_donation_code,d.receipt_description,
         d.receipt_org_name,d.receipt_org_registration_no,d.receipt_org_address,o.donor_type,o.name AS donor_name,o.identifier_masked,o.phone,o.email,o.address AS donor_address,
         e.name AS entity_name,e.registration_no AS entity_registration_no
         FROM accounting_donations d JOIN accounting_donors o ON o.id=d.donor_id LEFT JOIN accounting_entities e ON e.id=d.entity_id
-        WHERE d.fiscal_year=? AND d.receipt_status NOT IN ('issued') ORDER BY d.donation_date,d.donation_no LIMIT 500`).bind(year).all();
-      const batches = await db.prepare(`SELECT * FROM accounting_donation_export_batches WHERE fiscal_year=? ORDER BY created_at DESC LIMIT 100`).bind(year).all();
-      return json({ ok: true, rows: rows.results || [], batches: batches.results || [] });
+        WHERE d.fiscal_year=? AND d.receipt_status NOT IN ('issued') ORDER BY d.donation_date,d.donation_no LIMIT 500`).bind(year),
+        db.prepare(`SELECT * FROM accounting_donation_export_batches WHERE fiscal_year=? ORDER BY created_at DESC LIMIT 100`).bind(year),
+      ]);
+      const totalCount = Number((countResult.results?.[0] as any)?.count || 0);
+      return json({ ok: true, rows: rows.results || [], batches: batches.results || [], totalCount, limit: 500,
+        complete: totalCount === (rows.results || []).length });
     }
 
     if (action === 'donation-export-detail') {

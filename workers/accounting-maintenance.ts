@@ -4,6 +4,8 @@ import {
   retryPendingAccountingAttachmentOperations,
   runAccountingAttachmentIntegrityScan,
 } from '../functions/_shared/accounting-attachment-ops';
+import { processTaxExportQueue } from '../functions/_shared/accounting-tax-export';
+import { ensureAccountingTaxTables } from '../functions/_shared/accounting-tax';
 
 type Env = {
   DB: D1Database;
@@ -12,6 +14,7 @@ type Env = {
 };
 
 const WEEKLY_FULL_SCAN_CRON = '40 18 * * 6';
+const TAX_EXPORT_QUEUE_CRON = '*/5 * * * *';
 
 const runMaintenance = async (controller: ScheduledController, env: Env) => {
   if (!env.DB || !env.ACCOUNTING_DB || !env.ACCOUNTING_FILES) {
@@ -19,6 +22,17 @@ const runMaintenance = async (controller: ScheduledController, env: Env) => {
   }
 
   await ensureAccountingTables(env.ACCOUNTING_DB);
+  await ensureAccountingTaxTables(env.ACCOUNTING_DB);
+  if (controller.cron === TAX_EXPORT_QUEUE_CRON) {
+    const taxExports = await processTaxExportQueue(env.ACCOUNTING_DB, env.ACCOUNTING_FILES, 1);
+    console.log(JSON.stringify({
+      event: 'accounting-tax-export-queue',
+      cron: controller.cron,
+      scheduledTime: new Date(controller.scheduledTime).toISOString(),
+      taxExports,
+    }));
+    return;
+  }
   const integration = await processAccountingOutbox(
     env.DB,
     env.ACCOUNTING_DB,
@@ -35,6 +49,7 @@ const runMaintenance = async (controller: ScheduledController, env: Env) => {
     env.ACCOUNTING_FILES,
     mode,
   );
+  const taxExports = await processTaxExportQueue(env.ACCOUNTING_DB, env.ACCOUNTING_FILES, 8);
 
   console.log(JSON.stringify({
     event: 'accounting-attachment-maintenance',
@@ -43,6 +58,7 @@ const runMaintenance = async (controller: ScheduledController, env: Env) => {
     integration,
     retry,
     integrity,
+    taxExports,
   }));
 };
 

@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .astro/
+.tools/
 backup/
 .wrangler/
 
@@ -13,6 +14,7 @@ backup/
 .dev.vars.*
 Thumbs.db
 .DS_Store
+*.zip
 
 # 운영 백업 산출물
 backups/

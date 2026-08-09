@@ -2,6 +2,7 @@ import { authenticateSession, clean, ensureTables, json } from '../../_shared/he
 import { ensureAccountingTables, hasAccountingAccess, isAccountingManager } from '../../_shared/accounting';
 import {
   getAccountingAttachmentPolicy,
+  assertAccountingAttachmentRetentionElapsed,
   retryAccountingAttachmentOperation,
   runAccountingAttachmentIntegrityScan,
   saveAccountingAttachmentPolicy,
@@ -101,6 +102,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
       if (resolution === 'delete-r2') {
         if (issue.issue_type !== 'R2_ONLY') return json({ ok: false, message: 'R2 단독 파일에만 사용할 수 있는 처리입니다.' }, 400);
+        if (issue.attachment_id) {
+          const attachment = await env.ACCOUNTING_DB.prepare(`SELECT retention_until FROM accounting_attachments WHERE id=?`)
+            .bind(issue.attachment_id).first<{ retention_until: string | null }>();
+          if (attachment) assertAccountingAttachmentRetentionElapsed(attachment.retention_until,now);
+        }
         await env.ACCOUNTING_FILES.delete(assertAccountingR2Key(issue.object_key, '회계 무결성 점검 R2 삭제'));
       } else if (resolution === 'mark-d1-deleted') {
         if (issue.issue_type !== 'D1_ONLY' || !issue.attachment_id) return json({ ok: false, message: 'D1 단독 메타정보에만 사용할 수 있는 처리입니다.' }, 400);

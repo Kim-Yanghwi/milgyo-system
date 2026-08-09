@@ -11,6 +11,14 @@ type Payload = {
 };
 const toYear=(value:unknown)=>{const current=new Date(Date.now()+9*60*60*1000).getUTCFullYear();const year=Number(value||current);return year>=2000&&year<=2200?year:current;};
 const toLimit=(value:unknown,fallback=100)=>Math.max(10,Math.min(200,Number(value||fallback)||fallback));
+const EXPORT_PAGE_SIZE=1000,EXPORT_MAX_ROWS=100000;
+const fetchCompleteRows=async<T>(db:D1Database,selectSql:string,values:unknown[],orderBy:string,label:string)=>{
+  const count=await db.prepare(`SELECT COUNT(*) AS count FROM (${selectSql}) export_count`).bind(...values).first<{count:number}>();
+  const expected=Number(count?.count||0);if(expected>EXPORT_MAX_ROWS)throw new Error(`${label}이 ${EXPORT_MAX_ROWS.toLocaleString('ko-KR')}건을 초과합니다. 회계연도나 조건을 나누어 내보내 주세요.`);
+  const rows:T[]=[];for(let offset=0;offset<expected;offset+=EXPORT_PAGE_SIZE){const page=await db.prepare(`${selectSql} ${orderBy} LIMIT ? OFFSET ?`).bind(...values,EXPORT_PAGE_SIZE,offset).all<T>();rows.push(...(page.results||[]))}
+  if(rows.length!==expected)throw new Error(`${label} 전체 건수 검증에 실패했습니다. 예상 ${expected}건, 추출 ${rows.length}건입니다. 입력 작업이 끝난 뒤 다시 시도해 주세요.`);
+  return {rows,expected};
+};
 const documentStatusMap=async(mainDb:D1Database,documentIds:string[])=>{
   const ids=[...new Set(documentIds.filter(Boolean))].slice(0,200);if(!ids.length)return new Map<string,string>();
   const rows=await mainDb.prepare(`SELECT id,status FROM documents WHERE id IN (${ids.map(()=>'?').join(',')})`).bind(...ids).all<{id:string;status:string}>();
@@ -42,12 +50,14 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       const rows=await db.prepare(`SELECT code,name,account_type,normal_side,parent_code,active,system_account,created_at,updated_at FROM accounting_accounts ORDER BY code`).all();
       return json({ok:true,rows:rows.results||[]});
     }
-    if(action==='budgets'||action==='budget-execution'){
+    if(action==='budgets'||action==='budget-execution'||action==='budgets-export'){
       const department=clean(payload.department,80),project=clean(payload.project,100),bookTypeCode=clean(payload.bookTypeCode,30),entityId=clean(payload.entityId,80),fundId=clean(payload.fundId,80);
       const conditions=['b.fiscal_year=?'];const values:unknown[]=[year];
       if(department){conditions.push('b.department=?');values.push(department)}if(project){conditions.push('b.project=?');values.push(project)}if(bookTypeCode){conditions.push('b.book_type_code=?');values.push(bookTypeCode)}if(entityId){conditions.push('b.entity_id=?');values.push(entityId)}if(fundId){conditions.push('b.fund_id=?');values.push(fundId)}
-      const rows=await db.prepare(`SELECT b.*,a.name AS account_name,bt.name AS book_type_name,e.name AS entity_name,f.name AS fund_name,(b.original_amount+b.supplementary_amount+b.transfer_in-b.transfer_out) AS revised_amount,COALESCE(x.executed_amount,0) AS executed_amount FROM accounting_budget_plans b JOIN accounting_accounts a ON a.code=b.account_code LEFT JOIN accounting_book_types bt ON bt.code=b.book_type_code LEFT JOIN accounting_entities e ON e.id=b.entity_id LEFT JOIN accounting_funds f ON f.id=b.fund_id LEFT JOIN (SELECT fiscal_year,book_type_code,entity_id,fund_id,account_code,department,project,SUM(debit_total-credit_total) AS executed_amount FROM accounting_monthly_summary GROUP BY fiscal_year,book_type_code,entity_id,fund_id,account_code,department,project) x ON x.fiscal_year=b.fiscal_year AND x.book_type_code=b.book_type_code AND x.entity_id=b.entity_id AND x.fund_id=b.fund_id AND x.account_code=b.account_code AND x.department=b.department AND x.project=b.project WHERE ${conditions.join(' AND ')} ORDER BY b.book_type_code,e.name,f.name,b.department,b.project,b.account_code`).bind(...values).all();
-      return json({ok:true,rows:rows.results||[]});
+      const selectSql=`SELECT b.*,a.name AS account_name,bt.name AS book_type_name,e.name AS entity_name,f.name AS fund_name,(b.original_amount+b.supplementary_amount+b.transfer_in-b.transfer_out) AS revised_amount,COALESCE(x.executed_amount,0) AS executed_amount FROM accounting_budget_plans b JOIN accounting_accounts a ON a.code=b.account_code LEFT JOIN accounting_book_types bt ON bt.code=b.book_type_code LEFT JOIN accounting_entities e ON e.id=b.entity_id LEFT JOIN accounting_funds f ON f.id=b.fund_id LEFT JOIN (SELECT fiscal_year,book_type_code,entity_id,fund_id,account_code,department,project,SUM(debit_total-credit_total) AS executed_amount FROM accounting_monthly_summary GROUP BY fiscal_year,book_type_code,entity_id,fund_id,account_code,department,project) x ON x.fiscal_year=b.fiscal_year AND x.book_type_code=b.book_type_code AND x.entity_id=b.entity_id AND x.fund_id=b.fund_id AND x.account_code=b.account_code AND x.department=b.department AND x.project=b.project WHERE ${conditions.join(' AND ')}`;
+      const orderBy='ORDER BY b.book_type_code,e.name,f.name,b.department,b.project,b.account_code,b.id';
+      if(action==='budgets-export'){const exported=await fetchCompleteRows<any>(db,selectSql,values,orderBy,'예산집행 내보내기 자료');return json({ok:true,rows:exported.rows,expectedCount:exported.expected,complete:true})}
+      const rows=await db.prepare(`${selectSql} ${orderBy}`).bind(...values).all();return json({ok:true,rows:rows.results||[]});
     }
     if(action==='resolutions'){
       const conditions=['r.fiscal_year=?'];const values:unknown[]=[year];if(!canViewAll){conditions.push('r.created_by_user_id=?');values.push(me.id)}
@@ -65,9 +75,12 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       const [journal,lines]=await db.batch([db.prepare(`SELECT * FROM accounting_journals WHERE id=?`).bind(id),db.prepare(`SELECT l.*,a.name AS account_name,COALESCE(d.book_type_code,'general') AS book_type_code,COALESCE(d.entity_id,'ENTITY-HQ') AS entity_id,COALESCE(d.fund_id,'') AS fund_id FROM accounting_journal_lines l JOIN accounting_accounts a ON a.code=l.account_code LEFT JOIN accounting_journal_line_dimensions d ON d.journal_line_id=l.id WHERE l.journal_id=? ORDER BY l.line_no`).bind(id)]);
       return json({ok:true,journal:journal.results?.[0]||null,lines:lines.results||[]});
     }
-    if(action==='ledger'){
+    if(action==='ledger'||action==='ledger-export'){
       if(!canViewAll)return json({ok:false,message:'장부를 조회할 권한이 없습니다.'},403);const code=clean(payload.accountCode,20);if(!code)return json({ok:false,message:'계정과목을 선택해 주세요.'},400);
-      const rows=await db.prepare(`SELECT j.journal_no,j.journal_date,j.description,j.document_id,j.status,l.debit,l.credit,l.department,l.project,l.counterparty,l.memo,SUM(CASE WHEN a.normal_side='debit' THEN l.debit-l.credit ELSE l.credit-l.debit END) OVER (ORDER BY j.journal_date,j.created_at,l.line_no) AS running_balance FROM accounting_journal_lines l JOIN accounting_journals j ON j.id=l.journal_id JOIN accounting_accounts a ON a.code=l.account_code WHERE j.fiscal_year=? AND j.status IN ('posted','reversed') AND l.account_code=? ORDER BY j.journal_date,j.created_at,l.line_no LIMIT ${limit}`).bind(year,code).all();return json({ok:true,rows:rows.results||[],limit});
+      const selectSql=`SELECT j.journal_no,j.journal_date,j.description,j.document_id,j.status,l.debit,l.credit,l.department,l.project,l.counterparty,l.memo,SUM(CASE WHEN a.normal_side='debit' THEN l.debit-l.credit ELSE l.credit-l.debit END) OVER (ORDER BY j.journal_date,j.created_at,j.journal_no,l.line_no) AS running_balance FROM accounting_journal_lines l JOIN accounting_journals j ON j.id=l.journal_id JOIN accounting_accounts a ON a.code=l.account_code WHERE j.fiscal_year=? AND j.status IN ('posted','reversed') AND l.account_code=?`;
+      const orderBy='ORDER BY j.journal_date,j.created_at,j.journal_no,l.line_no';
+      if(action==='ledger-export'){const exported=await fetchCompleteRows<any>(db,selectSql,[year,code],orderBy,'계정원장 내보내기 자료');return json({ok:true,rows:exported.rows,limit:null,expectedCount:exported.expected,complete:true})}
+      const rows=await db.prepare(`${selectSql} ${orderBy} LIMIT ${limit}`).bind(year,code).all();return json({ok:true,rows:rows.results||[],limit,complete:false});
     }
     if(action==='trial-balance'||action==='statement'){
       if(!canViewAll)return json({ok:false,message:'결산자료를 조회할 권한이 없습니다.'},403);

@@ -1,6 +1,7 @@
 import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
 import { canViewAllAccounting, ensureAccountingTables, hasAccountingAccess, isAccountingManager } from '../../_shared/accounting';
 import { ensureAccountingSpecialTables, getDimensionMaster } from '../../_shared/accounting-special';
+import { ensureAccountingTaxTables } from '../../_shared/accounting-tax';
 
 interface Env { DB: D1Database; ACCOUNTING_DB: D1Database; }
 type Payload = Record<string, unknown> & { token?: string; action?: string };
@@ -10,6 +11,14 @@ const toYear = (value: unknown) => {
   return year >= 2000 && year <= 2200 ? year : current;
 };
 const requestedLimit=(value:unknown,defaultValue=50)=>Math.max(1,Math.min(200,Number(value||defaultValue)||defaultValue));
+const EXPORT_PAGE_SIZE=1000,EXPORT_MAX_ROWS=100000;
+const fetchCompleteRows=async<T>(db:D1Database,selectSql:string,values:unknown[],orderBy:string,label:string)=>{
+  const count=await db.prepare(`SELECT COUNT(*) AS count FROM (${selectSql}) export_count`).bind(...values).first<{count:number}>();
+  const expected=Number(count?.count||0);if(expected>EXPORT_MAX_ROWS)throw new Error(`${label}이 ${EXPORT_MAX_ROWS.toLocaleString('ko-KR')}건을 초과합니다. 회계연도나 조건을 나누어 내보내 주세요.`);
+  const rows:T[]=[];for(let offset=0;offset<expected;offset+=EXPORT_PAGE_SIZE){const page=await db.prepare(`${selectSql} ${orderBy} LIMIT ? OFFSET ?`).bind(...values,EXPORT_PAGE_SIZE,offset).all<T>();rows.push(...(page.results||[]))}
+  if(rows.length!==expected)throw new Error(`${label} 전체 건수 검증에 실패했습니다. 예상 ${expected}건, 추출 ${rows.length}건입니다. 입력 작업이 끝난 뒤 다시 시도해 주세요.`);
+  return {rows,expected};
+};
 const calcAsset = (row: any, asOf: Date) => {
   const cost = Number(row.acquisition_cost || 0);
   const residual = Number(row.residual_value || 0);
@@ -77,6 +86,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         assets: [],
         cards: [],
         cardTransactions: [],
+        cardPayments: [],
         branchReports: [],
         fiscalYears: fiscalYears.results || [],
         accounts: accounts.results || [],
@@ -101,7 +111,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return json({ ok: true, rows: rows.results || [] });
     }
 
-    if (action === 'donations') {
+    if (action === 'donations' || action === 'donations-export') {
       const limit=requestedLimit(payload.limit);
       const conditions = ['d.fiscal_year=?'];
       const values: unknown[] = [year];
@@ -115,14 +125,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (bookTypeCode) { conditions.push('d.book_type_code=?'); values.push(bookTypeCode); }
       if (receiptStatus) { conditions.push('d.receipt_status=?'); values.push(receiptStatus); }
       if (q) { conditions.push(`(d.donation_no LIKE ? OR o.name LIKE ? OR d.purpose LIKE ?)`); values.push(`%${q}%`, `%${q}%`, `%${q}%`); }
-      const rows = await accountingDb.prepare(`SELECT d.*,COALESCE(o.name,'익명') AS donor_name,o.donor_no,
+      const selectSql = `SELECT d.*,COALESCE(o.name,'익명') AS donor_name,o.donor_no,
           b.name AS book_type_name,e.name AS entity_name,f.name AS fund_name
         FROM accounting_donations d LEFT JOIN accounting_donors o ON o.id=d.donor_id
         LEFT JOIN accounting_book_types b ON b.code=d.book_type_code
         LEFT JOIN accounting_entities e ON e.id=d.entity_id LEFT JOIN accounting_funds f ON f.id=d.fund_id
-        WHERE ${conditions.join(' AND ')} ORDER BY d.donation_date DESC,d.created_at DESC LIMIT ${limit}`)
-        .bind(...values).all();
-      return json({ ok: true, rows: rows.results || [] });
+        WHERE ${conditions.join(' AND ')}`;
+      const orderBy='ORDER BY d.donation_date DESC,d.created_at DESC,d.donation_no DESC,d.id DESC';
+      if(action==='donations-export'){const exported=await fetchCompleteRows<any>(accountingDb,selectSql,values,orderBy,'기부금 내보내기 자료');return json({ok:true,rows:exported.rows,expectedCount:exported.expected,complete:true})}
+      const rows=await accountingDb.prepare(`${selectSql} ${orderBy} LIMIT ${limit}`).bind(...values).all();
+      return json({ ok: true, rows: rows.results || [], limit, complete: false });
     }
 
     if (action === 'receipt-detail') {
@@ -140,7 +152,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return row ? json({ ok: true, row }) : json({ ok: false, message: '영수증 자료를 찾을 수 없습니다.' }, 404);
     }
 
-    if (action === 'assets') {
+    if (action === 'assets' || action === 'assets-export') {
       const limit=requestedLimit(payload.limit);
       const entityId = clean(payload.entityId, 80);
       const status = clean(payload.status, 30);
@@ -148,29 +160,49 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const values: unknown[] = [];
       if (entityId) { conditions.push('a.entity_id=?'); values.push(entityId); }
       if (status) { conditions.push('a.status=?'); values.push(status); }
-      const rows = await accountingDb.prepare(`SELECT a.*,b.name AS book_type_name,e.name AS entity_name,f.name AS fund_name
+      const selectSql = `SELECT a.*,b.name AS book_type_name,e.name AS entity_name,f.name AS fund_name
         FROM accounting_assets a LEFT JOIN accounting_book_types b ON b.code=a.book_type_code
         LEFT JOIN accounting_entities e ON e.id=a.entity_id LEFT JOIN accounting_funds f ON f.id=a.fund_id
-        WHERE ${conditions.join(' AND ')} ORDER BY a.status,a.acquisition_date DESC LIMIT ${limit}`).bind(...values).all<any>();
+        WHERE ${conditions.join(' AND ')}`;
+      const orderBy='ORDER BY a.status,a.acquisition_date DESC,a.asset_no,a.id';
+      const exported=action==='assets-export'?await fetchCompleteRows<any>(accountingDb,selectSql,values,orderBy,'자산 내보내기 자료'):null;
+      const rows=exported?.rows||((await accountingDb.prepare(`${selectSql} ${orderBy} LIMIT ${limit}`).bind(...values).all<any>()).results||[]);
       const asOf = new Date(`${year}-12-31T00:00:00Z`);
-      return json({ ok: true, rows: (rows.results || []).map((row) => ({ ...row, ...calcAsset(row, asOf) })) });
+      return json({ ok: true, rows: rows.map((row:any) => ({ ...row, ...calcAsset(row, asOf) })),
+        expectedCount: exported?.expected, limit: action==='assets-export'?null:limit, complete: action === 'assets-export' });
     }
 
     if (action === 'cards') {
+      await ensureAccountingTaxTables(accountingDb);
       const limit=requestedLimit(payload.limit);
-      const [cards, transactions] = await accountingDb.batch([
+      const [cards, transactions, payments] = await accountingDb.batch([
         accountingDb.prepare(`SELECT c.*,b.name AS book_type_name,e.name AS entity_name,
-          (SELECT COUNT(*) FROM accounting_card_transactions t WHERE t.card_id=c.id) AS transaction_count
+          (SELECT COUNT(*) FROM accounting_card_transactions t WHERE t.card_id=c.id) AS transaction_count,
+          COALESCE((SELECT SUM(t.amount) FROM accounting_card_transactions t
+            JOIN accounting_journals tj ON tj.id=t.journal_id
+            WHERE t.card_id=c.id AND tj.status='posted'),0) AS posted_amount,
+          COALESCE((SELECT SUM(p.amount) FROM accounting_card_payments p JOIN accounting_journals j ON j.id=p.journal_id
+            WHERE p.card_id=c.id AND j.status='posted'),0) AS paid_amount
           FROM accounting_cards c
           LEFT JOIN accounting_book_types b ON b.code=c.book_type_code LEFT JOIN accounting_entities e ON e.id=c.entity_id
           WHERE c.active=1 ORDER BY c.card_code`),
-        accountingDb.prepare(`SELECT t.*,c.card_label,c.masked_number,a.name AS account_name,e.name AS entity_name,f.name AS fund_name
+        accountingDb.prepare(`SELECT t.*,c.card_label,c.masked_number,a.name AS account_name,e.name AS entity_name,f.name AS fund_name,
+          j.status AS journal_status
           FROM accounting_card_transactions t JOIN accounting_cards c ON c.id=t.card_id
           LEFT JOIN accounting_accounts a ON a.code=t.account_code LEFT JOIN accounting_entities e ON e.id=t.entity_id
-          LEFT JOIN accounting_funds f ON f.id=t.fund_id
+          LEFT JOIN accounting_funds f ON f.id=t.fund_id LEFT JOIN accounting_journals j ON j.id=t.journal_id
           WHERE t.transaction_date>=? AND t.transaction_date<? ORDER BY t.transaction_date DESC,t.created_at DESC LIMIT ${limit}`).bind(`${year}-01-01`, `${year+1}-01-01`),
+        accountingDb.prepare(`SELECT p.*,c.card_code,c.card_label,c.issuer,c.masked_number,
+          pa.name AS payable_account_name,ba.name AS bank_account_name,e.name AS entity_name,f.name AS fund_name,j.journal_no,j.status AS journal_status
+          FROM accounting_card_payments p JOIN accounting_cards c ON c.id=p.card_id
+          JOIN accounting_journals j ON j.id=p.journal_id
+          LEFT JOIN accounting_accounts pa ON pa.code=p.payable_account_code LEFT JOIN accounting_accounts ba ON ba.code=p.bank_account_code
+          LEFT JOIN accounting_entities e ON e.id=p.entity_id LEFT JOIN accounting_funds f ON f.id=p.fund_id
+          WHERE p.fiscal_year=? ORDER BY p.payment_date DESC,p.created_at DESC LIMIT ${limit}`).bind(year),
       ]);
-      return json({ ok: true, cards: cards.results || [], transactions: transactions.results || [] });
+      return json({ ok: true, cards: (cards.results || []).map((row:any)=>({ ...row,
+        outstanding_amount: Number(row.posted_amount||0)-Number(row.paid_amount||0) })),
+        transactions: transactions.results || [], payments: payments.results || [] });
     }
 
     if (action === 'branch-reports') {

@@ -15,6 +15,7 @@ import {
   nextSpecialSequence,
   validateDimensions,
 } from '../../_shared/accounting-special';
+import { ensureAccountingTaxTables, nextTaxNumber } from '../../_shared/accounting-tax';
 
 interface Env { DB: D1Database; ACCOUNTING_DB: D1Database; }
 type Payload = Record<string, unknown> & { token?: string; action?: string };
@@ -496,14 +497,27 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (action === 'save-card') {
       if (!manager) return json({ ok: false, message: '법인카드 관리 권한이 없습니다.' }, 403);
+      await ensureAccountingTaxTables(accountingDb);
       const id = clean(payload.id, 80) || `CARD-${randomHex(18)}`;
-      const existing = await accountingDb.prepare(`SELECT card_code FROM accounting_cards WHERE id=?`)
-        .bind(id).first<{ card_code: string }>();
+      const existing = await accountingDb.prepare(`SELECT c.card_code,c.settlement_account_code,
+        (SELECT COUNT(*) FROM accounting_card_transactions t WHERE t.card_id=c.id) AS transaction_count,
+        (SELECT COUNT(*) FROM accounting_card_payments p WHERE p.card_id=c.id) AS payment_count
+        FROM accounting_cards c WHERE c.id=?`)
+        .bind(id).first<{ card_code: string; settlement_account_code: string; transaction_count: number; payment_count: number }>();
       const label = clean(payload.cardLabel, 100);
       if (!label) return json({ ok: false, message: '카드명을 입력해 주세요.' }, 400);
       const dimensions = await validateDimensions(accountingDb, payload);
       const cardYear = validYear(payload.year) || new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCFullYear();
       const cardCode = existing?.card_code || await nextAvailableCardNumber(accountingDb, cardYear);
+      const settlementAccountCode = clean(payload.settlementAccountCode, 20) || '2110';
+      const settlementAccount = await accountingDb.prepare(`SELECT code FROM accounting_accounts
+        WHERE code=? AND account_type='liability' AND normal_side='credit' AND active=1`)
+        .bind(settlementAccountCode).first();
+      if (!settlementAccount) return json({ ok: false, message: '법인카드 미지급계정은 부채·대변 계정과목으로 선택해 주세요.' }, 400);
+      if (existing && existing.settlement_account_code !== settlementAccountCode
+        && (Number(existing.transaction_count || 0) > 0 || Number(existing.payment_count || 0) > 0)) {
+        return json({ ok: false, message: '사용·결제 이력이 있는 카드는 미지급계정을 변경할 수 없습니다. 계정 이관이 필요하면 전표와 잔액을 먼저 검토해 주세요.' }, 409);
+      }
       await accountingDb.batch([
         accountingDb.prepare(`INSERT INTO accounting_cards
           (id,card_code,card_label,issuer,masked_number,holder,book_type_code,entity_id,department,
@@ -516,11 +530,90 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           .bind(
             id, cardCode, label, clean(payload.issuer, 80) || null, clean(payload.maskedNumber, 40) || null,
             clean(payload.holder, 80) || null, dimensions.bookTypeCode, dimensions.entityId,
-            clean(payload.department, 100), clean(payload.settlementAccountCode, 20) || '1130', me.name, now, now,
+            clean(payload.department, 100), settlementAccountCode, me.name, now, now,
           ),
-        audit(accountingDb, 'save', 'card', id, me.id, me.name, { cardCode, label }, now),
+        audit(accountingDb, 'save', 'card', id, me.id, me.name, { cardCode, label, settlementAccountCode }, now),
       ]);
       return json({ ok: true, id, cardCode, message: '법인카드를 저장했습니다.' });
+    }
+
+    if (action === 'post-card-payment') {
+      if (!manager) return json({ ok: false, message: '법인카드 대금 결제 전표 권한이 없습니다.' }, 403);
+      await ensureAccountingTaxTables(accountingDb);
+      const cardId = clean(payload.cardId, 80), paymentDate = clean(payload.paymentDate, 10);
+      const requestId = clean(payload.requestId, 100);
+      const amount = parseMoney(payload.amount), bankAccountCode = clean(payload.bankAccountCode, 20) || '1120';
+      if (!cardId || !isValidIsoDate(paymentDate) || amount <= 0) return json({ ok: false, message: '법인카드·결제일·결제금액을 확인해 주세요.' }, 400);
+      if (await isPeriodClosed(accountingDb, paymentDate)) return json({ ok: false, message: '마감된 기간에는 법인카드 대금 결제 전표를 등록할 수 없습니다.' }, 400);
+      const card = await accountingDb.prepare(`SELECT * FROM accounting_cards WHERE id=? AND active=1`).bind(cardId).first<any>();
+      if (!card) return json({ ok: false, message: '결제할 법인카드를 찾을 수 없습니다.' }, 404);
+      if (requestId) {
+        const prior = await accountingDb.prepare(`SELECT id,payment_no,journal_id FROM accounting_card_payments WHERE request_id=?`)
+          .bind(requestId).first<any>();
+        if (prior) return json({ ok: true, id: prior.id, paymentNo: prior.payment_no, journalId: prior.journal_id, duplicate: true, message: '동일한 결제 요청이 이미 정상 반영되어 기존 결과를 반환했습니다.' });
+      }
+      const dimensions = await validateDimensions(accountingDb, {
+        bookTypeCode: card.book_type_code,
+        entityId: card.entity_id,
+        fundId: payload.fundId,
+      });
+      const [payableResult, bankResult, outstandingResult] = await accountingDb.batch([
+        accountingDb.prepare(`SELECT code FROM accounting_accounts WHERE code=? AND account_type='liability' AND normal_side='credit' AND active=1`).bind(card.settlement_account_code),
+        accountingDb.prepare(`SELECT code FROM accounting_accounts WHERE code=? AND account_type='asset' AND normal_side='debit'
+          AND active=1 AND (parent_code='1100' OR code IN ('1110','1120'))`).bind(bankAccountCode),
+        accountingDb.prepare(`SELECT
+          COALESCE((SELECT SUM(t.amount) FROM accounting_card_transactions t
+            JOIN accounting_journals j ON j.id=t.journal_id WHERE t.card_id=? AND j.status='posted'
+              AND COALESCE(NULLIF(t.book_type_code,''),'general')=?
+              AND COALESCE(NULLIF(t.entity_id,''),'ENTITY-HQ')=? AND COALESCE(t.fund_id,'')=?),0)
+          - COALESCE((SELECT SUM(p.amount) FROM accounting_card_payments p
+              JOIN accounting_journals j ON j.id=p.journal_id WHERE p.card_id=? AND j.status='posted'
+                AND COALESCE(NULLIF(p.book_type_code,''),'general')=?
+                AND COALESCE(NULLIF(p.entity_id,''),'ENTITY-HQ')=? AND COALESCE(p.fund_id,'')=?),0) AS outstanding`)
+          .bind(cardId, dimensions.bookTypeCode, dimensions.entityId, dimensions.fundId,
+            cardId, dimensions.bookTypeCode, dimensions.entityId, dimensions.fundId),
+      ]);
+      if (!payableResult.results?.length) return json({ ok: false, message: '법인카드 미지급계정이 올바른 부채계정인지 확인해 주세요.' }, 400);
+      if (!bankResult.results?.length) return json({ ok: false, message: '출금계정은 현금·보통예금 등 현금성 자산·차변 계정으로 선택해 주세요.' }, 400);
+      const outstanding = Number((outstandingResult.results?.[0] as any)?.outstanding || 0);
+      if (outstanding <= 0) return json({ ok: false, message: '현재 전표처리된 미결제 법인카드 금액이 없습니다.' }, 400);
+      if (amount > outstanding) return json({ ok: false, message: `결제금액은 현재 미지급잔액 ${outstanding.toLocaleString('ko-KR')}원을 초과할 수 없습니다.` }, 400);
+      const year = Number(paymentDate.slice(0, 4)), paymentId = `CPAY-${randomHex(20)}`;
+      const paymentNo = await nextTaxNumber(accountingDb, 'card-payment', year);
+      const journalId = `JRN-${randomHex(24)}`, journalNo = await nextAccountingNumber(accountingDb, 'journal', year);
+      const debitId = `JL-${randomHex(20)}`, creditId = `JL-${randomHex(20)}`;
+      const description = `[법인카드 대금결제] ${card.card_label}`;
+      await accountingDb.batch([
+        accountingDb.prepare(`INSERT INTO accounting_journals
+          (id,journal_no,fiscal_year,journal_date,source_type,source_id,description,status,created_by,approved_by,created_at)
+          VALUES (?,?,?,?, 'card-payment',?,?, 'posted',?,?,?)`)
+          .bind(journalId, journalNo, year, paymentDate, paymentId, description, me.name, me.name, now),
+        accountingDb.prepare(`INSERT INTO accounting_journal_lines
+          (id,journal_id,line_no,account_code,debit,credit,department,project,counterparty,memo)
+          VALUES (?,?,?,?,?,0,?,?,?,?)`)
+          .bind(debitId, journalId, 1, card.settlement_account_code, amount, card.department || '', '', card.issuer || card.card_label, clean(payload.memo, 1000) || null),
+        accountingDb.prepare(`INSERT INTO accounting_journal_lines
+          (id,journal_id,line_no,account_code,debit,credit,department,project,counterparty,memo)
+          VALUES (?,?,?,?,0,?,?,?,?,?)`)
+          .bind(creditId, journalId, 2, bankAccountCode, amount, card.department || '', '', card.issuer || card.card_label, clean(payload.memo, 1000) || null),
+        accountingDb.prepare(`INSERT INTO accounting_journal_line_dimensions
+          (journal_line_id,book_type_code,entity_id,fund_id,created_at) VALUES (?,?,?,?,?)`)
+          .bind(debitId, dimensions.bookTypeCode, dimensions.entityId, dimensions.fundId, now),
+        accountingDb.prepare(`INSERT INTO accounting_journal_line_dimensions
+          (journal_line_id,book_type_code,entity_id,fund_id,created_at) VALUES (?,?,?,?,?)`)
+          .bind(creditId, dimensions.bookTypeCode, dimensions.entityId, dimensions.fundId, now),
+        monthlySummaryStatement(accountingDb, paymentDate, { accountCode: card.settlement_account_code, debit: amount, credit: 0, department: card.department || '', project: '' }, dimensions, now),
+        monthlySummaryStatement(accountingDb, paymentDate, { accountCode: bankAccountCode, debit: 0, credit: amount, department: card.department || '', project: '' }, dimensions, now),
+        accountingDb.prepare(`INSERT INTO accounting_card_payments
+          (id,payment_no,fiscal_year,card_id,payment_date,amount,payable_account_code,bank_account_code,
+           book_type_code,entity_id,fund_id,journal_id,memo,created_by,created_at,request_id)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+          .bind(paymentId, paymentNo, year, cardId, paymentDate, amount, card.settlement_account_code,
+            bankAccountCode, dimensions.bookTypeCode, dimensions.entityId, dimensions.fundId, journalId,
+            clean(payload.memo, 1000) || null, me.name, now, requestId || null),
+        audit(accountingDb, 'post', 'card-payment', paymentId, me.id, me.name, { paymentNo, journalNo, cardId, amount, bankAccountCode }, now),
+      ]);
+      return json({ ok: true, id: paymentId, paymentNo, journalNo, outstanding: outstanding - amount, message: `법인카드 대금 ${amount.toLocaleString('ko-KR')}원을 결제 전표로 등록했습니다.` });
     }
 
     if (action === 'delete-card') {
@@ -555,13 +648,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const taxMode = clean(payload.taxMode, 20) || 'taxable';
       if (!isValidIsoDate(date) || !merchant || amount <= 0) return json({ ok: false, message: '사용일자·가맹점·금액을 확인해 주세요.' }, 400);
       if (!['taxable', 'exempt', 'manual'].includes(taxMode)) return json({ ok: false, message: '세액 처리방식을 확인해 주세요.' }, 400);
-      const taxAmount = taxMode === 'taxable' ? Math.round(amount * 0.1) : taxMode === 'exempt' ? 0 : Math.max(0, parseMoney(payload.taxAmount));
+      const taxAmount = taxMode === 'taxable' ? Math.round(amount / 11) : taxMode === 'exempt' ? 0 : Math.max(0, parseMoney(payload.taxAmount));
       if (taxAmount > amount) return json({ ok: false, message: '세액은 결제금액보다 클 수 없습니다.' }, 400);
       const dimensions = await validateDimensions(accountingDb, {
         bookTypeCode: payload.bookTypeCode || card.book_type_code,
         entityId: payload.entityId || card.entity_id,
         fundId: payload.fundId,
       });
+      if (dimensions.bookTypeCode !== (card.book_type_code || 'general')
+        || dimensions.entityId !== (card.entity_id || 'ENTITY-HQ')) {
+        return json({ ok: false, message: '카드 사용내역의 회계구분·회계조직은 카드 등록정보와 같아야 합니다. 재원은 사용 건별로 구분할 수 있습니다.' }, 400);
+      }
+      const expenseAccountCode = clean(payload.accountCode, 20);
+      if (expenseAccountCode) {
+        const expenseAccount = await accountingDb.prepare(`SELECT code FROM accounting_accounts
+          WHERE code=? AND account_type='expense' AND normal_side='debit' AND active=1`).bind(expenseAccountCode).first();
+        if (!expenseAccount) return json({ ok: false, message: '법인카드 사용내역에는 사용 가능한 지출·차변 계정과목을 선택해 주세요.' }, 400);
+      }
       const id = `CTX-${randomHex(20)}`;
       const txNo = await nextSpecialNumber(accountingDb, 'card-tx', Number(date.slice(0, 4)));
       await accountingDb.batch([
@@ -571,7 +674,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'unmatched',?,?,?)`)
           .bind(
             id, txNo, cardId, date, merchant, amount, taxAmount,
-            clean(payload.accountCode, 20) || null, dimensions.bookTypeCode, dimensions.entityId, dimensions.fundId,
+            expenseAccountCode || null, dimensions.bookTypeCode, dimensions.entityId, dimensions.fundId,
             clean(payload.department, 100) || card.department || '', clean(payload.project, 100),
             clean(payload.memo, 1000) || null, me.name, now, now,
           ),
@@ -592,6 +695,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         return json({ ok: false, message: '마감된 기간의 카드 사용내역은 전표처리할 수 없습니다.' }, 400);
       }
       const year = Number(tx.transaction_date.slice(0, 4));
+      const [expenseAccount, payableAccount] = await accountingDb.batch([
+        accountingDb.prepare(`SELECT code FROM accounting_accounts WHERE code=? AND account_type='expense' AND normal_side='debit' AND active=1`).bind(tx.account_code),
+        accountingDb.prepare(`SELECT code FROM accounting_accounts WHERE code=? AND account_type='liability' AND normal_side='credit' AND active=1`).bind(tx.settlement_account_code),
+      ]);
+      if (!expenseAccount.results?.length || !payableAccount.results?.length) {
+        return json({ ok: false, message: '카드 사용의 지출계정 또는 미지급계정 성격이 올바르지 않습니다.' }, 400);
+      }
       const journalId = `JRN-${randomHex(24)}`;
       const journalNo = await nextAccountingNumber(accountingDb, 'journal', year);
       const debitId = `JL-${randomHex(20)}`;
@@ -623,7 +733,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           accountCode: tx.settlement_account_code, debit: 0, credit: Number(tx.amount || 0),
           department: tx.department || '', project: tx.project || '',
         }, { bookTypeCode: tx.book_type_code, entityId: tx.entity_id, fundId: tx.fund_id || '' }, now),
-        accountingDb.prepare(`UPDATE accounting_card_transactions SET journal_id=?,status='posted',updated_at=? WHERE id=?`)
+        accountingDb.prepare(`UPDATE accounting_card_transactions SET journal_id=?,status='posted',updated_at=?
+          WHERE id=? AND journal_id IS NULL AND status='unmatched'`)
           .bind(journalId, now, id),
         audit(accountingDb, 'post', 'card-transaction', id, me.id, me.name, { journalNo }, now),
       ]);
@@ -682,7 +793,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ ok: false, message: '지원하지 않는 종단 특화회계 처리입니다.' }, 400);
   } catch (error) {
     console.error('accounting-special action failed', action, error);
-    return json({ ok: false, message: error instanceof Error ? error.message : '종단 특화회계 처리 중 오류가 발생했습니다.' }, 500);
+    const message = error instanceof Error ? error.message : '종단 특화회계 처리 중 오류가 발생했습니다.';
+    if (message.includes('card payment exceeds outstanding amount')) {
+      return json({ ok: false, message: '다른 결제가 먼저 반영되어 현재 미지급잔액이 부족합니다. 카드 현황을 새로고침한 뒤 다시 확인해 주세요.' }, 409);
+    }
+    if (message.includes('duplicate posted journal source')) {
+      return json({ ok: false, message: '동일한 원자료의 전표가 이미 처리되었습니다. 화면을 새로고침해 기존 전표를 확인해 주세요.' }, 409);
+    }
+    if (message.includes('UNIQUE constraint failed: accounting_card_payments.request_id')) {
+      return json({ ok: false, message: '동일한 카드 결제 요청이 이미 처리 중이거나 완료되었습니다. 화면을 새로고침해 주세요.' }, 409);
+    }
+    return json({ ok: false, message }, 500);
   }
 };
 

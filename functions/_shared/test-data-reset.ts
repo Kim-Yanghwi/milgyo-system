@@ -1,5 +1,5 @@
 import type { SessionUser } from './helpers';
-import { ACCOUNTING_R2_PREFIX, MAIN_R2_PREFIXES, assertR2KeysWithinPrefixes } from './r2-scope-guard';
+import { ACCOUNTING_R2_PREFIX, ACCOUNTING_R2_PREFIXES, MAIN_R2_PREFIXES, TAX_EXPORT_R2_PREFIX, assertR2KeysWithinPrefixes } from './r2-scope-guard';
 
 export const TEST_RESET_CONFIRMATION = '테스트자료 전체삭제';
 const MAX_RESET_OBJECTS = 5000;
@@ -60,9 +60,17 @@ const collectMainFileKeys = async (env: ResetEnv) => {
 const collectAccountingFileKeys = async (env: ResetEnv) => {
   const metadataRows = await env.ACCOUNTING_DB.prepare(`
     SELECT object_key FROM accounting_attachments WHERE object_key IS NOT NULL AND object_key<>''
+    UNION ALL
+    SELECT object_key FROM accounting_tax_export_files WHERE object_key IS NOT NULL AND object_key<>''
+    UNION ALL
+    SELECT package_object_key AS object_key FROM accounting_tax_export_batches
+    WHERE package_object_key IS NOT NULL AND package_object_key<>''
   `).all<{ object_key: string }>();
   const metadataKeys = (metadataRows.results || []).map((row) => String(row.object_key || ''));
-  const bucketKeys = env.ACCOUNTING_FILES ? await listBucketKeys(env.ACCOUNTING_FILES, ACCOUNTING_R2_PREFIX) : [];
+  const bucketKeys = env.ACCOUNTING_FILES ? (await Promise.all([
+    listBucketKeys(env.ACCOUNTING_FILES, ACCOUNTING_R2_PREFIX),
+    listBucketKeys(env.ACCOUNTING_FILES, TAX_EXPORT_R2_PREFIX),
+  ])).flat() : [];
   return { metadataKeys: unique(metadataKeys), bucketKeys: unique(bucketKeys) };
 };
 
@@ -128,6 +136,16 @@ export const getTestResetPreview = async (env: ResetEnv) => {
         (SELECT COUNT(*) FROM accounting_branch_reports) AS branch_reports,
         (SELECT COUNT(*) FROM accounting_entity_certificates) AS certificates,
         (SELECT COUNT(*) FROM accounting_attachments) AS attachments,
+        (SELECT COUNT(*) FROM accounting_card_payments) AS card_payments,
+        (SELECT COUNT(*) FROM accounting_tax_profiles) AS tax_profiles,
+        (SELECT COUNT(*) FROM accounting_tax_profile_revisions) AS tax_profile_revisions,
+        (SELECT COUNT(*) FROM accounting_vat_records) AS vat_records,
+        (SELECT COUNT(*) FROM accounting_tax_payees) AS tax_payees,
+        (SELECT COUNT(*) FROM accounting_withholding_records) AS withholding_records,
+        (SELECT COUNT(*) FROM accounting_tax_export_batches) AS tax_export_batches,
+        (SELECT COUNT(*) FROM accounting_tax_export_files) AS tax_export_files,
+        (SELECT COUNT(*) FROM accounting_tax_export_events) AS tax_export_events,
+        (SELECT COUNT(*) FROM accounting_v63_migration_review) AS migration_reviews,
         (SELECT COUNT(*) FROM accounting_entities WHERE id<>'ENTITY-HQ') AS custom_entities,
         (SELECT COUNT(*) FROM accounting_funds WHERE system_fund=0) AS custom_funds,
         (SELECT COUNT(*) FROM accounting_book_types WHERE system_type=0) AS custom_book_types,
@@ -191,6 +209,12 @@ export const getTestResetPreview = async (env: ResetEnv) => {
       branchReports: n(accounting.branch_reports),
       certificates: n(accounting.certificates),
       attachments: n(accounting.attachments),
+      cardPayments: n(accounting.card_payments),
+      taxProfiles: n(accounting.tax_profiles),
+      vatRecords: n(accounting.vat_records),
+      taxPayees: n(accounting.tax_payees),
+      withholdingRecords: n(accounting.withholding_records),
+      taxExportBatches: n(accounting.tax_export_batches),
       customEntities: n(accounting.custom_entities),
       customFunds: n(accounting.custom_funds),
       customBookTypes: n(accounting.custom_book_types),
@@ -204,6 +228,9 @@ export const getTestResetPreview = async (env: ResetEnv) => {
         + n(accounting.budgets) + n(accounting.budget_plans) + n(accounting.closings) + n(accounting.monthly_summary),
       accountingAuditLogs: n(accounting.audit_logs),
       attachmentHistory: n(accounting.attachment_operations) + n(accounting.integrity_issues),
+      taxExportDetails: n(accounting.tax_export_files) + n(accounting.tax_export_events),
+      taxProfileRevisions: n(accounting.tax_profile_revisions),
+      migrationReviewRecords: n(accounting.migration_reviews),
       accessRateHistory: n(main.admin_rate_limits),
       sequenceRecords: n(main.document_sequences) + n(accounting.sequences) + n(accounting.special_sequences),
       resetMetaRecords: n(main.reset_meta) + n(accounting.reset_meta),
@@ -236,7 +263,7 @@ export const resetAllTestData = async (env: ResetEnv, user: SessionUser) => {
 
   const deletedMainR2 = await deleteBucketKeys(env.FILES, mainR2Keys, '전자문서', MAIN_R2_PREFIXES);
   const deletedAccountingR2 = await deleteBucketKeys(
-    env.ACCOUNTING_FILES, accountingR2Keys, '회계', [ACCOUNTING_R2_PREFIX],
+    env.ACCOUNTING_FILES, accountingR2Keys, '회계', ACCOUNTING_R2_PREFIXES,
   );
   const now = new Date().toISOString();
 
@@ -260,7 +287,21 @@ export const resetAllTestData = async (env: ResetEnv, user: SessionUser) => {
     env.DB.prepare("DELETE FROM system_meta WHERE meta_key='last_test_data_reset' OR meta_key LIKE 'test_%'"),
   ]);
 
-  await env.ACCOUNTING_DB.batch([
+  await env.ACCOUNTING_DB.prepare(`INSERT INTO accounting_meta(meta_key,meta_value,updated_at)
+    VALUES ('test_reset_in_progress','1',?)
+    ON CONFLICT(meta_key) DO UPDATE SET meta_value='1',updated_at=excluded.updated_at`).bind(now).run();
+  try {
+    await env.ACCOUNTING_DB.batch([
+      env.ACCOUNTING_DB.prepare('DELETE FROM accounting_tax_export_events'),
+    env.ACCOUNTING_DB.prepare('DELETE FROM accounting_tax_export_files'),
+    env.ACCOUNTING_DB.prepare('DELETE FROM accounting_tax_export_batches'),
+    env.ACCOUNTING_DB.prepare('DELETE FROM accounting_tax_profile_revisions'),
+    env.ACCOUNTING_DB.prepare('DELETE FROM accounting_vat_records'),
+    env.ACCOUNTING_DB.prepare('DELETE FROM accounting_withholding_records'),
+    env.ACCOUNTING_DB.prepare('DELETE FROM accounting_tax_payees'),
+    env.ACCOUNTING_DB.prepare('DELETE FROM accounting_tax_profiles'),
+    env.ACCOUNTING_DB.prepare('DELETE FROM accounting_card_payments'),
+    env.ACCOUNTING_DB.prepare('DELETE FROM accounting_v63_migration_review'),
     env.ACCOUNTING_DB.prepare('DELETE FROM accounting_attachment_operations'),
     env.ACCOUNTING_DB.prepare('DELETE FROM accounting_attachment_integrity_issues'),
     env.ACCOUNTING_DB.prepare('DELETE FROM accounting_attachments'),
@@ -300,8 +341,12 @@ export const resetAllTestData = async (env: ResetEnv, user: SessionUser) => {
     env.ACCOUNTING_DB.prepare('DELETE FROM accounting_funds WHERE system_fund=0'),
     env.ACCOUNTING_DB.prepare("DELETE FROM accounting_entities WHERE id<>'ENTITY-HQ'"),
     env.ACCOUNTING_DB.prepare('DELETE FROM accounting_book_types WHERE system_type=0'),
-    env.ACCOUNTING_DB.prepare("DELETE FROM accounting_meta WHERE meta_key='last_test_data_reset' OR meta_key LIKE 'test_%'"),
-  ]);
+      env.ACCOUNTING_DB.prepare("DELETE FROM accounting_meta WHERE meta_key='last_test_data_reset' OR meta_key LIKE 'test_%'"),
+    ]);
+  } catch (error) {
+    await env.ACCOUNTING_DB.prepare(`DELETE FROM accounting_meta WHERE meta_key='test_reset_in_progress'`).run().catch(() => undefined);
+    throw error;
+  }
 
   const verification = await getTestResetPreview(env);
   const remainingRecords = countPreviewRemainders(verification);
