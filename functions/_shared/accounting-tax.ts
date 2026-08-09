@@ -129,6 +129,12 @@ export const calculateVatFromTotal = (totalAmount: number, taxType: string) => {
   return { supplyAmount: total - vatAmount, vatAmount };
 };
 
+export const calculateVatFromSupply = (supplyAmount: number, taxType: string) => {
+  const supply = Math.max(0, Math.round(Number(supplyAmount || 0)));
+  const vatAmount = taxType === 'taxable' ? Math.round(supply * 0.1) : 0;
+  return { supplyAmount: supply, vatAmount, totalAmount: supply + vatAmount };
+};
+
 export type TaxValidationItem = {
   code: string;
   severity: 'error' | 'warning' | 'info';
@@ -141,14 +147,30 @@ export const getTaxValidation = async (db: D1Database, year: number, entityId = 
   const entityCondition = entityId ? ' AND entity_id=?' : '';
   const entityValues = entityId ? [entityId] : [];
   const start = `${year}-01-01`, end = `${year + 1}-01-01`;
+  const nowKst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const currentYear = nowKst.getUTCFullYear(), currentMonth = nowKst.getUTCMonth() + 1;
+  const elapsedMonth = year < currentYear ? 12 : year === currentYear ? Math.max(0, currentMonth - 1) : 0;
   const profileValidation = entityId
     ? db.prepare(`SELECT CASE WHEN EXISTS (
-        SELECT 1 FROM accounting_tax_profiles WHERE fiscal_year=? AND entity_id=? AND profile_status='confirmed'
-      ) THEN 0 ELSE 1 END AS count`).bind(year, entityId)
+        SELECT 1 FROM accounting_entities a WHERE a.id=? AND a.active=1 AND (
+          EXISTS (SELECT 1 FROM accounting_monthly_summary m WHERE m.fiscal_year=? AND COALESCE(NULLIF(m.entity_id,''),'ENTITY-HQ')=a.id)
+          OR EXISTS (SELECT 1 FROM accounting_budget_plans b WHERE b.fiscal_year=? AND COALESCE(NULLIF(b.entity_id,''),'ENTITY-HQ')=a.id)
+          OR EXISTS (SELECT 1 FROM accounting_resolutions r
+            LEFT JOIN accounting_resolution_dimensions d ON d.resolution_id=r.id
+            WHERE r.fiscal_year=? AND COALESCE(NULLIF(d.entity_id,''),'ENTITY-HQ')=a.id)
+          OR EXISTS (SELECT 1 FROM accounting_donations d WHERE d.fiscal_year=? AND COALESCE(NULLIF(d.entity_id,''),'ENTITY-HQ')=a.id)
+          OR EXISTS (SELECT 1 FROM accounting_vat_records v WHERE v.fiscal_year=? AND v.status<>'cancelled'
+            AND COALESCE(NULLIF(v.entity_id,''),'ENTITY-HQ')=a.id)
+          OR EXISTS (SELECT 1 FROM accounting_withholding_records w WHERE w.fiscal_year=? AND w.filing_status<>'cancelled'
+            AND COALESCE(NULLIF(w.entity_id,''),'ENTITY-HQ')=a.id)
+        )
+      ) AND NOT EXISTS (
+        SELECT 1 FROM accounting_tax_profiles p
+        WHERE p.fiscal_year=? AND p.entity_id=? AND p.profile_status='confirmed'
+      ) THEN 1 ELSE 0 END AS count`).bind(entityId, year, year, year, year, year, year, year, entityId)
     : db.prepare(`SELECT COUNT(*) AS count FROM accounting_entities a
       WHERE a.active=1 AND (
-        a.id='ENTITY-HQ'
-        OR EXISTS (SELECT 1 FROM accounting_monthly_summary m WHERE m.fiscal_year=? AND COALESCE(NULLIF(m.entity_id,''),'ENTITY-HQ')=a.id)
+        EXISTS (SELECT 1 FROM accounting_monthly_summary m WHERE m.fiscal_year=? AND COALESCE(NULLIF(m.entity_id,''),'ENTITY-HQ')=a.id)
         OR EXISTS (SELECT 1 FROM accounting_budget_plans b WHERE b.fiscal_year=? AND COALESCE(NULLIF(b.entity_id,''),'ENTITY-HQ')=a.id)
         OR EXISTS (SELECT 1 FROM accounting_resolutions r
           LEFT JOIN accounting_resolution_dimensions d ON d.resolution_id=r.id
@@ -219,7 +241,14 @@ export const getTaxValidation = async (db: D1Database, year: number, entityId = 
       WHERE fiscal_year=? AND filing_status='unfiled'${entityCondition}`).bind(year, ...entityValues),
     db.prepare(`SELECT COUNT(*) AS count FROM accounting_import_transactions
       WHERE transaction_date>=? AND transaction_date<? AND status IN ('unmatched','suggested')`).bind(start, end),
-    db.prepare(`SELECT COUNT(*) AS count FROM accounting_closings WHERE fiscal_year=? AND status='closed'`).bind(year),
+    db.prepare(`SELECT COUNT(DISTINCT m.period_month) AS count FROM accounting_monthly_summary m
+      WHERE m.fiscal_year=? AND m.period_month BETWEEN 1 AND ?
+        ${entityId ? "AND COALESCE(NULLIF(m.entity_id,''),'ENTITY-HQ')=?" : ''}
+        AND (COALESCE(m.debit_total,0)<>0 OR COALESCE(m.credit_total,0)<>0)
+        AND NOT EXISTS (
+          SELECT 1 FROM accounting_closings c
+          WHERE c.fiscal_year=m.fiscal_year AND c.period_month=m.period_month AND c.status='closed'
+        )`).bind(year, elapsedMonth, ...entityValues),
     db.prepare(`SELECT COUNT(*) AS count FROM accounting_attachment_integrity_issues WHERE status='open'`),
     db.prepare(`SELECT COUNT(*) AS count FROM accounting_donors
       WHERE COALESCE(identifier_masked,'')<>''
@@ -331,9 +360,6 @@ export const getTaxValidation = async (db: D1Database, year: number, entityId = 
   ]);
   const countAt = (index: number) => Number((results[index]?.results?.[0] as any)?.count || 0);
   const profile = (results[12]?.results?.[0] || {}) as any;
-  const nowKst = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  const currentYear = nowKst.getUTCFullYear(), currentMonth = nowKst.getUTCMonth() + 1;
-  const expectedClosedMonths = year < currentYear ? 12 : year === currentYear ? Math.max(0, currentMonth - 1) : 0;
   const items: TaxValidationItem[] = [];
   const add = (item: TaxValidationItem) => items.push(item);
   if (countAt(0)) add({ code: 'TAX_PROFILE_UNCONFIRMED', severity: 'error', title: '세무기본정보 미확정', detail: '제출범위에서 활동이 있는 회계조직별 세무기본정보를 입력하고 확정해 주세요.', count: countAt(0) });
@@ -343,7 +369,7 @@ export const getTaxValidation = async (db: D1Database, year: number, entityId = 
   if (countAt(4)) add({ code: 'VAT_PENDING', severity: 'warning', title: '부가가치세 검토대기', detail: '공제 여부 또는 자료 상태가 확정되지 않은 부가가치세 내역이 있습니다.', count: countAt(4) });
   if (countAt(5)) add({ code: 'WITHHOLDING_UNFILED', severity: 'warning', title: '원천징수 미신고', detail: '신고완료 또는 납부완료로 처리되지 않은 원천징수 내역이 있습니다.', count: countAt(5) });
   if (countAt(6)) add({ code: 'RECONCILIATION_PENDING', severity: 'warning', title: '미대사 금융거래', detail: '통장·법인카드 거래 중 대사가 끝나지 않은 내역이 있습니다.', count: countAt(6) });
-  if (countAt(7) < expectedClosedMonths) add({ code: 'PERIOD_NOT_CLOSED', severity: 'warning', title: '월 마감 미완료', detail: `제출 기준시점까지 마감 권장 월 ${expectedClosedMonths}개월 중 ${countAt(7)}개월만 마감되었습니다.`, count: expectedClosedMonths - countAt(7) });
+  if (countAt(7)) add({ code: 'PERIOD_NOT_CLOSED', severity: 'warning', title: '월 마감 미완료', detail: `제출 기준시점까지 실제 회계활동이 있는 경과월 중 ${countAt(7)}개월이 아직 마감되지 않았습니다. 기본 회계의 결산·마감에서 확인해 주세요.`, count: countAt(7) });
   if (countAt(8)) add({ code: 'ATTACHMENT_INTEGRITY', severity: 'error', title: '증빙파일 무결성 문제', detail: '해결되지 않은 회계 첨부파일 무결성 점검 결과가 있습니다.', count: countAt(8) });
   if (countAt(9)) add({ code: 'UNMASKED_IDENTIFIER', severity: 'error', title: '식별번호 마스킹 확인 필요', detail: '마스킹 문자가 없는 후원자 식별정보가 있습니다. 원문 여부를 확인해 주세요.', count: countAt(9) });
   if (['general', 'mixed'].includes(String(profile.vat_business_type || '')) && !countAt(10)) add({ code: 'VAT_DATA_EMPTY', severity: 'warning', title: '부가가치세 자료 없음', detail: '과세 또는 겸영으로 설정되어 있으나 해당 연도 부가가치세 보조장부가 비어 있습니다.', count: 1 });

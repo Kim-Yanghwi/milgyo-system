@@ -2,6 +2,7 @@ import { authenticateSession, clean, ensureTables, json, randomHex } from '../..
 import { ensureAccountingTables, hasAccountingAccess, isAccountingManager, parseMoney } from '../../_shared/accounting';
 import { validateDimensions } from '../../_shared/accounting-special';
 import {
+  calculateVatFromSupply,
   calculateVatFromTotal,
   defaultWithholdingDueDate,
   ensureAccountingTaxTables,
@@ -220,9 +221,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (selectedYear && selectedYear !== year) return json({ ok: false, message: `현재 선택한 ${selectedYear} 회계연도 안의 거래일을 입력해 주세요.` }, 400);
       const source = sourceType === 'manual' ? null : await loadVatSource(db, sourceType, sourceId);
       if (sourceType !== 'manual' && !source) return json({ ok: false, message: '연결할 회계 원자료를 찾을 수 없거나 여러 회계조직·재원이 혼합된 전표입니다.' }, 400);
-      const totalAmount = parseMoney(payload.totalAmount);
+      let totalAmount = parseMoney(payload.totalAmount);
       let supplyAmount = parseMoney(payload.supplyAmount), vatAmount = parseMoney(payload.vatAmount);
-      if (payload.autoCalculate === true || (!supplyAmount && !vatAmount)) ({ supplyAmount, vatAmount } = calculateVatFromTotal(totalAmount, taxType));
+      if (payload.autoCalculate === true) ({ supplyAmount, vatAmount, totalAmount } = calculateVatFromSupply(supplyAmount, taxType));
+      else if (!supplyAmount && !vatAmount) ({ supplyAmount, vatAmount } = calculateVatFromTotal(totalAmount, taxType));
       if (totalAmount <= 0 || supplyAmount < 0 || vatAmount < 0 || totalAmount !== supplyAmount + vatAmount) return json({ ok: false, message: '합계금액은 공급가액과 부가가치세의 합계와 정확히 일치해야 합니다.' }, 400);
       if (taxType !== 'taxable' && vatAmount !== 0) return json({ ok: false, message: '영세율·면세·비과세 자료의 부가가치세는 0원이어야 합니다.' }, 400);
       const nonDeductibleReason = clean(payload.nonDeductibleReason, 500);

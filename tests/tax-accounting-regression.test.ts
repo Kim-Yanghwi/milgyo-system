@@ -19,7 +19,7 @@ import {
   postVatAdjustmentJournal,
 } from '../functions/_shared/accounting-tax-journal';
 import { assertAccountingAttachmentRetentionElapsed } from '../functions/_shared/accounting-attachment-ops';
-import { getTaxValidation } from '../functions/_shared/accounting-tax';
+import { calculateVatFromSupply, getTaxValidation } from '../functions/_shared/accounting-tax';
 
 const migrationFiles = () => fs.readdirSync('migrations/accounting')
   .filter((file) => /^00(0[4-9]|1[0-2]).*\.sql$/.test(file)).sort()
@@ -78,6 +78,19 @@ test('production verification SQL executes against the complete accounting schem
   assert.doesNotThrow(() => db.exec(verificationSql));
 });
 
+test('VAT automatic calculation uses supply amount as the 10 percent tax base', () => {
+  assert.deepEqual(calculateVatFromSupply(10_000_000, 'taxable'), {
+    supplyAmount: 10_000_000,
+    vatAmount: 1_000_000,
+    totalAmount: 11_000_000,
+  });
+  assert.deepEqual(calculateVatFromSupply(10_000_000, 'exempt'), {
+    supplyAmount: 10_000_000,
+    vatAmount: 0,
+    totalAmount: 10_000_000,
+  });
+});
+
 test('tax page boot does not collide with built-in HTML form properties', () => {
   const source = fs.readFileSync('src/pages/accounting-tax.astro', 'utf8');
   assert.match(source, /elements\.namedItem\(name\)/,
@@ -97,6 +110,12 @@ test('runtime tax validation avoids D1 compound selects and executes on the comp
   const headquarters = await getTaxValidation(asD1(database), 2026, 'ENTITY-HQ');
   assert.ok(Array.isArray(allEntities));
   assert.ok(Array.isArray(headquarters));
+  assert.equal(allEntities.some((item) => item.code === 'TAX_PROFILE_UNCONFIRMED'), false,
+    'an empty accounting year must not report a tax-profile error before there is activity');
+  assert.equal(headquarters.some((item) => item.code === 'TAX_PROFILE_UNCONFIRMED'), false,
+    'an empty scoped entity must not report a tax-profile error before there is activity');
+  assert.equal(headquarters.some((item) => item.code === 'PERIOD_NOT_CLOSED'), false,
+    'months without accounting activity must not produce a closing warning');
 });
 
 test('site-wide date inputs accept eight typed digits while retaining native calendars', () => {
@@ -108,13 +127,23 @@ test('site-wide date inputs accept eight typed digits while retaining native cal
   assert.match(helper, /clipboardData/);
 });
 
+test('tax date controls use the same numeric-entry shell and inline weekday box as accounting', () => {
+  const source = fs.readFileSync('src/pages/accounting-tax.astro', 'utf8');
+  assert.match(source, /className='date-input-shell'/);
+  assert.match(source, /className='date-display-value'/);
+  assert.match(source, /className='date-weekday'/);
+  assert.match(source, /grid-template-columns:minmax\(0,1fr\) auto/);
+  assert.match(source, /background:#eaf2fb/);
+});
+
+
 test('tax UI keeps navigation, profile notes, payee search, tables and package guidance consistent', () => {
   const source = fs.readFileSync('src/pages/accounting-tax.astro', 'utf8');
   assert.match(source, /class="check-stack span-2 profile-checks"/);
   assert.match(source, /확정본 변경 사유<\/label>|확정본 변경 사유<textarea/);
   assert.match(source, /payee-list-head/);
   assert.match(source, /세무사 전달용 자료 안내/);
-  assert.match(source, /th,td,td\.num\{border:1px solid #9eafc3!important;text-align:center!important/);
+  assert.match(source, /:global\(\.tax-app \.table-wrap th\).*text-align:center!important/);
   assert.match(source, /\.nav\{[^}]*font-family:inherit[^}]*font-size:\.9rem/);
 });
 
