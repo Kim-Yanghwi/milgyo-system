@@ -356,7 +356,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const date = clean(payload.paymentDate, 10), year = validTaxYear(date.slice(0, 4));
       const selectedYear = validTaxYear(payload.year);
       const payeeId = clean(payload.payeeId, 80), incomeType = enumValue(payload.incomeType,
-        ['earned', 'religious', 'business', 'other', 'retirement', 'nonresident', 'other_income']);
+        ['earned', 'religious', 'business', 'other', 'retirement', 'nonresident', 'other_income', 'reimbursement']);
       let religiousMethod = enumValue(payload.religiousIncomeMethod, ['not_applicable', 'religious_income', 'earned_income'], 'not_applicable');
       if (incomeType !== 'religious') religiousMethod = 'not_applicable';
       if (!validTaxDate(date) || !year || !payeeId || !incomeType || (incomeType === 'religious' && religiousMethod === 'not_applicable')) return json({ ok: false, message: '지급일·지급대상자·소득구분을 확인해 주세요.' }, 400);

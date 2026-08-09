@@ -149,17 +149,28 @@ test('withholding month fields are freely editable text and normalize six digits
   assert.match(source, /\^\\d\{6\}\$/);
 });
 
-test('withholding provides deterministic automatic tax suggestions and preserves direct manual editing', () => {
+test('withholding uses religious-order practical defaults while preserving direct manual editing', () => {
   const source = fs.readFileSync('src/pages/accounting-tax.astro', 'utf8');
+  const action = fs.readFileSync('functions/api/accounting-tax/action.ts', 'utf8');
+  assert.match(source, /name="autoNecessaryExpense"/);
   assert.match(source, /name="autoWithholdingTax"/);
-  assert.match(source, /incomeType\.value==='business'/);
-  assert.match(source, /Math\.floor\(base\*\.03\)/);
-  assert.match(source, /incomeType\.value==='other_income'/);
-  assert.match(source, /Math\.floor\(taxable\*\.20\)/);
+  assert.match(source, /value="reimbursement"/);
+  assert.match(action, /'reimbursement'/);
+  assert.match(source, /Math\.floor\(base\*\.60\)/,
+    'ordinary one-off advisory and lecture other income should default to the common 60 percent expense treatment');
+  assert.match(source, /Math\.floor\(taxable\*\.20\)/,
+    'with a 60 percent expense default, ordinary other income produces an 8 percent national withholding rate on gross payment');
+  assert.match(source, /Math\.floor\(base\*\.03\)/,
+    'continuous independent personal-service business income should default to 3 percent national withholding');
+  assert.match(source, /type==='nonresident'/);
+  assert.match(source, /Math\.floor\(base\*\.20\)/,
+    'nonresident personal service uses 20 percent as the practical no-treaty default while allowing manual override');
+  assert.match(source, /type==='reimbursement'/);
+  assert.match(source, /incomeTax:0,localTax:0/);
   assert.match(source, /f\.incomeTax\.readOnly=false;f\.localIncomeTax\.readOnly=false/,
     'auto suggestions must remain directly editable and manual typing turns automatic calculation off');
-  assert.match(source, /근로소득은 월 급여와 공제대상 가족수/);
-  assert.match(source, /비거주자소득은 국내원천소득 종류와 조세조약 적용 여부/);
+  assert.match(source, /정기 직책수당은 근로소득/);
+  assert.match(source, /실제 비용 보전임이 확인되는 금액만 실비변상·비과세/);
 });
 
 test('withholding payment-date label stays on one line', () => {
