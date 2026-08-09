@@ -118,24 +118,55 @@ test('runtime tax validation avoids D1 compound selects and executes on the comp
     'months without accounting activity must not produce a closing warning');
 });
 
-test('site-wide date inputs accept eight typed digits while retaining native calendars', () => {
+test('site-wide date inputs accept eight typed digits without breaking native segment editing', () => {
   const helper = fs.readFileSync('public/milgyo-date-input.js', 'utf8');
   const layout = fs.readFileSync('src/layouts/GovLayout.astro', 'utf8');
   assert.match(layout, /src="\/milgyo-date-input\.js"/);
   assert.match(helper, /input\.value = value/);
   assert.match(helper, /\^\\d\{8\}\$/);
   assert.match(helper, /clipboardData/);
+  assert.match(helper, /nativeDateEdit/,
+    'existing dates must stay in the browser native year/month/day editing mode for the full focus session');
+  assert.match(helper, /if \(input\.dataset\.nativeDateEdit === '1'\) return/);
 });
 
-test('tax date controls use the same numeric-entry shell and inline weekday box as accounting', () => {
+test('tax date controls keep inline weekday boxes and only mask native date text during an eight-digit draft', () => {
   const source = fs.readFileSync('src/pages/accounting-tax.astro', 'utf8');
-  assert.match(source, /className='date-input-shell'/);
-  assert.match(source, /className='date-display-value'/);
+  const helper = fs.readFileSync('public/milgyo-date-input.js', 'utf8');
   assert.match(source, /className='date-weekday'/);
   assert.match(source, /grid-template-columns:minmax\(0,1fr\) auto/);
   assert.match(source, /background:#eaf2fb/);
+  assert.match(source, /data-numeric-date-drafting="1"/);
+  assert.match(helper, /className = 'date-input-shell'/);
+  assert.match(helper, /className = 'date-display-value'/);
 });
 
+test('withholding month fields are freely editable text and normalize six digits on blur or submit', () => {
+  const source = fs.readFileSync('src/pages/accounting-tax.astro', 'utf8');
+  assert.match(source, /name="filingMonth" type="text"[^>]*data-month-input/);
+  assert.match(source, /data-withholding-month type="text"[^>]*data-month-input/);
+  assert.match(source, /const normalizeMonthValue=/);
+  assert.match(source, /\^\\d\{6\}\$/);
+});
+
+test('withholding provides deterministic automatic tax suggestions and preserves direct manual editing', () => {
+  const source = fs.readFileSync('src/pages/accounting-tax.astro', 'utf8');
+  assert.match(source, /name="autoWithholdingTax"/);
+  assert.match(source, /incomeType\.value==='business'/);
+  assert.match(source, /Math\.floor\(base\*\.03\)/);
+  assert.match(source, /incomeType\.value==='other_income'/);
+  assert.match(source, /Math\.floor\(taxable\*\.20\)/);
+  assert.match(source, /f\.incomeTax\.readOnly=false;f\.localIncomeTax\.readOnly=false/,
+    'auto suggestions must remain directly editable and manual typing turns automatic calculation off');
+  assert.match(source, /근로소득은 월 급여와 공제대상 가족수/);
+  assert.match(source, /비거주자소득은 국내원천소득 종류와 조세조약 적용 여부/);
+});
+
+test('withholding payment-date label stays on one line', () => {
+  const source = fs.readFileSync('src/pages/accounting-tax.astro', 'utf8');
+  assert.match(source, /tax-payment-date-label/);
+  assert.match(source, /tax-payment-date-label\{white-space:nowrap\}/);
+});
 
 test('tax UI keeps navigation, profile notes, payee search, tables and package guidance consistent', () => {
   const source = fs.readFileSync('src/pages/accounting-tax.astro', 'utf8');
