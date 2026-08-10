@@ -2,7 +2,7 @@
 import ManagementLayout from '../layouts/ManagementLayout.astro';
 ---
 <ManagementLayout title="수계증서 발급·대장" active="ordination">
-  <div data-ordination-certificate-version="2026-08-02-v63" hidden></div>
+  <div data-ordination-certificate-version="2026-08-10-v70" hidden></div>
   <div class="page-heading">
     <div>
       <p class="page-heading__kicker">ORDINATION CERTIFICATE</p>
@@ -48,8 +48,11 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         <div class="form-field"><label for="ordination-closing">맺음말</label><input id="ordination-closing" name="closingText" maxlength="30" required /></div>
         <div class="form-field form-field--wide ordination-seal-option">
           <span class="field-label">좌측 상단 사찰 도장</span>
-          <label class="seal-check"><input type="checkbox" name="includeTopSeal" checked /><span>향천사 도장 표시</span></label>
-          <small class="field-hint">체크 상태와 도장 종류를 발급 시점에 함께 저장하여 재출력할 때 동일하게 적용합니다.</small>
+          <div class="seal-choice-row" role="group" aria-label="좌측 상단 도장 선택">
+            <label class="seal-check"><input type="checkbox" data-top-seal-choice value="logo_sq" checked /><span>logo(sq) 도장 표시</span></label>
+            <label class="seal-check"><input type="checkbox" data-top-seal-choice value="hyangcheonsa" /><span>향천사 도장 표시</span></label>
+          </div>
+          <small class="field-hint">두 도장은 한 종류만 선택됩니다. 모두 해제하면 좌측 상단 도장을 표시하지 않으며, 선택 상태와 종류는 발급 시점에 저장되어 재출력에도 동일하게 적용됩니다.</small>
         </div>
         <div class="form-field form-field--wide"><label for="ordination-note">비고</label><input id="ordination-note" name="note" maxlength="1000" /></div>
       </div>
@@ -148,6 +151,10 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       const birthDateInput=form.elements.birthDate;
       const birthDatePicker=$('[data-birth-date-picker]');
       const birthDatePickerButton=$('[data-open-birth-date-picker]');
+      const topSealChoices=$$('[data-top-seal-choice]',form);
+      const selectedTopSealKey=()=>topSealChoices.find(input=>input.checked)?.value||'';
+      const setTopSealSelection=(key='logo_sq',include=true)=>{const normalized=['logo_sq','hyangcheonsa'].includes(String(key))?String(key):'logo_sq';topSealChoices.forEach(input=>{input.checked=Boolean(include)&&input.value===normalized;});};
+      topSealChoices.forEach(input=>input.addEventListener('change',()=>{if(input.checked)topSealChoices.forEach(other=>{if(other!==input)other.checked=false;});}));
       const syncBirthDate=({normalize=false,validate=false}={})=>{
         const raw=String(birthDateInput.value||'');
         const normalized=normalizeDateInput(raw);
@@ -211,8 +218,8 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
           temple_name:String(data.get('templeName')||defaults.templeName),
           issuer_name:String(data.get('issuerName')||defaults.issuerName),
           closing_text:String(data.get('closingText')||defaults.closingText),
-          include_top_seal:data.get('includeTopSeal')==='on'?1:0,
-          top_seal_key:'hyangcheonsa',
+          include_top_seal:selectedTopSealKey()?1:0,
+          top_seal_key:selectedTopSealKey()||'logo_sq',
           note:String(data.get('note')||''),status:'발급',
         };
       };
@@ -223,7 +230,9 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         .ordination-certificate-paper{position:relative;width:794px;height:1123px;margin:0 auto;overflow:hidden;background:#fff;color:#000;font-synthesis:weight;-webkit-print-color-adjust:exact;print-color-adjust:exact}
         .ordination-certificate-background{position:absolute;z-index:0;inset:0;width:100%;height:100%;object-fit:cover}
         .ordination-art{position:absolute;z-index:1;pointer-events:none;object-fit:contain}
-        .ordination-top-seal{left:49px;top:38px;width:120px;height:121px}
+        .ordination-top-seal{top:38px;width:120px;height:121px}
+        .ordination-top-seal--logo_sq{left:49px;top:34px;width:124px;height:124px}
+        .ordination-top-seal--hyangcheonsa{left:58px}
         .ordination-bodhisattva{right:24px;top:18px;width:170px;height:170px}
         .ordination-org-seal{right:45px;top:918px;width:116px;height:114px;z-index:4}
         .ordination-text{position:absolute;z-index:3;white-space:nowrap;color:#000}
@@ -272,9 +281,10 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
           ? Number(record.include_top_seal)===1
           : snapshot.includeTopSeal!==undefined?Boolean(snapshot.includeTopSeal):true;
         const topSealKey=String(record.top_seal_key||snapshot.topSealKey||'hyangcheonsa');
-        const topSealSources={hyangcheonsa:'/certificates/ordination/top-seal.png'};
-        const topSealSource=topSealSources[topSealKey]||topSealSources.hyangcheonsa;
-        const topSealMarkup=includeTopSeal?`<img class="ordination-art ordination-top-seal" src="${topSealSource}" alt="" />`:'';
+        const topSealSources={logo_sq:'/certificates/logo-sq.png',hyangcheonsa:'/certificates/ordination/top-seal.png'};
+        const normalizedTopSealKey=topSealSources[topSealKey]?topSealKey:'hyangcheonsa';
+        const topSealSource=topSealSources[normalizedTopSealKey];
+        const topSealMarkup=includeTopSeal?`<img class="ordination-art ordination-top-seal ordination-top-seal--${normalizedTopSealKey}" src="${topSealSource}" alt="" />`:'';
         return `<div class="ordination-certificate-root"><article class="ordination-certificate-paper" aria-label="수계증서 N:${esc(displayCertificateNo(record.certificate_no))}">
           <img class="ordination-certificate-background" src="/certificates/ordination/background.jpg" alt="" />
           ${topSealMarkup}
@@ -364,7 +374,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         ['은사',record.teacher_name||'-','계사',record.preceptor_name||'-'],
         ['증명',record.witness_name||'-','발급자',record.issued_by_name||'-'],
         ['발행기관',record.organization_name||'-','사찰·발행자',`${record.temple_name||''} ${record.issuer_name||''} ${record.closing_text||''}`.trim()],
-        ['좌측 상단 도장',Number(record.include_top_seal??1)===1?'표시':'미표시','도장 종류',String(record.top_seal_key||'hyangcheonsa')==='hyangcheonsa'?'향천사':'기타 사찰'],
+        ['좌측 상단 도장',Number(record.include_top_seal??1)===1?'표시':'미표시','도장 종류',Number(record.include_top_seal??1)!==1?'-':String(record.top_seal_key||'hyangcheonsa')==='logo_sq'?'logo(sq)':String(record.top_seal_key||'hyangcheonsa')==='hyangcheonsa'?'향천사':'기타'],
       ];
       const detailHtml=record=>`<div class="ordination-detail-card"><table class="detail-grid-table"><tbody>${detailRows(record).map(row=>`<tr><th>${esc(row[0])}</th><td>${esc(row[1])}</td><th>${esc(row[2])}</th><td>${esc(row[3])}</td></tr>`).join('')}<tr><th>비고</th><td colspan="3" class="detail-long">${esc(record.note||'-')}</td></tr>${record.status==='취소'?`<tr><th>취소일시</th><td>${esc(record.canceled_at||'-')}</td><th>취소사유</th><td>${esc(record.cancel_reason||'-')}</td></tr>`:''}</tbody></table><div class="modal__actions"><button type="button" class="btn btn-outline" data-detail-print>출력</button><button type="button" class="btn btn-outline" data-close-detail>닫기</button></div></div>`;
       const closeDetail=()=>{$('[data-detail-modal]').hidden=true;$('[data-detail-container]').innerHTML='';};
@@ -383,7 +393,9 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       const loadOptions=async()=>{
         const data=await api('/api/ordination/query',{operation:'options'});
         if(!data.ok){setMessage('[data-issue-status]',data.message,'error');$$('[data-ordination-form] input,[data-ordination-form] select,[data-ordination-form] button').forEach(element=>element.disabled=true);return;}
-        Object.entries(data.defaults||{}).forEach(([name,value])=>{const field=form.elements[name];if(!field)return;if(field instanceof HTMLInputElement&&field.type==='checkbox')field.checked=Boolean(value);else if(!field.value)field.value=value;});
+        const optionDefaults=data.defaults||{};
+        Object.entries(optionDefaults).forEach(([name,value])=>{const field=form.elements[name];if(!field)return;if(field instanceof HTMLInputElement&&field.type==='checkbox')field.checked=Boolean(value);else if(!field.value)field.value=value;});
+        setTopSealSelection(String(optionDefaults.topSealKey||'logo_sq'),optionDefaults.includeTopSeal!==false);
         canManage=!!data.canManage;
         if(!data.canIssue){$('[data-issue-button]').hidden=true;$('[data-preview]').hidden=true;$$('[data-ordination-form] input,[data-ordination-form] select').forEach(element=>element.disabled=true);setMessage('[data-issue-status]','수계증서는 관리자 계정에서 발급할 수 있습니다.','');}
         loadLedger();
@@ -401,11 +413,12 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         setMessage('[data-issue-status]','수계증서를 발급하고 있습니다...');
         try{
           const data=new FormData(form);
+          const topSealKey=selectedTopSealKey();
           const response=await api('/api/ordination/action',{
             operation:'issue',requestId:issueRequestId,recipientName:data.get('recipientName'),birthCalendar:data.get('birthCalendar'),birthDate:data.get('birthDate'),
             dharmaNameHanja:data.get('dharmaNameHanja'),dharmaNameKorean:data.get('dharmaNameKorean'),ordinationDate:data.get('ordinationDate'),
             teacherName:data.get('teacherName'),preceptorName:data.get('preceptorName'),witnessName:data.get('witnessName'),organizationName:data.get('organizationName'),
-            templeName:data.get('templeName'),issuerName:data.get('issuerName'),closingText:data.get('closingText'),includeTopSeal:data.get('includeTopSeal')==='on',note:data.get('note'),
+            templeName:data.get('templeName'),issuerName:data.get('issuerName'),closingText:data.get('closingText'),includeTopSeal:Boolean(topSealKey),topSealKey:topSealKey||'logo_sq',note:data.get('note'),
           });
           if(!response.ok){pendingWindow?.close();setMessage('[data-issue-status]',response.message,'error');return;}
           issueRequestId=null;
@@ -456,8 +469,8 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
   </script>
 
   <style is:global>
-    .ordination-issue-panel{margin-bottom:1rem}.section-title{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;margin-bottom:1rem}.section-title h2{margin:0;font-size:1.12rem}.section-title p{margin:.2rem 0 0;color:var(--gov-muted);font-size:.8rem}.privacy-note{font-size:.76rem;color:#6e520a;background:#fff8e6;border:1px solid #ead49a;padding:.4rem .55rem;border-radius:5px;white-space:nowrap}.ordination-form-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.ordination-form-grid .form-field--wide{grid-column:span 2}.birth-date-control{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 42px;gap:.4rem;align-items:stretch}.birth-date-control>input[type="text"]{width:100%}.birth-date-picker-shell{display:flex;align-items:center;justify-content:center;min-width:42px;min-height:38px;margin:0;padding:0;border:1px solid var(--gov-border);border-radius:5px;background:#fff;color:#304b70;cursor:pointer}.birth-date-picker-shell:hover{background:#f4f7fb}.birth-date-picker-shell:focus-visible{outline:2px solid rgba(38,88,160,.35);outline-offset:1px}.birth-date-picker-shell svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}.birth-date-native-picker{position:absolute!important;right:0;bottom:0;width:1px!important;height:1px!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;opacity:.01;pointer-events:none}.field-hint{display:block;color:var(--gov-muted);font-size:.72rem;line-height:1.35}.ordination-seal-option{justify-content:flex-start}.seal-check{display:flex;align-items:center;gap:.55rem;min-height:38px;padding:.45rem .65rem;border:1px solid var(--gov-border);border-radius:5px;background:#f8fafc;font-size:.84rem;font-weight:700;cursor:pointer}.seal-check input[type="checkbox"]{width:17px;height:17px;min-height:0;margin:0;accent-color:var(--gov-accent)}.form-actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--gov-border)}.font-readiness{margin-top:.75rem;padding:.55rem .7rem;border-radius:4px;font-size:.78rem}.font-readiness.ok{background:#eef8f1;border:1px solid #bcd9c3;color:#276238}.font-readiness.warning,.preview-font-warning{background:#fff7e6;border:1px solid #e9cc8d;color:#785514}.preview-font-warning{margin-bottom:.7rem;padding:.6rem .75rem;border-radius:4px;font-size:.8rem}.ledger-section-title{align-items:flex-start}.ledger-filters{justify-content:flex-end;flex-wrap:wrap}.ledger-filters input[type="search"]{min-width:220px}.range-separator{display:inline-flex;align-items:center}.ordination-table{table-layout:fixed}.ordination-table th,.ordination-table td{text-align:center;vertical-align:middle}.ordination-table .col-number{width:12%}.ordination-table .col-date{width:10%}.ordination-table .col-name{width:9%}.ordination-table .col-dharma{width:17%}.ordination-table .col-birth{width:15%}.ordination-table .col-issuer{width:10%}.ordination-table .col-status{width:8%}.ordination-table .col-manage{width:19%}.dharma-hanja{font-family:"Batang","Noto Serif CJK KR",serif}.dharma-korean{display:inline-block;margin-left:.3rem}.row-actions{display:flex;justify-content:center;gap:.3rem;flex-wrap:wrap}.danger{color:#a12626;border-color:#dfb4b4}.ordination-preview-modal{width:min(1040px,calc(100vw - 2rem));max-height:calc(100vh - 2rem)}.ordination-preview-modal .modal__body{overflow:auto}.ordination-preview-modal [data-preview-container]{overflow:auto;background:#dfe4ea;padding:1rem}.ordination-preview-modal [data-preview-container] .ordination-certificate-paper{transform-origin:top center}.ordination-detail-modal{width:min(900px,calc(100vw - 2rem))}.ordination-detail-card{padding:.15rem}.detail-grid-table{width:100%;border-collapse:collapse;table-layout:fixed}.detail-grid-table th,.detail-grid-table td{border:1px solid var(--gov-border);padding:.75rem .7rem;text-align:center;vertical-align:middle;word-break:keep-all;overflow-wrap:anywhere}.detail-grid-table th{width:16%;background:#edf3fa;color:#263b55;font-weight:800}.detail-grid-table td{width:34%;background:#fff}.detail-grid-table .detail-long{text-align:left;white-space:pre-wrap}.modal__actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--gov-border)}
+    .ordination-issue-panel{margin-bottom:1rem}.section-title{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;margin-bottom:1rem}.section-title h2{margin:0;font-size:1.12rem}.section-title p{margin:.2rem 0 0;color:var(--gov-muted);font-size:.8rem}.privacy-note{font-size:.76rem;color:#6e520a;background:#fff8e6;border:1px solid #ead49a;padding:.4rem .55rem;border-radius:5px;white-space:nowrap}.ordination-form-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.ordination-form-grid .form-field--wide{grid-column:span 2}.birth-date-control{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 42px;gap:.4rem;align-items:stretch}.birth-date-control>input[type="text"]{width:100%}.birth-date-picker-shell{display:flex;align-items:center;justify-content:center;min-width:42px;min-height:38px;margin:0;padding:0;border:1px solid var(--gov-border);border-radius:5px;background:#fff;color:#304b70;cursor:pointer}.birth-date-picker-shell:hover{background:#f4f7fb}.birth-date-picker-shell:focus-visible{outline:2px solid rgba(38,88,160,.35);outline-offset:1px}.birth-date-picker-shell svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}.birth-date-native-picker{position:absolute!important;right:0;bottom:0;width:1px!important;height:1px!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;opacity:.01;pointer-events:none}.field-hint{display:block;color:var(--gov-muted);font-size:.72rem;line-height:1.35}.ordination-seal-option{justify-content:flex-start}.seal-choice-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem}.seal-check{display:flex;align-items:center;gap:.55rem;min-height:38px;padding:.45rem .65rem;border:1px solid var(--gov-border);border-radius:5px;background:#f8fafc;font-size:.84rem;font-weight:700;cursor:pointer}.seal-check input[type="checkbox"]{width:17px;height:17px;min-height:0;margin:0;accent-color:var(--gov-accent)}.form-actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--gov-border)}.font-readiness{margin-top:.75rem;padding:.55rem .7rem;border-radius:4px;font-size:.78rem}.font-readiness.ok{background:#eef8f1;border:1px solid #bcd9c3;color:#276238}.font-readiness.warning,.preview-font-warning{background:#fff7e6;border:1px solid #e9cc8d;color:#785514}.preview-font-warning{margin-bottom:.7rem;padding:.6rem .75rem;border-radius:4px;font-size:.8rem}.ledger-section-title{align-items:flex-start}.ledger-filters{justify-content:flex-end;flex-wrap:wrap}.ledger-filters input[type="search"]{min-width:220px}.range-separator{display:inline-flex;align-items:center}.ordination-table{table-layout:fixed}.ordination-table th,.ordination-table td{text-align:center;vertical-align:middle}.ordination-table .col-number{width:12%}.ordination-table .col-date{width:10%}.ordination-table .col-name{width:9%}.ordination-table .col-dharma{width:17%}.ordination-table .col-birth{width:15%}.ordination-table .col-issuer{width:10%}.ordination-table .col-status{width:8%}.ordination-table .col-manage{width:19%}.dharma-hanja{font-family:"Batang","Noto Serif CJK KR",serif}.dharma-korean{display:inline-block;margin-left:.3rem}.row-actions{display:flex;justify-content:center;gap:.3rem;flex-wrap:wrap}.danger{color:#a12626;border-color:#dfb4b4}.ordination-preview-modal{width:min(1040px,calc(100vw - 2rem));max-height:calc(100vh - 2rem)}.ordination-preview-modal .modal__body{overflow:auto}.ordination-preview-modal [data-preview-container]{overflow:auto;background:#dfe4ea;padding:1rem}.ordination-preview-modal [data-preview-container] .ordination-certificate-paper{transform-origin:top center}.ordination-detail-modal{width:min(900px,calc(100vw - 2rem))}.ordination-detail-card{padding:.15rem}.detail-grid-table{width:100%;border-collapse:collapse;table-layout:fixed}.detail-grid-table th,.detail-grid-table td{border:1px solid var(--gov-border);padding:.75rem .7rem;text-align:center;vertical-align:middle;word-break:keep-all;overflow-wrap:anywhere}.detail-grid-table th{width:16%;background:#edf3fa;color:#263b55;font-weight:800}.detail-grid-table td{width:34%;background:#fff}.detail-grid-table .detail-long{text-align:left;white-space:pre-wrap}.modal__actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--gov-border)}
     @media(max-width:1200px){.ordination-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ordination-form-grid .form-field--wide{grid-column:span 2}.ledger-section-title{flex-direction:column}.ledger-filters{justify-content:flex-start;width:100%}}
-    @media(max-width:760px){.ordination-form-grid{grid-template-columns:1fr}.ordination-form-grid .form-field--wide{grid-column:auto}.section-title{align-items:flex-start;flex-direction:column}.privacy-note{white-space:normal}.ledger-filters>*{max-width:100%}.ledger-filters input[type="search"]{min-width:0;width:100%}.ordination-preview-modal [data-preview-container]{padding:.5rem}.ordination-preview-modal [data-preview-container] .ordination-certificate-root{transform:scale(.68);transform-origin:top left;margin-bottom:-359px}.detail-grid-table th,.detail-grid-table td{padding:.55rem .4rem;font-size:.8rem}}
+    @media(max-width:760px){.seal-choice-row{grid-template-columns:1fr}.ordination-form-grid{grid-template-columns:1fr}.ordination-form-grid .form-field--wide{grid-column:auto}.section-title{align-items:flex-start;flex-direction:column}.privacy-note{white-space:normal}.ledger-filters>*{max-width:100%}.ledger-filters input[type="search"]{min-width:0;width:100%}.ordination-preview-modal [data-preview-container]{padding:.5rem}.ordination-preview-modal [data-preview-container] .ordination-certificate-root{transform:scale(.68);transform-origin:top left;margin-bottom:-359px}.detail-grid-table th,.detail-grid-table td{padding:.55rem .4rem;font-size:.8rem}}
   </style>
 </ManagementLayout>

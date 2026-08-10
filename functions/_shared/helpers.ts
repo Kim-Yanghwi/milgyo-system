@@ -932,6 +932,7 @@ const runSchemaMigration = async (db: D1Database) => {
       issue_date TEXT NOT NULL, issuer_user_id TEXT NOT NULL, issuer_name TEXT NOT NULL,
       signatory_title TEXT NOT NULL DEFAULT '이사장', signatory_user_id TEXT,
       signatory_name TEXT NOT NULL DEFAULT '김양휘',
+      include_logo_sq_seal INTEGER NOT NULL DEFAULT 0,
       manager_name TEXT, contact TEXT, status TEXT NOT NULL DEFAULT '발급', canceled_at TEXT,
       canceled_by_user_id TEXT, canceled_by_name TEXT, cancel_reason TEXT,
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
@@ -981,6 +982,7 @@ const runSchemaMigration = async (db: D1Database) => {
     ['employment_certificates', `signatory_title TEXT NOT NULL DEFAULT '이사장'`],
     ['employment_certificates', 'signatory_user_id TEXT'],
     ['employment_certificates', `signatory_name TEXT NOT NULL DEFAULT '김양휘'`],
+    ['employment_certificates', 'include_logo_sq_seal INTEGER NOT NULL DEFAULT 0'],
     ['ordination_certificates', 'request_id TEXT'],
     ['ordination_certificates', 'include_top_seal INTEGER NOT NULL DEFAULT 1'],
     ['ordination_certificates', `top_seal_key TEXT NOT NULL DEFAULT 'hyangcheonsa'`],

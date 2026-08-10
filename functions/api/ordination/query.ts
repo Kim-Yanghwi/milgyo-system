@@ -22,7 +22,7 @@ const DEFAULTS = {
   issuerName: '睡翁 眞妙',
   closingText: '合掌',
   includeTopSeal: true,
-  topSealKey: 'hyangcheonsa',
+  topSealKey: 'logo_sq',
 };
 
 const maskBirthDate = (value: unknown) => {

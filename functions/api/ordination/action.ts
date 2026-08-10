@@ -20,13 +20,15 @@ type Payload = {
   issuerName?: string;
   closingText?: string;
   includeTopSeal?: boolean | number | string;
+  topSealKey?: string;
   note?: string;
   id?: string;
   reason?: string;
 };
 
-const TEMPLATE_VERSION = 'ordination-v2';
-const TOP_SEAL_KEY = 'hyangcheonsa';
+const TEMPLATE_VERSION = 'ordination-v3';
+const DEFAULT_TOP_SEAL_KEY = 'logo_sq';
+const TOP_SEAL_KEYS = new Set(['logo_sq', 'hyangcheonsa']);
 const BIRTH_CALENDARS = ['음력', '양력'] as const;
 const DEFAULTS = {
   teacherName: '睡翁 眞妙',
@@ -110,7 +112,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       ? true
       : payload.includeTopSeal === true || payload.includeTopSeal === 1
         || payload.includeTopSeal === '1' || payload.includeTopSeal === 'true' || payload.includeTopSeal === 'on';
-    const topSealKey = TOP_SEAL_KEY;
+    const requestedTopSealKey = clean(payload.topSealKey, 30);
+    const topSealKey = TOP_SEAL_KEYS.has(requestedTopSealKey) ? requestedTopSealKey : DEFAULT_TOP_SEAL_KEY;
     const note = clean(payload.note, 1000);
     const buddhistYear = Number(ordinationDate.slice(0, 4)) + 544;
     const { certificateNo, issueYear, sequence } = await makeOrdinationCertificateNumber(env.DB, ordinationDate);
