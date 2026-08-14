@@ -35,7 +35,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         <p class="login-card__error" data-bootstrap-error hidden></p>
         <p class="login-card__error login-card__error--ok" data-bootstrap-ok hidden></p>
       </form>
-      <p class="login-card__help">권한이 필요한 경우 사무국으로 문의하시기 바랍니다.</p>
+      <p class="login-card__help">권한이 필요한 경우 사무처로 문의하시기 바랍니다.</p>
     </div>
   </div>
 
@@ -453,7 +453,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           <label for="u-password" data-user-password-label>비밀번호(8자 이상)</label>
           <input id="u-password" name="password" type="password" minlength="8" />
           <label for="u-position">직책</label>
-          <input id="u-position" name="position" type="text" maxlength="40" placeholder="예: 사무국장" />
+          <input id="u-position" name="position" type="text" maxlength="40" placeholder="예: OO국장" />
           <label for="u-grade">직급(선택)</label>
           <input id="u-grade" name="grade" type="text" maxlength="20" placeholder="예: 3급" />
           <label for="u-department">담당부서(선택) · 조직도에 표시됩니다</label>
@@ -731,27 +731,58 @@ import GovLayout from '../layouts/GovLayout.astro';
 
       const departmentTree = [
         { name: '이사장' }, { name: '이사회' }, { name: '감사' }, { name: '종정' },
-        { name: '사무국', children: ['재정·회계', '준법·윤리', '대외협력·사회공헌', '문화·홍보'] },
+        { name: '사무처', children: ['재정국', '준법윤리국', '국제교류국', '문화홍보국', '사회공헌국'] },
         { name: '총무원' }, { name: '교육·포교원' },
         { name: '소속기관·교구', children: ['람림불교교육원', '서울·인천·경기교구', '강원교구', '대전·세종·충남교구', '충북교구', '전남광주·전북교구', '대구·경북교구', '부산·울산·경남교구', '제주교구'] },
         { name: '위원회·신도단체', children: ['신도회', '사찰운영위원회'] },
       ];
-      const renderDepartmentOptions = () => '<option value="">담당부서 선택(선택)</option>' + departmentTree.map((dep) => {
-        if (!dep.children) return `<option value="${esc(dep.name)}">${esc(dep.name)}</option>`;
-        return `<optgroup label="${esc(dep.name)}"><option value="${esc(dep.name)}">${esc(dep.name)}(전체)</option>${dep.children.map((child) => `<option value="${esc(dep.name)} - ${esc(child)}">　ㄴ ${esc(child)}</option>`).join('')}</optgroup>`;
-      }).join('');
-      const renderDepartmentFilterOptions = () => '<option value="">전체 부서</option>' + departmentTree.map((dep) => {
-        if (!dep.children) return `<option value="${esc(dep.name)}">${esc(dep.name)}</option>`;
-        return `<optgroup label="${esc(dep.name)}"><option value="${esc(dep.name)}">${esc(dep.name)} 전체</option>${dep.children.map((child) => `<option value="${esc(dep.name)} - ${esc(child)}">　ㄴ ${esc(child)}</option>`).join('')}</optgroup>`;
-      }).join('');
-      const resolveDepartmentPath = (value) => {
-        const text = String(value || '').trim();
+      const officeDepartments = new Set(['재정국','준법윤리국','국제교류국','문화홍보국','사회공헌국']);
+      const legacyOfficeDepartment = (name, position='') => {
+        if (name === '재정·회계') return '재정국';
+        if (name === '준법·윤리') return '준법윤리국';
+        if (name === '대외협력·사회공헌') return /사회공헌/.test(position) ? '사회공헌국' : '국제교류국';
+        if (name === '문화·홍보') return '문화홍보국';
+        return name;
+      };
+      const normalizeDepartmentValue = (value, position='') => {
+        let text = String(value || '').trim();
+        if (!text) return '';
+        text = text.replace(/\s*[–—]\s*/g, ' - ');
+        const parenthesized = /^(.+?)\s*\(([^()]+)\)\s*$/.exec(text);
+        if (parenthesized) text = `${parenthesized[1].trim()} - ${parenthesized[2].trim()}`;
+        const parts = text.split(/\s+-\s+/).map((part) => part.trim()).filter(Boolean);
+        let primary = parts[0] || '';
+        let secondary = parts.slice(1).join(' - ');
+        if (primary === '사무국') primary = '사무처';
+        if (secondary) secondary = legacyOfficeDepartment(secondary, position);
+        if (!secondary) {
+          const mapped = legacyOfficeDepartment(primary, position);
+          if (mapped !== primary || officeDepartments.has(mapped)) { primary = '사무처'; secondary = mapped; }
+        }
+        return secondary ? `${primary} - ${secondary}` : primary;
+      };
+      const resolveDepartmentPath = (value, position='') => {
+        const text = normalizeDepartmentValue(value, position);
         if (!text) return { primary: '-', secondary: '' };
         const parts = text.split(/\s+-\s+/).map((part) => part.trim()).filter(Boolean);
         if (parts.length > 1) return { primary: parts[0], secondary: parts.slice(1).join(' - ') };
         const parent = departmentTree.find((dep) => Array.isArray(dep.children) && dep.children.includes(text));
         return parent ? { primary: parent.name, secondary: text } : { primary: text, secondary: '' };
       };
+      const formatDepartmentLabel = (value, position='') => {
+        const path = resolveDepartmentPath(value, position);
+        if (path.primary === '-') return '-';
+        return path.secondary ? `${path.primary}(${path.secondary})` : path.primary;
+      };
+      const departmentParentLabel = (dep) => dep.name === '사무처' ? dep.name : `${dep.name}(전체)`;
+      const renderDepartmentOptions = () => '<option value="">담당부서 선택(선택)</option>' + departmentTree.map((dep) => {
+        if (!dep.children) return `<option value="${esc(dep.name)}">${esc(dep.name)}</option>`;
+        return `<optgroup label="${esc(dep.name)}"><option value="${esc(dep.name)}">${esc(departmentParentLabel(dep))}</option>${dep.children.map((child) => `<option value="${esc(dep.name)} - ${esc(child)}">　${esc(child)}</option>`).join('')}</optgroup>`;
+      }).join('');
+      const renderDepartmentFilterOptions = () => '<option value="">전체 부서</option>' + departmentTree.map((dep) => {
+        if (!dep.children) return `<option value="${esc(dep.name)}">${esc(dep.name)}</option>`;
+        return `<optgroup label="${esc(dep.name)}"><option value="${esc(dep.name)}">${esc(dep.name === '사무처' ? dep.name : `${dep.name} 전체`)}</option>${dep.children.map((child) => `<option value="${esc(dep.name)} - ${esc(child)}">　${esc(child)}</option>`).join('')}</optgroup>`;
+      }).join('');
 
       const loginScreen = $('[data-login-screen]');
       const appShell = $('[data-app-shell]');
@@ -793,7 +824,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           meLabel.textContent = `${me.name}${me.position ? ' · ' + me.position : ''}`;
           meName.textContent = me.name || '-';
           mePosition.textContent = me.position || '-';
-          const departmentPath = resolveDepartmentPath(me.department);
+          const departmentPath = resolveDepartmentPath(me.department, me.position || '');
           meDepartmentPrimary.textContent = departmentPath.primary;
           meDepartmentSecondary.textContent = departmentPath.secondary || '-';
           meDepartmentSecondaryRow.hidden = !departmentPath.secondary;
@@ -834,11 +865,11 @@ import GovLayout from '../layouts/GovLayout.astro';
       let selectedReviewerIds = [];
       let selectedCooperatorIds = [];
 
-      const userOptionLabel = (u) => `${u.name}${u.position ? ' · ' + u.position : ''}${u.department ? ' · ' + u.department : ''}`;
+      const userOptionLabel = (u) => `${u.name}${u.position ? ' · ' + u.position : ''}${u.department ? ' · ' + formatDepartmentLabel(u.department, u.position || '') : ''}`;
       const refreshUserOptions = async () => {
         const data = await callApi('/api/users/list', { token: getToken() });
         if (!data.ok) return;
-        allUsers = data.rows || [];
+        allUsers = (data.rows || []).map((u) => ({ ...u, department: normalizeDepartmentValue(u.department, u.position || '') }));
         const reviewer = $('[data-reviewer-select]');
         const cooperator = $('[data-cooperator-select]');
         const approver = $('[data-approver-select]');
@@ -934,7 +965,7 @@ import GovLayout from '../layouts/GovLayout.astro';
             <td class="center">${esc(row.doc_type)}</td>
             <td class="center">${esc(formatDate(row.created_at))}</td>
             <td class="doc-table__title">${esc(row.title)}</td>
-            <td class="center">${esc(row.department || '-')}</td>
+            <td class="center">${esc(formatDepartmentLabel(row.department))}</td>
             <td class="center">${esc(row.drafter || '-')}</td>
             <td class="center">${esc(row.reviewer_names || row.reviewer_name || '-')}</td>
             <td class="center">${esc(row.cooperator_names || '-')}</td>
@@ -997,7 +1028,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         if (data.permissions && typeof data.permissions.accounting === 'boolean') setAccountingAccessLinks(data.permissions.accounting);
         const r2Warning = $('[data-r2-warning]'); if (r2Warning) r2Warning.hidden = !!data.storage?.r2Connected;
         const recentDocs = $('[data-home-recent-docs]');
-        recentDocs.innerHTML = (data.recentDocuments || []).map((row) => `<button type="button" class="home-list-row" data-home-doc="${esc(row.id)}"><span class="home-list-row__main"><strong>${esc(row.title)}</strong><small>${esc(row.id)} · ${esc(row.drafter || '-')} · ${esc(row.department || '-')}</small></span><span class="badge badge--${esc(row.status)}">${esc(row.status)}</span></button>`).join('') || '<p class="muted">최근 문서가 없습니다.</p>';
+        recentDocs.innerHTML = (data.recentDocuments || []).map((row) => `<button type="button" class="home-list-row" data-home-doc="${esc(row.id)}"><span class="home-list-row__main"><strong>${esc(row.title)}</strong><small>${esc(row.id)} · ${esc(row.drafter || '-')} · ${esc(formatDepartmentLabel(row.department))}</small></span><span class="badge badge--${esc(row.status)}">${esc(row.status)}</span></button>`).join('') || '<p class="muted">최근 문서가 없습니다.</p>';
         $$('[data-home-doc]', recentDocs).forEach((button) => button.addEventListener('click', () => openDetail(button.dataset.homeDoc)));
         const recentRegistry = $('[data-home-recent-received]');
         recentRegistry.innerHTML = (data.recentRegistry || []).map((row) => `<button type="button" class="home-list-row" data-home-received-id="${esc(row.id)}"><span class="home-list-row__main"><strong>${esc(row.title)}</strong><small>${esc(row.id)} · ${esc(row.counterparty || '-')} · ${esc(row.received_at || '-')}</small></span><span class="registry-direction">${esc(row.direction)}</span></button>`).join('') || '<p class="muted">최근 등록 문서가 없습니다.</p>';
@@ -1062,7 +1093,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           if(!data.ok){statusEl.textContent=data.message||'CSV 생성에 실패했습니다.';return;}
           rows.push(...(data.rows||[]));pages=data.pages||1;page+=1;
         } while(page<=pages && rows.length<5000);
-        downloadCsv(`문서목록_${new Date().toISOString().slice(0,10)}.csv`,['문서번호','구분','등록일','제목','담당부서','기안자','검토자','협조자','결재·전결자','상태'],rows.map((r)=>[r.id,r.doc_type,formatDate(r.created_at),r.title,r.department,r.drafter,r.reviewer_names||r.reviewer_name,r.cooperator_names,r.approver_name,r.status]));
+        downloadCsv(`문서목록_${new Date().toISOString().slice(0,10)}.csv`,['문서번호','구분','등록일','제목','담당부서','기안자','검토자','협조자','결재·전결자','상태'],rows.map((r)=>[r.id,r.doc_type,formatDate(r.created_at),r.title,formatDepartmentLabel(r.department),r.drafter,r.reviewer_names||r.reviewer_name,r.cooperator_names,r.approver_name,r.status]));
         statusEl.textContent=`총 ${formatNumber(rows.length)}건을 CSV로 저장했습니다.`;
       });
 
@@ -1093,7 +1124,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         }
         container.innerHTML = people.map((user, index) => `<div class="approval-picker__item">
           <span class="approval-picker__order">${index + 1}</span>
-          <span class="approval-picker__person"><strong>${esc(user.name)}</strong><small>${esc([user.position,user.department].filter(Boolean).join(' · ') || '직책·부서 미지정')}</small></span>
+          <span class="approval-picker__person"><strong>${esc(user.name)}</strong><small>${esc([user.position,user.department ? formatDepartmentLabel(user.department,user.position||'') : ''].filter(Boolean).join(' · ') || '직책·부서 미지정')}</small></span>
           <span class="approval-picker__actions">
             <button type="button" class="icon-button" data-picker-move="up" data-picker-role="${role}" data-picker-index="${index}" aria-label="위로 이동" ${index === 0 ? 'disabled' : ''}>↑</button>
             <button type="button" class="icon-button" data-picker-move="down" data-picker-role="${role}" data-picker-index="${index}" aria-label="아래로 이동" ${index === people.length - 1 ? 'disabled' : ''}>↓</button>
@@ -1494,7 +1525,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         composeForm.elements.docType.value=doc.doc_type;categorySelect.value=doc.category;
         composeForm.elements.title.value=asCopy?`[재기안] ${doc.title}`:(doc.title==='(제목 미입력)'?'':doc.title);
         composeForm.elements.summary.value=doc.summary||'';composeForm.elements.body.value=doc.body||'';composeForm.elements.attachmentsNote.value=doc.attachments_note||'';
-        composeForm.elements.department.value=doc.department||'';composeForm.elements.recipient.value=doc.recipient||'';composeForm.elements.via.value=doc.via||'';
+        composeForm.elements.department.value=normalizeDepartmentValue(doc.department);composeForm.elements.recipient.value=doc.recipient||'';composeForm.elements.via.value=doc.via||'';
         selectedReviewerIds=sourceLines.filter((line)=>line.line_type==='검토').map((line)=>line.user_id).filter(Boolean);
         selectedCooperatorIds=sourceLines.filter((line)=>line.line_type==='협조').map((line)=>line.user_id).filter(Boolean);
         const finalLine=sourceLines.find((line)=>['결재','전결'].includes(line.line_type));
@@ -1535,7 +1566,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       const receivedTable=$('[data-received-table]'),receivedStatus=$('[data-received-status]');
       const renderReceivedRows=(rows)=>{
         currentReceivedRows=rows;
-        receivedTable.innerHTML=`<table class="doc-table__frame doc-table__frame--registry"><colgroup><col class="col-number" /><col class="col-type" /><col class="col-date" /><col class="col-title" /><col class="col-counterparty" /><col class="col-route" /><col class="col-external" /><col class="col-department" /><col class="col-person" /></colgroup><thead><tr><th>등록번호</th><th>구분</th><th>일자</th><th>제목</th><th>상대기관</th><th>경로</th><th>상대문서번호</th><th>담당부서</th><th>등록자</th></tr></thead><tbody>${rows.map((r)=>`<tr data-received-id="${esc(r.id)}"><td class="mono">${esc(r.id)}</td><td>${esc(r.direction)}</td><td>${esc(r.received_at)}</td><td class="doc-table__title">${esc(r.title)}</td><td>${esc(r.counterparty)}</td><td>${esc(r.source_system||'-')}</td><td>${esc(r.external_doc_number||'-')}</td><td>${esc(r.department||'-')}</td><td>${esc(r.handled_by)}</td></tr>`).join('')||'<tr class="doc-table__empty-row"><td colspan="9" class="empty"><strong>등록된 접수·발송 기록이 없습니다.</strong><span>문서24·이메일·우편 등으로 들어오거나 나간 문서를 수동 등록할 수 있습니다.</span></td></tr>'}</tbody></table>`;
+        receivedTable.innerHTML=`<table class="doc-table__frame doc-table__frame--registry"><colgroup><col class="col-number" /><col class="col-type" /><col class="col-date" /><col class="col-title" /><col class="col-counterparty" /><col class="col-route" /><col class="col-external" /><col class="col-department" /><col class="col-person" /></colgroup><thead><tr><th>등록번호</th><th>구분</th><th>일자</th><th>제목</th><th>상대기관</th><th>경로</th><th>상대문서번호</th><th>담당부서</th><th>등록자</th></tr></thead><tbody>${rows.map((r)=>`<tr data-received-id="${esc(r.id)}"><td class="mono">${esc(r.id)}</td><td>${esc(r.direction)}</td><td>${esc(r.received_at)}</td><td class="doc-table__title">${esc(r.title)}</td><td>${esc(r.counterparty)}</td><td>${esc(r.source_system||'-')}</td><td>${esc(r.external_doc_number||'-')}</td><td>${esc(formatDepartmentLabel(r.department))}</td><td>${esc(r.handled_by)}</td></tr>`).join('')||'<tr class="doc-table__empty-row"><td colspan="9" class="empty"><strong>등록된 접수·발송 기록이 없습니다.</strong><span>문서24·이메일·우편 등으로 들어오거나 나간 문서를 수동 등록할 수 있습니다.</span></td></tr>'}</tbody></table>`;
         $$('[data-received-id]',receivedTable).forEach((tr)=>tr.addEventListener('click',()=>openReceivedDetail(tr.dataset.receivedId)));
       };
       const refreshReceived=async()=>{receivedStatus.textContent='조회 중입니다...';const data=await callApi('/api/received/list',{token:getToken(),direction:$('[data-received-filter]').value,query:$('[data-received-query]').value.trim(),dateFrom:$('[data-received-date-from]').value,dateTo:$('[data-received-date-to]').value,sort:$('[data-received-sort]').value,page:receivedPage,pageSize:Number($('[data-received-page-size]').value)});if(!data.ok){receivedStatus.textContent=data.message;return;}receivedStatus.textContent=`총 ${formatNumber(data.total)}건 · ${data.page}/${data.pages}쪽`;renderReceivedRows(data.rows||[]);renderPagination($('[data-received-pagination]'),data.page,data.pages,(page)=>{receivedPage=page;refreshReceived();});};
@@ -1544,7 +1575,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         receivedStatus.textContent='전체 검색결과를 CSV로 준비 중입니다...';
         const rows=[];let page=1,pages=1;
         do { const data=await callApi('/api/received/list',{token:getToken(),direction:$('[data-received-filter]').value,query:$('[data-received-query]').value.trim(),dateFrom:$('[data-received-date-from]').value,dateTo:$('[data-received-date-to]').value,sort:$('[data-received-sort]').value,page,pageSize:100});if(!data.ok){receivedStatus.textContent=data.message||'CSV 생성에 실패했습니다.';return;}rows.push(...(data.rows||[]));pages=data.pages||1;page+=1;} while(page<=pages&&rows.length<5000);
-        downloadCsv(`접수발송대장_${new Date().toISOString().slice(0,10)}.csv`,['등록번호','구분','일자','제목','상대기관','경로','상대문서번호','담당부서','등록자'],rows.map((r)=>[r.id,r.direction,r.received_at,r.title,r.counterparty,r.source_system,r.external_doc_number,r.department,r.handled_by]));receivedStatus.textContent=`총 ${formatNumber(rows.length)}건을 CSV로 저장했습니다.`;
+        downloadCsv(`접수발송대장_${new Date().toISOString().slice(0,10)}.csv`,['등록번호','구분','일자','제목','상대기관','경로','상대문서번호','담당부서','등록자'],rows.map((r)=>[r.id,r.direction,r.received_at,r.title,r.counterparty,r.source_system,r.external_doc_number,formatDepartmentLabel(r.department),r.handled_by]));receivedStatus.textContent=`총 ${formatNumber(rows.length)}건을 CSV로 저장했습니다.`;
       });
       const receivedModal=$('[data-received-modal]'),receivedForm=$('[data-received-form]');let pendingReceivedFiles=[];
       const relatedManualRow=$('[data-related-manual-row]');
@@ -1585,7 +1616,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         receivedForm.elements.counterparty.value=doc.recipient||'';
         receivedForm.elements.sourceSystem.value='문서24';
         receivedForm.elements.receivedAt.value=todayKst();
-        receivedForm.elements.department.value=doc.department||'';
+        receivedForm.elements.department.value=normalizeDepartmentValue(doc.department);
         receivedForm.elements.memo.value=doc.summary?`내부문서 ${doc.id} 연계 외부발송\n${doc.summary}`:`내부문서 ${doc.id} 연계 외부발송`;
       };
       const syncReceivedDirection=async()=>{
@@ -1621,8 +1652,8 @@ import GovLayout from '../layouts/GovLayout.astro';
         }finally{submitButton.disabled=false;}
       });
       const receivedDetailModal=$('[data-received-detail-modal]');$$('[data-close-received-detail]').forEach((b)=>b.addEventListener('click',()=>receivedDetailModal.hidden=true));
-      const openReceivedDetail=async(id)=>{const data=await callApi('/api/received/detail',{token:getToken(),id});if(!data.ok){receivedStatus.textContent=data.message;return;}currentReceivedDetailId=id;currentReceivedDetailDoc=data.document;const d=data.document;const me=getMe()||{};const canManageReceived=me.role==='admin'||d.handled_by_user_id===me.id;$('[data-edit-received-detail]').hidden=!canManageReceived;$('[data-delete-received-detail]').hidden=!canManageReceived;$('[data-received-detail-title]').textContent=`${d.id} · ${d.title}`;$('[data-received-detail-meta]').innerHTML=[['구분',d.direction],['접수·발송일',d.received_at],['상대기관',d.counterparty],['전달경로',d.source_system||'-'],['상대문서번호',d.external_doc_number||'-'],['담당부서',d.department||'-'],[d.direction==='접수'?'내부문서 번호':'연결 내부문서',d.related_document_id||'-'],['등록자',d.handled_by],['메모',d.memo||'-']].map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');const list=$('[data-received-detail-attachments]');list.innerHTML=(data.attachments||[]).map((a)=>`<li class="attachment-list__item"><span>${esc(a.file_name)}</span><button type="button" class="btn btn-outline" data-download-received="${esc(a.id)}">다운로드</button></li>`).join('')||'<li class="muted">첨부파일이 없습니다.</li>';$$('[data-download-received]',list).forEach((b)=>b.addEventListener('click',()=>downloadBase64('/api/received/attachment-data',b.dataset.downloadReceived)));receivedDetailModal.hidden=false;};
-      $('[data-edit-received-detail]').addEventListener('click',async()=>{const d=currentReceivedDetailDoc;if(!d)return;receivedForm.reset();receivedForm.elements.id.value=d.id;receivedForm.elements.direction.value=d.direction;receivedForm.elements.title.value=d.title||'';receivedForm.elements.counterparty.value=d.counterparty||'';receivedForm.elements.sourceSystem.value=d.source_system||'';receivedForm.elements.externalDocNumber.value=d.external_doc_number||'';receivedForm.elements.receivedAt.value=d.received_at||'';receivedForm.elements.department.value=d.department||'';receivedForm.elements.memo.value=d.memo||'';pendingReceivedFiles=[];renderReceivedPending();await syncReceivedDirection();if(d.direction==='외부발송'){renderSendQueueOptions(d.related_document_id||'',d);relatedSelect.value=d.related_document_id||'';}else{relatedManualInput.value=d.related_document_id||'';relatedManualHelp.textContent='등록 당시 자동 배정된 내부문서 번호이며 수정할 수 없습니다.';}$('[data-received-modal-title]').textContent=`접수·발송 수정 — ${d.id}`;receivedDetailModal.hidden=true;receivedModal.hidden=false;});
+      const openReceivedDetail=async(id)=>{const data=await callApi('/api/received/detail',{token:getToken(),id});if(!data.ok){receivedStatus.textContent=data.message;return;}currentReceivedDetailId=id;currentReceivedDetailDoc=data.document;const d=data.document;const me=getMe()||{};const canManageReceived=me.role==='admin'||d.handled_by_user_id===me.id;$('[data-edit-received-detail]').hidden=!canManageReceived;$('[data-delete-received-detail]').hidden=!canManageReceived;$('[data-received-detail-title]').textContent=`${d.id} · ${d.title}`;$('[data-received-detail-meta]').innerHTML=[['구분',d.direction],['접수·발송일',d.received_at],['상대기관',d.counterparty],['전달경로',d.source_system||'-'],['상대문서번호',d.external_doc_number||'-'],['담당부서',formatDepartmentLabel(d.department)],[d.direction==='접수'?'내부문서 번호':'연결 내부문서',d.related_document_id||'-'],['등록자',d.handled_by],['메모',d.memo||'-']].map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');const list=$('[data-received-detail-attachments]');list.innerHTML=(data.attachments||[]).map((a)=>`<li class="attachment-list__item"><span>${esc(a.file_name)}</span><button type="button" class="btn btn-outline" data-download-received="${esc(a.id)}">다운로드</button></li>`).join('')||'<li class="muted">첨부파일이 없습니다.</li>';$$('[data-download-received]',list).forEach((b)=>b.addEventListener('click',()=>downloadBase64('/api/received/attachment-data',b.dataset.downloadReceived)));receivedDetailModal.hidden=false;};
+      $('[data-edit-received-detail]').addEventListener('click',async()=>{const d=currentReceivedDetailDoc;if(!d)return;receivedForm.reset();receivedForm.elements.id.value=d.id;receivedForm.elements.direction.value=d.direction;receivedForm.elements.title.value=d.title||'';receivedForm.elements.counterparty.value=d.counterparty||'';receivedForm.elements.sourceSystem.value=d.source_system||'';receivedForm.elements.externalDocNumber.value=d.external_doc_number||'';receivedForm.elements.receivedAt.value=d.received_at||'';receivedForm.elements.department.value=normalizeDepartmentValue(d.department);receivedForm.elements.memo.value=d.memo||'';pendingReceivedFiles=[];renderReceivedPending();await syncReceivedDirection();if(d.direction==='외부발송'){renderSendQueueOptions(d.related_document_id||'',d);relatedSelect.value=d.related_document_id||'';}else{relatedManualInput.value=d.related_document_id||'';relatedManualHelp.textContent='등록 당시 자동 배정된 내부문서 번호이며 수정할 수 없습니다.';}$('[data-received-modal-title]').textContent=`접수·발송 수정 — ${d.id}`;receivedDetailModal.hidden=true;receivedModal.hidden=false;});
       $('[data-delete-received-detail]').addEventListener('click',async()=>{if(!currentReceivedDetailId||!confirm('이 접수·발송대장 기록과 첨부파일을 삭제하시겠습니까?'))return;const result=await callApi('/api/received/delete',{token:getToken(),id:currentReceivedDetailId});if(!result.ok){receivedStatus.textContent=result.message;return;}sendQueueDocuments=[];receivedDetailModal.hidden=true;receivedStatus.textContent=result.message;await Promise.all([refreshReceived(),refreshDashboard(true),refreshDocuments()]);});
 
       // 서식관리
@@ -1642,13 +1673,13 @@ import GovLayout from '../layouts/GovLayout.astro';
       const setUserSubmitLabel=(isEditing)=>{$('[data-user-form-submit]').innerHTML=isEditing?'<span>수정</span><span>저장</span>':'<span>계정</span><span>추가</span>';};
       const resetUserForm=()=>{userForm.reset();userForm.elements.id.value='';$('[data-user-form-title]').textContent='계정 추가';$('[data-user-password-label]').textContent='비밀번호(8자 이상)';userForm.elements.password.required=true;$('[data-user-active-row]').hidden=true;setUserSubmitLabel(false);$('[data-user-form-status]').textContent='';userForm.elements.username.disabled=false;deleteUserButton.hidden=true;};
       $('[data-user-form-reset]').addEventListener('click',resetUserForm);
-      const renderDepartmentCell=(value)=>{
-        const path=resolveDepartmentPath(value);
-        return `<span class="department-stack"><span class="department-stack__primary">${esc(path.primary)}</span>${path.secondary?`<span class="department-stack__secondary">${esc(path.secondary)}</span>`:''}</span>`;
+      const renderDepartmentCell=(value,position='')=>{
+        const path=resolveDepartmentPath(value,position);
+        return `<span class="department-stack"><span class="department-stack__primary">${esc(path.primary)}</span>${path.secondary?`<span class="department-stack__secondary">(${esc(path.secondary)})</span>`:''}</span>`;
       };
       const renderUsersTable=(rows)=>{
-        usersTable.innerHTML=`<table class="doc-table__frame doc-table__frame--users"><colgroup><col class="col-user-name" /><col class="col-user-id" /><col class="col-user-position" /><col class="col-user-grade" /><col class="col-user-department" /><col class="col-user-role" /><col class="col-user-approval" /><col class="col-user-accounting" /><col class="col-user-status" /><col class="col-user-action" /></colgroup><thead><tr><th>성명</th><th>아이디</th><th>직책</th><th>직급</th><th>담당부서</th><th>역할</th><th>결재권</th><th>회계권한</th><th>상태</th><th>관리</th></tr></thead><tbody>${rows.map((u)=>`<tr><td><strong>${esc(u.name)}</strong></td><td class="mono">${esc(u.username)}</td><td class="user-position-cell">${esc(u.position||'-')}</td><td class="user-grade-cell">${esc(u.grade||'-')}</td><td>${renderDepartmentCell(u.department)}</td><td>${u.role==='admin'?'관리자':u.role==='audit'?'감사':'일반'}</td><td><span class="status-chip ${u.can_approve?'status-chip--ok':''}">${u.can_approve?'부여':'없음'}</span></td><td><span class="status-chip ${(u.role==='admin'||u.can_accounting)?'status-chip--ok':''}">${(u.role==='admin'||u.can_accounting)?'부여':'없음'}</span></td><td><span class="status-chip ${u.active?'status-chip--ok':'status-chip--off'}">${u.active?'활성':'비활성'}</span></td><td><button type="button" class="btn btn-outline btn-sm" data-edit-user="${esc(u.id)}">수정</button></td></tr>`).join('')||'<tr class="doc-table__empty-row"><td colspan="10" class="empty"><strong>등록된 계정이 없습니다.</strong><span>오른쪽 입력영역에서 새 계정을 추가할 수 있습니다.</span></td></tr>'}</tbody></table>`;
-        $$('[data-edit-user]',usersTable).forEach((b)=>b.addEventListener('click',()=>{const u=rows.find((x)=>x.id===b.dataset.editUser);if(!u)return;userForm.elements.id.value=u.id;userForm.elements.name.value=u.name;userForm.elements.username.value=u.username;userForm.elements.username.disabled=true;userForm.elements.password.required=false;userForm.elements.position.value=u.position||'';userForm.elements.grade.value=u.grade||'';userForm.elements.department.value=u.department||'';userForm.elements.role.value=u.role;userForm.elements.canApprove.checked=!!u.can_approve;userForm.elements.canAccounting.checked=u.role==='admin'||!!u.can_accounting;userForm.elements.active.checked=!!u.active;$('[data-user-active-row]').hidden=false;$('[data-user-form-title]').textContent=`계정 수정 — ${u.name}`;$('[data-user-password-label]').textContent='새 비밀번호(변경 시에만 입력)';setUserSubmitLabel(true);deleteUserButton.hidden=false;}));
+        usersTable.innerHTML=`<table class="doc-table__frame doc-table__frame--users"><colgroup><col class="col-user-name" /><col class="col-user-id" /><col class="col-user-position" /><col class="col-user-grade" /><col class="col-user-department" /><col class="col-user-role" /><col class="col-user-approval" /><col class="col-user-accounting" /><col class="col-user-status" /><col class="col-user-action" /></colgroup><thead><tr><th>성명</th><th>아이디</th><th>직책</th><th>직급</th><th>담당부서</th><th>역할</th><th>결재권</th><th>회계권한</th><th>상태</th><th>관리</th></tr></thead><tbody>${rows.map((u)=>`<tr><td><strong>${esc(u.name)}</strong></td><td class="mono">${esc(u.username)}</td><td class="user-position-cell">${esc(u.position||'-')}</td><td class="user-grade-cell">${esc(u.grade||'-')}</td><td>${renderDepartmentCell(u.department,u.position||'')}</td><td>${u.role==='admin'?'관리자':u.role==='audit'?'감사':'일반'}</td><td><span class="status-chip ${u.can_approve?'status-chip--ok':''}">${u.can_approve?'부여':'없음'}</span></td><td><span class="status-chip ${(u.role==='admin'||u.can_accounting)?'status-chip--ok':''}">${(u.role==='admin'||u.can_accounting)?'부여':'없음'}</span></td><td><span class="status-chip ${u.active?'status-chip--ok':'status-chip--off'}">${u.active?'활성':'비활성'}</span></td><td><button type="button" class="btn btn-outline btn-sm" data-edit-user="${esc(u.id)}">수정</button></td></tr>`).join('')||'<tr class="doc-table__empty-row"><td colspan="10" class="empty"><strong>등록된 계정이 없습니다.</strong><span>오른쪽 입력영역에서 새 계정을 추가할 수 있습니다.</span></td></tr>'}</tbody></table>`;
+        $$('[data-edit-user]',usersTable).forEach((b)=>b.addEventListener('click',()=>{const u=rows.find((x)=>x.id===b.dataset.editUser);if(!u)return;userForm.elements.id.value=u.id;userForm.elements.name.value=u.name;userForm.elements.username.value=u.username;userForm.elements.username.disabled=true;userForm.elements.password.required=false;userForm.elements.position.value=u.position||'';userForm.elements.grade.value=u.grade||'';userForm.elements.department.value=normalizeDepartmentValue(u.department,u.position||'');userForm.elements.role.value=u.role;userForm.elements.canApprove.checked=!!u.can_approve;userForm.elements.canAccounting.checked=u.role==='admin'||!!u.can_accounting;userForm.elements.active.checked=!!u.active;$('[data-user-active-row]').hidden=false;$('[data-user-form-title]').textContent=`계정 수정 — ${u.name}`;$('[data-user-password-label]').textContent='새 비밀번호(변경 시에만 입력)';setUserSubmitLabel(true);deleteUserButton.hidden=false;}));
       };
       const refreshUsersTable=async()=>{const d=await callApi('/api/users/list',{token:getToken(),includeInactive:true});if(d.ok)renderUsersTable(d.rows||[]);else $('[data-user-form-status]').textContent=d.message;};
       openUsersBtn.addEventListener('click',()=>{resetUserForm();renderUsersTable([]);usersModal.hidden=false;refreshUsersTable();});$$('[data-close-users]').forEach((b)=>b.addEventListener('click',()=>usersModal.hidden=true));
@@ -1717,15 +1748,15 @@ import GovLayout from '../layouts/GovLayout.astro';
 
       // 조직도
       const orgchartModal=$('[data-orgchart-modal]');
-      const membersOf=(dept)=>allUsers.filter((u)=>u.department===dept||u.department?.startsWith(`${dept} - `));
+      const membersOf=(dept)=>allUsers.filter((u)=>{const value=normalizeDepartmentValue(u.department,u.position||'');return value===dept||value.startsWith(`${dept} - `);});
       const renderOrgchart=()=>{
         const tree=$('[data-orgchart-tree]');
         tree.innerHTML=departmentTree.map((dep)=>`<section class="orgchart-group"><button type="button" class="orgchart-tree__dept" data-dept="${esc(dep.name)}"><span class="orgchart-tree__icon">${esc(dep.name.slice(0,1))}</span><span class="orgchart-tree__label">${esc(dep.name)}</span><span class="orgchart-tree__count">${membersOf(dep.name).length}</span></button>${(dep.children||[]).map((c)=>`<button type="button" class="orgchart-tree__child" data-dept="${esc(dep.name+' - '+c)}"><span>${esc(c)}</span><span class="orgchart-tree__count">${membersOf(dep.name+' - '+c).length}</span></button>`).join('')}</section>`).join('');
         const selectDepartment=(button)=>{
           $$('[data-dept]',tree).forEach((item)=>item.classList.toggle('active',item===button));
           const dept=button.dataset.dept,members=membersOf(dept);
-          $('[data-orgchart-title]').textContent=`${dept} · ${members.length}명`;
-          $('[data-orgchart-members]').innerHTML=`<table class="orgchart-members-table"><colgroup><col class="org-name" /><col class="org-id" /><col class="org-position" /><col class="org-grade" /><col class="org-department" /><col class="org-role" /></colgroup><thead><tr><th>성명</th><th>아이디</th><th>직책</th><th>직급</th><th>소속</th><th>구분</th></tr></thead><tbody>${members.map((u)=>`<tr><td><strong>${esc(u.name)}</strong></td><td class="mono">${esc(u.username)}</td><td class="org-position-cell">${esc(u.position||'-')}</td><td class="org-grade-cell">${esc(u.grade||'-')}</td><td>${renderDepartmentCell(u.department)}</td><td>${u.role==='admin'?'관리자':u.role==='audit'?'감사':'일반'}</td></tr>`).join('')||'<tr><td colspan="6" class="empty"><strong>이 부서에 지정된 인원이 없습니다.</strong><span>계정관리에서 담당부서를 지정하면 여기에 표시됩니다.</span></td></tr>'}</tbody></table>`;
+          $('[data-orgchart-title]').textContent=`${formatDepartmentLabel(dept)} · ${members.length}명`;
+          $('[data-orgchart-members]').innerHTML=`<table class="orgchart-members-table"><colgroup><col class="org-name" /><col class="org-id" /><col class="org-position" /><col class="org-grade" /><col class="org-department" /><col class="org-role" /></colgroup><thead><tr><th>성명</th><th>아이디</th><th>직책</th><th>직급</th><th>소속</th><th>구분</th></tr></thead><tbody>${members.map((u)=>`<tr><td><strong>${esc(u.name)}</strong></td><td class="mono">${esc(u.username)}</td><td class="org-position-cell">${esc(u.position||'-')}</td><td class="org-grade-cell">${esc(u.grade||'-')}</td><td>${renderDepartmentCell(u.department,u.position||'')}</td><td>${u.role==='admin'?'관리자':u.role==='audit'?'감사':'일반'}</td></tr>`).join('')||'<tr><td colspan="6" class="empty"><strong>이 부서에 지정된 인원이 없습니다.</strong><span>계정관리에서 담당부서를 지정하면 여기에 표시됩니다.</span></td></tr>'}</tbody></table>`;
         };
         $$('[data-dept]',tree).forEach((b)=>b.addEventListener('click',()=>selectDepartment(b)));
         const first=$('[data-dept]',tree);if(first)selectDepartment(first);
@@ -1992,7 +2023,7 @@ import GovLayout from '../layouts/GovLayout.astro';
     .doc-table__frame--users .user-grade-cell { white-space: nowrap; word-break: keep-all; font-size: 0.84rem; }
     .department-stack { display: inline-flex; max-width: 100%; flex-direction: column; align-items: center; justify-content: center; gap: 0.15rem; line-height: 1.22; }
     .department-stack__primary { color: #344054; font-weight: 700; white-space: nowrap; }
-    .department-stack__secondary { color: var(--gov-muted); font-size: 0.78rem; white-space: nowrap; }
+    .department-stack__secondary { color: var(--gov-muted); font-size: 0.78rem; white-space: nowrap; margin-left: 0.55rem; }
     .status-chip { display: inline-flex; min-width: 48px; justify-content: center; padding: 0.2rem 0.5rem; border-radius: 999px; background: #edf0f4; color: #667085; font-size: 0.76rem; font-weight: 700; }
     .status-chip--ok { background: #e8f5ec; color: #26723c; }
     .status-chip--off { background: #f4e9e9; color: #9a3d3d; }

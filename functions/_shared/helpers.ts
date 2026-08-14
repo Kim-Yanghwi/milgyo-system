@@ -22,6 +22,51 @@ export const clean = (value: unknown, maxLength: number) => {
   return stripped.trim().slice(0, maxLength);
 };
 
+
+const OFFICE_DEPARTMENTS = new Set(['재정국', '준법윤리국', '국제교류국', '문화홍보국', '사회공헌국']);
+const legacyOfficeDepartment = (name: string, position = '') => {
+  if (name === '재정·회계') return '재정국';
+  if (name === '준법·윤리') return '준법윤리국';
+  if (name === '대외협력·사회공헌') return /사회공헌/.test(position) ? '사회공헌국' : '국제교류국';
+  if (name === '문화·홍보') return '문화홍보국';
+  return name;
+};
+
+/**
+ * 담당부서의 과거 명칭을 현행 직제 기준으로 정규화합니다.
+ * 내부 저장값은 `상위부서 - 하위부서`, 화면 표시값은 각 화면에서 `상위부서(하위부서)`로 변환합니다.
+ */
+export const normalizeDepartmentValue = (value: unknown, position = '') => {
+  let text = clean(value, 120);
+  if (!text) return '';
+  text = text.replace(/\s*[–—]\s*/g, ' - ');
+  const parenthesized = /^(.+?)\s*\(([^()]+)\)\s*$/.exec(text);
+  if (parenthesized) text = `${parenthesized[1].trim()} - ${parenthesized[2].trim()}`;
+
+  let parts = text.split(/\s+-\s+/).map((part) => part.trim()).filter(Boolean);
+  let primary = parts[0] || '';
+  let secondary = parts.slice(1).join(' - ');
+  if (primary === '사무국') primary = '사무처';
+
+  if (secondary) secondary = legacyOfficeDepartment(secondary, position);
+  if (!secondary) {
+    const mapped = legacyOfficeDepartment(primary, position);
+    if (mapped !== primary || OFFICE_DEPARTMENTS.has(mapped)) {
+      primary = '사무처';
+      secondary = mapped;
+    }
+  }
+  if (primary === '사무처' && secondary && OFFICE_DEPARTMENTS.has(secondary)) return `${primary} - ${secondary}`;
+  return secondary ? `${primary} - ${secondary}` : primary;
+};
+
+export const formatDepartmentDisplay = (value: unknown, position = '') => {
+  const normalized = normalizeDepartmentValue(value, position);
+  if (!normalized) return '-';
+  const parts = normalized.split(/\s+-\s+/).map((part) => part.trim()).filter(Boolean);
+  return parts.length > 1 ? `${parts[0]}(${parts.slice(1).join(' - ')})` : parts[0];
+};
+
 export const toHex = (bytes: ArrayBuffer) =>
   Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, '0')).join('');
 
@@ -291,7 +336,7 @@ const BUILT_IN_TEMPLATES = [
     fields: [
       { id: 'subject', label: '결산 건명', type: 'text', required: true, width: 'full' },
       { id: 'submissionDate', label: '제출일', type: 'date', required: true, width: 'half' },
-      { id: 'organization', label: '제출기구', type: 'select', required: true, options: ['사무국', '총무원', '교육·포교원', '재정·회계', '활동거점', '기타'], width: 'half' },
+      { id: 'organization', label: '제출기구', type: 'select', required: true, options: ['사무처', '총무원', '교육·포교원', '재정국', '준법윤리국', '국제교류국', '문화홍보국', '사회공헌국', '활동거점', '기타'], width: 'half' },
       { id: 'submitter', label: '제출자', type: 'text', required: true, width: 'half' },
       { id: 'fiscalYear', label: '사업연도', type: 'number', required: true, defaultValue: '{{CURRENT_YEAR}}', width: 'half' },
       { id: 'businessName', label: '주요 사업명', type: 'text', required: true, width: 'full' },
@@ -613,7 +658,7 @@ const BUILT_IN_TEMPLATES = [
       { id: 'eventType', label: '구분', type: 'select', required: true, options: ['법회', '의례', '수행', '교육', '성지순례', '기타'], width: 'half' },
       { id: 'dateTime', label: '일시', type: 'text', required: true, width: 'half' },
       { id: 'place', label: '장소', type: 'text', required: true, width: 'half' },
-      { id: 'organization', label: '주관기구', type: 'select', required: true, options: ['총무원', '교육원', '포교원', '사무국', '기타'], width: 'half' },
+      { id: 'organization', label: '주관기구', type: 'select', required: true, options: ['총무원', '교육원', '포교원', '사무처', '기타'], width: 'half' },
       { id: 'manager', label: '운영책임자', type: 'text', required: true, width: 'half' },
       { id: 'leader', label: '진행자 또는 수행지도자', type: 'text', required: true, width: 'half' },
       { id: 'target', label: '대상자', type: 'text', required: true, width: 'half' },
@@ -806,7 +851,7 @@ let tablesEnsured = false;
 let tablesEnsurePromise: Promise<void> | null = null;
 let lastRateLimitCleanupAt = 0;
 const MAINTENANCE_COOLDOWN_MS = 10 * 60 * 1000;
-const SCHEMA_VERSION = '2026-08-05.16';
+const SCHEMA_VERSION = '2026-08-15.17';
 
 type TableColumnInfo = { name: string; type: string; notnull: number; dflt_value?: unknown; pk: number };
 
@@ -1015,6 +1060,33 @@ const runSchemaMigration = async (db: D1Database) => {
   `).bind(now).run();
   await db.prepare(`UPDATE received_documents SET updated_at = COALESCE(updated_at, created_at, ?) WHERE updated_at IS NULL`)
     .bind(now).run();
+
+
+  // v70 직제 개편: 과거 담당부서 명칭을 현행 `사무처(국)` 체계의 저장값으로 정규화합니다.
+  // 사무국 산하의 과거 통합부서인 대외협력·사회공헌은 기존 계정의 직책이 사회공헌 계열이면 사회공헌국,
+  // 그 외에는 국제교류국으로 이관합니다. 문서·대장 등 직책 정보가 없는 과거 자료는 국제교류국으로 보정합니다.
+  const normalizeDepartmentSql = (column: string, positionColumn = '') => `
+    UPDATE __TABLE__
+    SET ${column} = CASE
+      WHEN ${column} IS NULL OR TRIM(${column}) = '' THEN ${column}
+      WHEN TRIM(${column}) IN ('사무국','사무처') THEN '사무처'
+      WHEN TRIM(${column}) IN ('재정국','준법윤리국','국제교류국','문화홍보국','사회공헌국') THEN '사무처 - ' || TRIM(${column})
+      WHEN TRIM(${column}) IN ('재정·회계','사무국 - 재정·회계','사무처 - 재정·회계','사무국(재정·회계)','사무처(재정·회계)') THEN '사무처 - 재정국'
+      WHEN TRIM(${column}) IN ('준법·윤리','사무국 - 준법·윤리','사무처 - 준법·윤리','사무국(준법·윤리)','사무처(준법·윤리)') THEN '사무처 - 준법윤리국'
+      WHEN TRIM(${column}) IN ('문화·홍보','사무국 - 문화·홍보','사무처 - 문화·홍보','사무국(문화·홍보)','사무처(문화·홍보)') THEN '사무처 - 문화홍보국'
+      WHEN TRIM(${column}) IN ('대외협력·사회공헌','사무국 - 대외협력·사회공헌','사무처 - 대외협력·사회공헌','사무국(대외협력·사회공헌)','사무처(대외협력·사회공헌)') THEN ${positionColumn ? `CASE WHEN COALESCE(${positionColumn}, '') LIKE '%사회공헌%' THEN '사무처 - 사회공헌국' ELSE '사무처 - 국제교류국' END` : "'사무처 - 국제교류국'"}
+      ELSE REPLACE(${column}, '사무국', '사무처')
+    END
+    WHERE ${column} LIKE '%사무국%' OR ${column} IN ('재정·회계','준법·윤리','대외협력·사회공헌','문화·홍보','재정국','준법윤리국','국제교류국','문화홍보국','사회공헌국')
+  `;
+  const departmentUpdates = [
+    normalizeDepartmentSql('department', 'position').replace('__TABLE__', 'system_users'),
+    normalizeDepartmentSql('department').replace('__TABLE__', 'documents'),
+    normalizeDepartmentSql('department').replace('__TABLE__', 'received_documents'),
+    normalizeDepartmentSql('applicant_department').replace('__TABLE__', 'management_registers'),
+    normalizeDepartmentSql('department').replace('__TABLE__', 'employment_certificates'),
+  ];
+  for (const statement of departmentUpdates) await db.prepare(statement).run();
   await db.prepare(`
     INSERT OR IGNORE INTO document_dispatch_links (document_id, registry_id, created_at)
     SELECT related_document_id, id, COALESCE(created_at, ?)

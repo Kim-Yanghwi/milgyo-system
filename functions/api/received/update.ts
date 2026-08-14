@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, isValidIsoDate, json } from '../../_shared/helpers';
+import { authenticateSession, clean, ensureTables, isValidIsoDate, json, normalizeDepartmentValue } from '../../_shared/helpers';
 
 interface Env { DB: D1Database; }
 type Payload = {
@@ -36,7 +36,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const externalDocNumber = clean(payload.externalDocNumber, 100);
     const memo = clean(payload.memo, 3000);
     const receivedAt = clean(payload.receivedAt, 10);
-    const department = clean(payload.department, 80);
+    const department = normalizeDepartmentValue(payload.department, auth.user.position || '');
     const relatedDocumentId = clean(payload.relatedDocumentId, 60);
 
     if (!id) return json({ ok: false, message: '등록번호가 필요합니다.' }, 400);

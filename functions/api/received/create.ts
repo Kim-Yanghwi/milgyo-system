@@ -4,6 +4,7 @@ import {
   ensureTables,
   isValidIsoDate,
   json,
+  normalizeDepartmentValue,
   makeDocumentNumber,
   makeReceivedNumber,
   randomHex,
@@ -56,7 +57,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const externalDocNumber = clean(payload.externalDocNumber, 100);
     let memo = clean(payload.memo, 3000);
     const receivedAt = clean(payload.receivedAt, 10);
-    let department = clean(payload.department, 80);
+    let department = normalizeDepartmentValue(payload.department, auth.user.position || '');
     let relatedDocumentId = clean(payload.relatedDocumentId, 60);
 
     if (!VALID_DIRECTIONS.includes(direction)) {
@@ -98,7 +99,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       title = title || related.title;
       counterparty = counterparty || clean(related.recipient, 120);
       sourceSystem = sourceSystem || '문서24';
-      department = department || clean(related.department, 80);
+      department = department || normalizeDepartmentValue(related.department);
       memo = memo || `${related.id} 승인문서 외부발송 등록`;
     }
 
@@ -111,7 +112,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const nowIso = now.toISOString();
     if (direction === '접수') relatedDocumentId = await makeDocumentNumber(env.DB, now);
     const id = await makeReceivedNumber(env.DB, now, direction);
-    const finalDepartment = department || auth.user.department || null;
+    const finalDepartment = department || normalizeDepartmentValue(auth.user.department, auth.user.position || '') || null;
 
     const statements: D1PreparedStatement[] = [
       env.DB.prepare(`

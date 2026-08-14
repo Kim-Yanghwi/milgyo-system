@@ -481,7 +481,7 @@ VALUES
 INSERT OR IGNORE INTO accounting_entities
 (id, entity_code, name, entity_type, parent_id, department_path, consolidation_enabled, active, created_by, created_at, updated_at)
 VALUES
-('ENTITY-HQ','HQ','종단 본부','headquarters',NULL,'사무국',1,1,'system',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP);
+('ENTITY-HQ','HQ','종단 본부','headquarters',NULL,'사무처',1,1,'system',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP);
 
 INSERT OR IGNORE INTO accounting_funds
 (id, fund_code, name, fund_type, purpose, active, system_fund, created_by, created_at, updated_at)

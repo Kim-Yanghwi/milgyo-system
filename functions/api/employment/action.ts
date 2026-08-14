@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, isValidIsoDate, json, randomHex } from '../../_shared/helpers';
+import { authenticateSession, clean, ensureTables, isValidIsoDate, json, normalizeDepartmentValue, randomHex } from '../../_shared/helpers';
 import { kstDate, makeEmploymentCertificateNumber, writeManagementAudit } from '../../_shared/management';
 
 interface Env { DB: D1Database; }
@@ -56,7 +56,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!isValidIsoDate(startDate)) return json({ ok: false, message: '재직 시작일을 입력해 주세요.' }, 400);
 
     const employeeNameKo = clean(payload.employeeNameKo, 60) || clean(employee.name, 60);
-    const department = clean(payload.department, 100) || clean(employee.department, 100);
+    const department = normalizeDepartmentValue(payload.department || employee.department, employee.position || '');
     const positionGrade = clean(payload.positionGrade, 100) || clean([employee.position, employee.grade].filter(Boolean).join(' / '), 100);
     const purpose = clean(payload.purpose, 300);
     const address = clean(payload.address, 500);

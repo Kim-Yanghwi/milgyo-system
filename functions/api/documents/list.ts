@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
+import { authenticateSession, clean, ensureTables, json, normalizeDepartmentValue } from '../../_shared/helpers';
 
 interface Env { DB: D1Database; }
 type ListPayload = {
@@ -39,7 +39,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const dateTo = clean(payload.dateTo, 10);
   const docType = clean(payload.docType, 10);
   const category = clean(payload.category, 100);
-  const department = clean(payload.department, 80);
+  const department = normalizeDepartmentValue(payload.department);
   const orderBy = SORTS[clean(payload.sort, 20)] || SORTS.newest;
 
   const filters: string[] = [];

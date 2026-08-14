@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, isValidIsoDate, json, randomHex } from '../../_shared/helpers';
+import { authenticateSession, clean, ensureTables, isValidIsoDate, json, randomHex, normalizeDepartmentValue } from '../../_shared/helpers';
 import {
   ensureAccountingTables,
   hasAccountingAccess,
@@ -194,7 +194,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           affiliation_registered_at=excluded.affiliation_registered_at,
           consolidation_enabled=excluded.consolidation_enabled,active=1,updated_at=excluded.updated_at`)
           .bind(
-            id, entityCode, name, entityType, parentId || null, clean(payload.departmentPath, 120) || null,
+            id, entityCode, name, entityType, parentId || null, normalizeDepartmentValue(payload.departmentPath) || null,
             clean(payload.registrationNo, 40) || null, clean(payload.representative, 80) || null,
             clean(payload.address, 300) || null,
             isValidIsoDate(clean(payload.affiliationRegisteredAt, 10)) ? clean(payload.affiliationRegisteredAt, 10) : null,
@@ -471,7 +471,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
             id, assetNo, name, clean(payload.category, 60) || '비품', date, cost,
             Math.max(0, Math.min(1200, Number(payload.usefulLifeMonths) || 0)),
             clean(payload.depreciationMethod, 30) || 'straight_line', Math.max(0, parseMoney(payload.residualValue)),
-            dimensions.bookTypeCode, dimensions.entityId, dimensions.fundId, clean(payload.department, 100),
+            dimensions.bookTypeCode, dimensions.entityId, dimensions.fundId, normalizeDepartmentValue(payload.department, me.position || ''),
             clean(payload.location, 150) || null, clean(payload.custodian, 80) || null,
             clean(payload.assetAccountCode, 20) || '1500', clean(payload.memo, 1000) || null,
             me.name, now, now,
@@ -530,7 +530,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           .bind(
             id, cardCode, label, clean(payload.issuer, 80) || null, clean(payload.maskedNumber, 40) || null,
             clean(payload.holder, 80) || null, dimensions.bookTypeCode, dimensions.entityId,
-            clean(payload.department, 100), settlementAccountCode, me.name, now, now,
+            normalizeDepartmentValue(payload.department, me.position || ''), settlementAccountCode, me.name, now, now,
           ),
         audit(accountingDb, 'save', 'card', id, me.id, me.name, { cardCode, label, settlementAccountCode }, now),
       ]);
@@ -675,7 +675,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           .bind(
             id, txNo, cardId, date, merchant, amount, taxAmount,
             expenseAccountCode || null, dimensions.bookTypeCode, dimensions.entityId, dimensions.fundId,
-            clean(payload.department, 100) || card.department || '', clean(payload.project, 100),
+            normalizeDepartmentValue(payload.department, me.position || '') || normalizeDepartmentValue(card.department, me.position || '') || '', clean(payload.project, 100),
             clean(payload.memo, 1000) || null, me.name, now, now,
           ),
         audit(accountingDb, 'create', 'card-transaction', id, me.id, me.name, { txNo, amount, merchant }, now),

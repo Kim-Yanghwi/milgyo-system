@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json, randomHex } from '../../_shared/helpers';
+import { authenticateSession, clean, ensureTables, json, randomHex, normalizeDepartmentValue } from '../../_shared/helpers';
 import { ensureAccountingTables, hasAccountingAccess, isAccountingManager, parseMoney } from '../../_shared/accounting';
 import { nextSpecialNumber, validateDimensions } from '../../_shared/accounting-special';
 import {
@@ -431,7 +431,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           project=excluded.project,account_code=excluded.account_code,book_type_code=excluded.book_type_code,entity_id=excluded.entity_id,fund_id=excluded.fund_id,
           sole_source_reason=excluded.sole_source_reason,multi_quote_checked=excluded.multi_quote_checked,conflict_checked=excluded.conflict_checked,
           conflict_note=excluded.conflict_note,inspection_required=excluded.inspection_required,status=excluded.status,memo=excluded.memo,updated_at=excluded.updated_at`)
-          .bind(id, contractNo, vendorId, title, clean(payload.contractType, 30) || 'service', procurement, amount, contractDate, startDate, endDate, Math.max(1, Math.min(365, Number(payload.renewalNoticeDays || 30))), clean(payload.department, 80), clean(payload.project, 100), accountCode, dimensions.bookTypeCode, dimensions.entityId, dimensions.fundId, soleReason || null, payload.multiQuoteChecked === true ? 1 : 0, 1, clean(payload.conflictNote, 500) || null, payload.inspectionRequired === false ? 0 : 1, clean(payload.status, 30) || 'active', clean(payload.memo, 1000) || null, me.name, now, now),
+          .bind(id, contractNo, vendorId, title, clean(payload.contractType, 30) || 'service', procurement, amount, contractDate, startDate, endDate, Math.max(1, Math.min(365, Number(payload.renewalNoticeDays || 30))), normalizeDepartmentValue(payload.department, me.position || ''), clean(payload.project, 100), accountCode, dimensions.bookTypeCode, dimensions.entityId, dimensions.fundId, soleReason || null, payload.multiQuoteChecked === true ? 1 : 0, 1, clean(payload.conflictNote, 500) || null, payload.inspectionRequired === false ? 0 : 1, clean(payload.status, 30) || 'active', clean(payload.memo, 1000) || null, me.name, now, now),
         operationAudit(db, 'save', 'contract', id, me, { contractNo, vendorId, title, amount, procurement, ...dimensions }, now),
       ]);
       return json({ ok: true, id, contractNo, message: '계약을 저장하고 예산 약정액에 반영했습니다.' });

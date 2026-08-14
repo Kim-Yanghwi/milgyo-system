@@ -4,6 +4,7 @@ import {
   ensureTables,
   json,
   makeReceivedNumber,
+  normalizeDepartmentValue,
   randomHex,
 } from '../../_shared/helpers';
 
@@ -73,7 +74,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         doc.recipient,
         sentMethod,
         `${doc.id} 승인문서 외부발송 등록`,
-        doc.department || auth.user.department || null,
+        normalizeDepartmentValue(doc.department || auth.user.department, auth.user.position || '') || null,
         doc.id,
         auth.user.name,
         auth.user.id,

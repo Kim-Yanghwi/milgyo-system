@@ -3,6 +3,7 @@ import {
   IMPORTANT_CATEGORIES,
   authenticateSession,
   clean,
+  normalizeDepartmentValue,
   ensureTables,
   json,
   makeDocumentNumber,
@@ -96,7 +97,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const summary = clean(payload.summary, 400);
   const body = clean(payload.body, 12000);
   const attachmentsNote = clean(payload.attachmentsNote, 800);
-  const department = clean(payload.department, 80);
+  const department = normalizeDepartmentValue(payload.department, auth.user.position || '');
   const recipient = clean(payload.recipient, 120);
   const via = clean(payload.via, 120);
   const approvalTrackChoice = clean(payload.approvalTrackChoice, 20);
@@ -247,7 +248,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         me.name, me.id, me.position || null,
         firstReviewer?.userId || null, firstReviewer?.userName || null, firstReviewer?.userPosition || null,
         finalApprover?.id || null, finalApprover?.name || null, finalApprover?.position || null,
-        department || me.department || null, recipient || null, via || null, approvalTrack, approvalMode, status,
+        department || normalizeDepartmentValue(me.department, me.position || '') || null, recipient || null, via || null, approvalTrack, approvalMode, status,
         templateId || null, templateName || null, JSON.stringify(formData), accessScope, clientRequestId,
         submittedAt, completedAt, nowIso, nowIso,
       ));

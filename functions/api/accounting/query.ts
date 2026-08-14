@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
+import { authenticateSession, clean, ensureTables, json, normalizeDepartmentValue } from '../../_shared/helpers';
 import { canViewAllAccounting, ensureAccountingTables, hasAccountingAccess, isAccountingManager } from '../../_shared/accounting';
 import { getDimensionMaster } from '../../_shared/accounting-special';
 import { getAccountingOutboxSummary } from '../../_shared/accounting-integration';
@@ -51,7 +51,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
       return json({ok:true,rows:rows.results||[]});
     }
     if(action==='budgets'||action==='budget-execution'||action==='budgets-export'){
-      const department=clean(payload.department,80),project=clean(payload.project,100),bookTypeCode=clean(payload.bookTypeCode,30),entityId=clean(payload.entityId,80),fundId=clean(payload.fundId,80);
+      const department=normalizeDepartmentValue(payload.department),project=clean(payload.project,100),bookTypeCode=clean(payload.bookTypeCode,30),entityId=clean(payload.entityId,80),fundId=clean(payload.fundId,80);
       const conditions=['b.fiscal_year=?'];const values:unknown[]=[year];
       if(department){conditions.push('b.department=?');values.push(department)}if(project){conditions.push('b.project=?');values.push(project)}if(bookTypeCode){conditions.push('b.book_type_code=?');values.push(bookTypeCode)}if(entityId){conditions.push('b.entity_id=?');values.push(entityId)}if(fundId){conditions.push('b.fund_id=?');values.push(fundId)}
       const selectSql=`SELECT b.*,a.name AS account_name,bt.name AS book_type_name,e.name AS entity_name,f.name AS fund_name,(b.original_amount+b.supplementary_amount+b.transfer_in-b.transfer_out) AS revised_amount,COALESCE(x.executed_amount,0) AS executed_amount FROM accounting_budget_plans b JOIN accounting_accounts a ON a.code=b.account_code LEFT JOIN accounting_book_types bt ON bt.code=b.book_type_code LEFT JOIN accounting_entities e ON e.id=b.entity_id LEFT JOIN accounting_funds f ON f.id=b.fund_id LEFT JOIN (SELECT fiscal_year,book_type_code,entity_id,fund_id,account_code,department,project,SUM(debit_total-credit_total) AS executed_amount FROM accounting_monthly_summary GROUP BY fiscal_year,book_type_code,entity_id,fund_id,account_code,department,project) x ON x.fiscal_year=b.fiscal_year AND x.book_type_code=b.book_type_code AND x.entity_id=b.entity_id AND x.fund_id=b.fund_id AND x.account_code=b.account_code AND x.department=b.department AND x.project=b.project WHERE ${conditions.join(' AND ')}`;

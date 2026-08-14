@@ -4,6 +4,7 @@ import {
   ensureTables,
   hashPassword,
   json,
+  normalizeDepartmentValue,
 } from '../../_shared/helpers';
 
 interface Env {
@@ -52,7 +53,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const name = clean(payload.name, 40);
     const position = clean(payload.position, 40);
     const grade = clean(payload.grade, 20);
-    const department = clean(payload.department, 60);
+    const department = normalizeDepartmentValue(payload.department, position);
     const role = payload.role === 'admin' ? 'admin' : payload.role === 'audit' ? 'audit' : 'user';
     const canApprove = !!payload.canApprove || role === 'admin';
     const canAccounting = !!payload.canAccounting || role === 'admin';

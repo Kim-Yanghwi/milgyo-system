@@ -39,6 +39,34 @@ export const ensureAccountingTables=async(db:D1Database)=>{
     if(Number((tables.results?.[0] as any)?.count||0)!==REQUIRED_TABLES.length)throw new Error('회계 전용 DB 스키마가 준비되지 않았습니다. v27 회계 마이그레이션을 먼저 적용해 주세요.');
     if(!String((version.results?.[0] as any)?.meta_value||''))throw new Error('회계 전용 DB 스키마 버전을 확인할 수 없습니다.');
     await ensureAccountingSpecialTables(db);
+
+    // 2026-08-15 직제 개편: 운영 DB에 남아 있는 과거 부서명도 최초 회계 요청 시 안전하게 정규화합니다.
+    // 예산/월요약처럼 복합 UNIQUE 키가 있는 집계성 테이블은 기존 키 충돌 위험 때문에 직접 UPDATE하지 않고,
+    // 조회 화면에서 호환 표시를 유지하면서 신규 저장값부터 새 직제를 사용합니다.
+    const nomenclature = await db.prepare(`SELECT meta_value FROM accounting_meta WHERE meta_key='department_nomenclature_version'`)
+      .first<{meta_value:string}>();
+    if(String(nomenclature?.meta_value||'')!=='2026-08-15.1'){
+      const rewrite=(column:string)=>`CASE
+        WHEN TRIM(${column}) IN ('사무국','사무처') THEN '사무처'
+        WHEN TRIM(${column}) IN ('재정국','준법윤리국','국제교류국','문화홍보국','사회공헌국') THEN '사무처 - ' || TRIM(${column})
+        WHEN TRIM(${column}) IN ('재정·회계','사무국 - 재정·회계','사무처 - 재정·회계','사무국(재정·회계)','사무처(재정·회계)') THEN '사무처 - 재정국'
+        WHEN TRIM(${column}) IN ('준법·윤리','사무국 - 준법·윤리','사무처 - 준법·윤리','사무국(준법·윤리)','사무처(준법·윤리)') THEN '사무처 - 준법윤리국'
+        WHEN TRIM(${column}) IN ('문화·홍보','사무국 - 문화·홍보','사무처 - 문화·홍보','사무국(문화·홍보)','사무처(문화·홍보)') THEN '사무처 - 문화홍보국'
+        WHEN TRIM(${column}) IN ('대외협력·사회공헌','사무국 - 대외협력·사회공헌','사무처 - 대외협력·사회공헌','사무국(대외협력·사회공헌)','사무처(대외협력·사회공헌)') THEN '사무처 - 국제교류국'
+        ELSE REPLACE(${column},'사무국','사무처') END`;
+      const update=(table:string,column:string)=>db.prepare(`UPDATE ${table} SET ${column}=${rewrite(column)} WHERE ${column} IS NOT NULL AND (${column} LIKE '%사무국%' OR ${column} IN ('재정·회계','준법·윤리','대외협력·사회공헌','문화·홍보','재정국','준법윤리국','국제교류국','문화홍보국','사회공헌국'))`);
+      const targets:[string,string][]=[
+        ['accounting_entities','department_path'],['accounting_resolutions','department'],['accounting_journal_lines','department'],
+        ['accounting_assets','department'],['accounting_cards','department'],['accounting_card_transactions','department'],['accounting_contracts','department'],
+      ];
+      const targetNames=targets.map(([table])=>table);
+      const found=await db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name IN (${targetNames.map(()=>'?').join(',')})`).bind(...targetNames).all<{name:string}>();
+      const existing=new Set((found.results||[]).map((row)=>row.name));
+      await db.batch([
+        ...targets.filter(([table])=>existing.has(table)).map(([table,column])=>update(table,column)),
+        db.prepare(`INSERT INTO accounting_meta (meta_key,meta_value,updated_at) VALUES ('department_nomenclature_version','2026-08-15.1',?) ON CONFLICT(meta_key) DO UPDATE SET meta_value=excluded.meta_value,updated_at=excluded.updated_at`).bind(new Date().toISOString()),
+      ]);
+    }
     schemaReady.add(key);
   })().catch((error)=>{schemaPromises.delete(key);throw error;});
     schemaPromises.set(key,pending);
