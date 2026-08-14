@@ -132,6 +132,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   if (!VALID_DOC_TYPES.includes(docType)) return json({ ok: false, message: '문서구분(기안/발송)을 선택해 주세요.' }, 400);
   if (!(ALL_CATEGORIES as readonly string[]).includes(category)) return json({ ok: false, message: '문서 분류를 정확히 선택해 주세요.' }, 400);
+  if (!department) return json({ ok: false, message: '담당부서를 선택해 주세요.' }, 400);
   if (!saveAsDraft) {
     if (!title || title.length < 2) return json({ ok: false, message: '제목을 2자 이상 입력해 주세요.' }, 400);
     if (!body || body.length < 5) return json({ ok: false, message: '본문을 입력해 주세요.' }, 400);

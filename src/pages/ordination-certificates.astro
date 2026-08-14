@@ -2,7 +2,7 @@
 import ManagementLayout from '../layouts/ManagementLayout.astro';
 ---
 <ManagementLayout title="수계증서 발급·대장" active="ordination">
-  <div data-ordination-certificate-version="2026-08-10-v70" hidden></div>
+  <div data-ordination-certificate-version="2026-08-15-v71" hidden></div>
   <div class="page-heading">
     <div>
       <p class="page-heading__kicker">ORDINATION CERTIFICATE</p>
@@ -49,7 +49,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         <div class="form-field form-field--wide ordination-seal-option">
           <span class="field-label">좌측 상단 사찰 도장</span>
           <div class="seal-choice-row" role="group" aria-label="좌측 상단 도장 선택">
-            <label class="seal-check"><input type="checkbox" data-top-seal-choice value="logo_sq" checked /><span>logo(sq) 도장 표시</span></label>
+            <label class="seal-check"><input type="checkbox" data-top-seal-choice value="logo_sq" checked /><span>종단 로고 표시</span></label>
             <label class="seal-check"><input type="checkbox" data-top-seal-choice value="hyangcheonsa" /><span>향천사 도장 표시</span></label>
           </div>
           <small class="field-hint">두 도장은 한 종류만 선택됩니다. 모두 해제하면 좌측 상단 도장을 표시하지 않으며, 선택 상태와 종류는 발급 시점에 저장되어 재출력에도 동일하게 적용됩니다.</small>
@@ -374,7 +374,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         ['은사',record.teacher_name||'-','계사',record.preceptor_name||'-'],
         ['증명',record.witness_name||'-','발급자',record.issued_by_name||'-'],
         ['발행기관',record.organization_name||'-','사찰·발행자',`${record.temple_name||''} ${record.issuer_name||''} ${record.closing_text||''}`.trim()],
-        ['좌측 상단 도장',Number(record.include_top_seal??1)===1?'표시':'미표시','도장 종류',Number(record.include_top_seal??1)!==1?'-':String(record.top_seal_key||'hyangcheonsa')==='logo_sq'?'logo(sq)':String(record.top_seal_key||'hyangcheonsa')==='hyangcheonsa'?'향천사':'기타'],
+        ['좌측 상단 도장',Number(record.include_top_seal??1)===1?'표시':'미표시','도장 종류',Number(record.include_top_seal??1)!==1?'-':String(record.top_seal_key||'hyangcheonsa')==='logo_sq'?'종단 로고':String(record.top_seal_key||'hyangcheonsa')==='hyangcheonsa'?'향천사':'기타'],
       ];
       const detailHtml=record=>`<div class="ordination-detail-card"><table class="detail-grid-table"><tbody>${detailRows(record).map(row=>`<tr><th>${esc(row[0])}</th><td>${esc(row[1])}</td><th>${esc(row[2])}</th><td>${esc(row[3])}</td></tr>`).join('')}<tr><th>비고</th><td colspan="3" class="detail-long">${esc(record.note||'-')}</td></tr>${record.status==='취소'?`<tr><th>취소일시</th><td>${esc(record.canceled_at||'-')}</td><th>취소사유</th><td>${esc(record.cancel_reason||'-')}</td></tr>`:''}</tbody></table><div class="modal__actions"><button type="button" class="btn btn-outline" data-detail-print>출력</button><button type="button" class="btn btn-outline" data-close-detail>닫기</button></div></div>`;
       const closeDetail=()=>{$('[data-detail-modal]').hidden=true;$('[data-detail-container]').innerHTML='';};

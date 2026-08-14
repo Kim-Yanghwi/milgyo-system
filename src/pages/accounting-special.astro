@@ -255,7 +255,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       $('[data-user-label]').textContent=`${me.name} · ${me.position||'구성원'}`;
 
       const option=(value,text)=>`<option value="${esc(value)}">${esc(text)}</option>`;
-      const departmentOptions=(placeholder='조직도 소속경로 선택')=>`<option value="">${esc(placeholder)}</option>`+departmentTree.map((dep)=>dep.children?`<optgroup label="${esc(dep.name)}"><option value="${esc(dep.name)}">${esc(dep.name==='사무처'?dep.name:`${dep.name}(전체)`)}</option>${dep.children.map((child)=>option(`${dep.name} - ${child}`,`　${child}`)).join('')}</optgroup>`:option(dep.name,dep.name)).join('');
+      const departmentOptions=(placeholder='조직도 소속경로 선택')=>`<option value="">${esc(placeholder)}</option>`+departmentTree.map((dep)=>dep.children?`<optgroup label="${esc(dep.name)}"><option value="${esc(dep.name)}">${esc(dep.name)}</option>${dep.children.map((child)=>option(`${dep.name} - ${child}`,`　${child}`)).join('')}</optgroup>`:option(dep.name,dep.name)).join('');
       const positionOptions=()=>'<option value="">관리책임자 직책 선택</option>'+responsiblePositions.map((name)=>option(name,name)).join('');
       const cardIssuerOptions=()=>'<option value="">카드사 선택</option>'+cardIssuers.map((group)=>`<optgroup label="${esc(group.group)}">${group.items.map((name)=>option(name,name)).join('')}</optgroup>`).join('');
       const presetOptions=(field,placeholder)=>`<option value="">${placeholder}</option>`+fundPresets.map((r)=>option(r.code,r[field])).join('')+option('__custom__','직접 입력');

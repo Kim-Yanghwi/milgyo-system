@@ -2,7 +2,7 @@
 import ManagementLayout from '../layouts/ManagementLayout.astro';
 ---
 <ManagementLayout title="임·직원 재직증명서" active="employment" showCurrentUser={false}>
-  <div data-employment-certificate-version="2026-08-10-v70" hidden></div>
+  <div data-employment-certificate-version="2026-08-15-v71" hidden></div>
   <div class="page-heading">
     <div><p class="page-heading__kicker">EMPLOYMENT CERTIFICATE</p><h1>임·직원 재직증명서</h1><p>임·직원의 인적·재직사항을 확인하여 재직증명서를 발급하고 발급대장을 관리합니다.</p></div>
   </div>
@@ -46,9 +46,9 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         <div class="form-field"><label for="certificate-signatory-title">발급명의 직함</label><select id="certificate-signatory-title" name="signatoryTitle" required><option value="이사장">이사장</option><option value="이사장 직무대리">이사장 직무대리</option></select></div>
         <div class="form-field"><label for="certificate-signatory-user">발급명의 성명</label><select id="certificate-signatory-user" name="signatoryUserId" data-signatory-select required></select></div>
         <div class="form-field form-field--full employment-logo-option">
-          <span class="field-label">좌측 상단 logo(sq)</span>
-          <label class="certificate-logo-check"><input type="checkbox" name="includeLogoSqSeal" /><span>logo(sq) 이미지 표시</span></label>
-          <small class="field-hint">체크하면 재직증명서 좌측 상단에 logo(sq) 이미지를 추가합니다. 기존 본문과 우측 하단 직인 위치는 변경하지 않습니다.</small>
+          <span class="field-label">좌측 상단 종단 로고</span>
+          <label class="certificate-logo-check"><input type="checkbox" name="includeLogoSqSeal" /><span>종단 로고 표시</span></label>
+          <small class="field-hint">체크하면 재직증명서 좌측 상단에 종단 로고를 추가합니다. 기존 본문과 우측 하단 직인 위치는 변경하지 않습니다.</small>
         </div>
       </div>
       <div class="status-message" data-issue-status aria-live="polite"></div>
