@@ -400,6 +400,7 @@ const BUILT_IN_TEMPLATES = [
       { id: 'estimatedPrice', label: '추정가격(원)', type: 'money', required: true, defaultValue: '0', width: 'half' },
       { id: 'plannedBidAmount', label: '투찰예정금액(원)', type: 'money', required: true, defaultValue: '0', width: 'half' },
       { id: 'termPlace', label: '계약기간·납품기한·납품장소', type: 'textarea', required: true, width: 'full' },
+      { id: 'responsible', label: '책임자(담당자)', type: 'text', required: false, width: 'half' },
       { id: 'qualification', label: '참가자격 확인', type: 'textarea', required: true, placeholder: '사업자등록 / 입찰참가자격 / 면허·인증 / 제한처분 / 정관범위', width: 'full' },
       { id: 'costs', label: '원가 산정내역', type: 'textarea', required: true, width: 'full' },
       { id: 'expectedProfit', label: '예상이익·이익률', type: 'text', required: true, width: 'half' },
@@ -411,7 +412,7 @@ const BUILT_IN_TEMPLATES = [
       { id: 'decisionNo', label: '의결·허가번호', type: 'text', required: false, width: 'half' },
       { id: 'opinion', label: '검토의견', type: 'textarea', required: true, width: 'full' },
     ],
-    bodyTemplate: '1. 공고 개요\n  - 발주기관: {{agency}}\n  - 공고번호: {{announcementNo}}\n  - 공고명: {{subject}}\n  - 입찰정보: {{bidInfo}}\n  - 추정가격: {{estimatedPrice}}원\n  - 투찰예정금액: {{plannedBidAmount}}원\n  - 계약·납품: {{termPlace}}\n2. 참가자격 확인\n{{qualification}}\n\n3. 원가 산정\n{{costs}}\n\n4. 예상이익·이익률: {{expectedProfit}}\n5. 보증 검토\n{{guarantees}}\n\n6. 세무검토\n{{taxReview}}\n\n7. 위험 검토\n{{risk}}\n\n8. 회계연도별 총량 검토\n{{annualLimit}}\n\n9. 결재구분 / 의결·허가번호: {{approval}} / {{decisionNo}}\n10. 검토의견\n{{opinion}}',
+    bodyTemplate: '1. 공고 개요\n  - 발주기관: {{agency}}\n  - 공고번호: {{announcementNo}}\n  - 공고명: {{subject}}\n  - 입찰정보: {{bidInfo}}\n  - 추정가격: {{estimatedPrice}}원\n  - 투찰예정금액: {{plannedBidAmount}}원\n  - 계약·납품: {{termPlace}}\n  - 책임자(담당자): {{responsible}}\n2. 참가자격 확인\n{{qualification}}\n\n3. 원가 산정\n{{costs}}\n\n4. 예상이익·이익률: {{expectedProfit}}\n5. 보증 검토\n{{guarantees}}\n\n6. 세무검토\n{{taxReview}}\n\n7. 위험 검토\n{{risk}}\n\n8. 회계연도별 총량 검토\n{{annualLimit}}\n\n9. 결재구분 / 의결·허가번호: {{approval}} / {{decisionNo}}\n10. 검토의견\n{{opinion}}',
   },
   {
     id: 'TPL-FIN-MONTHLY-CHECK', name: '월별·분기별 회계점검 보고서', description: '재무회계규정 제52조의2에 따른 수입·지출, 계좌, 미정산, 증빙, 예산 및 조달 점검 서식',

@@ -1,7 +1,7 @@
 import { clean } from './helpers';
 import { nextSpecialSequence } from './accounting-special';
 
-export const COMPLIANCE_SCHEMA_VERSION = '2026-08-15.4';
+export const COMPLIANCE_SCHEMA_VERSION = '2026-08-16.1';
 
 const REQUIRED_COMPLIANCE_TABLES = [
   'accounting_revenue_businesses',
@@ -29,6 +29,11 @@ export const ensureAccountingComplianceTables = async (db: D1Database) => {
         .bind(...REQUIRED_COMPLIANCE_TABLES).first<{ count: number }>();
       if (Number(row?.count || 0) !== REQUIRED_COMPLIANCE_TABLES.length) {
         throw new Error('규정·공공조달 회계 DB 스키마가 준비되지 않았습니다. v71 마이그레이션을 먼저 적용해 주세요.');
+      }
+      const procurementColumns = await db.prepare(`PRAGMA table_info(accounting_procurement_reviews)`).all();
+      const columnNames = new Set((procurementColumns.results || []).map((column: any) => String(column.name || '')));
+      if (!columnNames.has('responsible_user_id') || !columnNames.has('responsible_name')) {
+        throw new Error('규정·공공조달 회계 DB의 v73 마이그레이션이 필요합니다. 0015_v73_compliance_org_responsible.sql을 적용해 주세요.');
       }
       schemaReady.add(key);
     })().catch((error) => { schemaPromises.delete(key); throw error; });

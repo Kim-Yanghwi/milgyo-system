@@ -22,10 +22,10 @@ import { assertAccountingAttachmentRetentionElapsed } from '../functions/_shared
 import { calculateVatFromSupply, getTaxValidation } from '../functions/_shared/accounting-tax';
 
 const migrationFiles = () => fs.readdirSync('migrations/accounting')
-  .filter((file) => /^00(0[4-9]|1[0-4]).*\.sql$/.test(file)).sort()
+  .filter((file) => /^00(0[4-9]|1[0-5]).*\.sql$/.test(file)).sort()
   .map((file) => `migrations/accounting/${file}`);
 
-const migrate = (through = '0014') => {
+const migrate = (through = '0015') => {
   const db = new DatabaseSync(':memory:');
   db.exec(fs.readFileSync('database/accounting-base-schema.sql', 'utf8'));
   for (const file of migrationFiles()) {
@@ -58,16 +58,19 @@ const insertJournal = (db: DatabaseSync, id: string, sourceType: string, sourceI
     VALUES (?,?,?,?,?,?,?,?,?)`).run(id, `전표-${id}`, 2026, '2026-01-15', sourceType, sourceId, id, status, '2026-01-15T00:00:00.000Z');
 };
 
-test('fresh schema applies through v71 and contains the restored attachment foundation', () => {
+test('fresh schema applies through v73 and contains the restored attachment foundation', () => {
   const v63Migration = fs.readFileSync('migrations/accounting/0011_v63_tax_accounting.sql', 'utf8');
   assert.doesNotMatch(v63Migration, /SELECT\s+CASE\b/i,
     'D1 remote migration compatibility requires trigger guards without SELECT CASE ... END');
   const db = migrate();
   const version = db.prepare(`SELECT meta_value FROM accounting_meta WHERE meta_key='schema_version'`).get() as any;
-  assert.equal(version.meta_value, '2026-08-15.4');
+  assert.equal(version.meta_value, '2026-08-16.1');
   assert.ok(db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='accounting_attachments'`).get());
   const journalColumns = db.prepare(`PRAGMA table_info(accounting_journals)`).all() as any[];
   assert.ok(journalColumns.some((column) => column.name === 'updated_at'));
+  const procurementColumns = db.prepare(`PRAGMA table_info(accounting_procurement_reviews)`).all() as any[];
+  assert.ok(procurementColumns.some((column) => column.name === 'responsible_user_id'));
+  assert.ok(procurementColumns.some((column) => column.name === 'responsible_name'));
 });
 
 test('production verification SQL executes against the complete accounting schema', () => {

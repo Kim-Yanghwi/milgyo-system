@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
+import { authenticateSession, clean, ensureTables, formatDepartmentDisplay, json, normalizeDepartmentValue } from '../../_shared/helpers';
 import { canViewAllAccounting, ensureAccountingTables, hasAccountingAccess, isAccountingManager } from '../../_shared/accounting';
 import { getDimensionMaster } from '../../_shared/accounting-special';
 import { ensureAccountingOperationsTables } from '../../_shared/accounting-operations';
@@ -18,6 +18,21 @@ const toYear = (value: unknown) => {
   return Number.isInteger(y) && y >= 2000 && y <= 2200 ? y : currentYear();
 };
 const toLimit = (value: unknown, fallback = 200) => Math.max(10, Math.min(500, Number(value || fallback) || fallback));
+
+const ORGANIZATION_DEPARTMENT_TREE = [
+  { name: '이사장' }, { name: '이사회' }, { name: '감사' }, { name: '종정' },
+  { name: '사무처', children: ['재정국', '준법윤리국', '국제교류국', '문화홍보국', '사회공헌국'] },
+  { name: '총무원' }, { name: '교육·포교원' },
+  { name: '소속기관·교구', children: ['람림불교교육원', '서울·인천·경기교구', '강원교구', '대전·세종·충남교구', '충북교구', '전남광주·전북교구', '대구·경북교구', '부산·울산·경남교구', '제주교구'] },
+  { name: '위원회·신도단체', children: ['신도회', '사찰운영위원회'] },
+] as const;
+
+const organizationDepartmentOptions: Array<{ value: string; label: string }> = ORGANIZATION_DEPARTMENT_TREE.flatMap((department) => {
+  const base: Array<{ value: string; label: string }> = [{ value: department.name, label: department.name }];
+  const children = 'children' in department ? department.children : undefined;
+  if (!children) return base;
+  return base.concat(children.map((child) => ({ value: `${department.name} - ${child}`, label: `${department.name}(${child})` })));
+});
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB || !env.ACCOUNTING_DB) return json({ ok: false, message: '전자문서 DB 또는 회계 전용 DB가 연결되지 않았습니다.' }, 500);
@@ -41,7 +56,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     if (action === 'init') {
-      const [dimensions, fiscalYears, accounts, contracts, assets, summary, priorYearIncome, annualProcurementTotal] = await Promise.all([
+      const [dimensions, fiscalYears, accounts, contracts, assets, summary, priorYearIncome, annualProcurementTotal, organizationUsersRaw] = await Promise.all([
         getDimensionMaster(db),
         db.prepare(`SELECT year,name,start_date,end_date,status FROM accounting_fiscal_years ORDER BY year`).all(),
         db.prepare(`SELECT code,name,account_type FROM accounting_accounts WHERE active=1 ORDER BY code`).all(),
@@ -58,7 +73,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         `).bind(year, year, year, year, year, year).first<any>(),
         getPriorYearIncome(db, year),
         getProcurementAnnualContractTotal(db, year),
+        env.DB.prepare(`SELECT CAST(id AS TEXT) AS id,name,position,department,role FROM system_users WHERE active=1 ORDER BY name`).all(),
       ]);
+      const organizationUsers = (organizationUsersRaw.results || []).map((row: any) => {
+        const department = normalizeDepartmentValue(row.department, row.position || '');
+        return {
+          id: String(row.id || ''),
+          name: String(row.name || ''),
+          position: String(row.position || ''),
+          department,
+          departmentLabel: department ? formatDepartmentDisplay(department, row.position || '') : '',
+          role: String(row.role || ''),
+        };
+      });
       return json({
         ok: true,
         me,
@@ -69,6 +96,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         accounts: accounts.results || [],
         contracts: contracts.results || [],
         assets: assets.results || [],
+        organizationDepartments: organizationDepartmentOptions,
+        organizationUsers,
         summary: summary || {},
         priorYearIncome,
         annualProcurementTotal,
@@ -156,7 +185,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (action === 'vehicles') {
       const rows = await db.prepare(`SELECT v.*,a.asset_no,a.name AS asset_name,c.contract_no,c.title AS contract_title,
-        (SELECT COUNT(*) FROM accounting_vehicle_logs l WHERE l.vehicle_id=v.id) AS log_count
+        (SELECT COUNT(*) FROM accounting_vehicle_logs l WHERE l.vehicle_id=v.id) AS log_count,
+        (SELECT MAX(l.use_date) FROM accounting_vehicle_logs l WHERE l.vehicle_id=v.id) AS last_log_date
         FROM accounting_vehicle_records v LEFT JOIN accounting_assets a ON a.id=v.asset_id LEFT JOIN accounting_contracts c ON c.id=v.contract_id
         ORDER BY CASE v.status WHEN 'active' THEN 0 ELSE 1 END,v.created_at DESC LIMIT ${limit}`).all();
       return json({ ok: true, rows: rows.results || [] });
