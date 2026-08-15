@@ -172,3 +172,60 @@ SELECT 'LEGACY_1130_REFERENCES' AS check_name,
        + (SELECT COUNT(*) FROM accounting_assets WHERE asset_account_code='1130')
        + (SELECT COUNT(*) FROM accounting_contracts WHERE account_code='1130')
        + (SELECT COUNT(*) FROM accounting_card_transactions WHERE account_code='1130') AS count;
+
+-- v71 정관·재무회계규정 대응 점검
+SELECT 'REVENUE_BUSINESS_APPROVAL_MISSING' AS check_name,COUNT(*) AS count
+FROM accounting_revenue_businesses
+WHERE status IN ('approved','active','stopped')
+  AND approval_level IN ('board','general_meeting')
+  AND COALESCE(decision_no,'')='';
+
+SELECT 'PROCUREMENT_QUALIFICATION_INCOMPLETE' AS check_name,COUNT(*) AS count
+FROM accounting_procurement_reviews
+WHERE status IN ('approved','contracted','completed')
+  AND (business_registration_ok=0 OR bidding_registration_ok=0 OR qualification_ok=0
+    OR competition_ok=0 OR sanction_clear=0 OR charter_scope_ok=0);
+
+SELECT 'PROCUREMENT_DECISION_MISSING' AS check_name,COUNT(*) AS count
+FROM accounting_procurement_reviews
+WHERE status IN ('approved','contracted','completed')
+  AND approval_level IN ('board','general_meeting')
+  AND COALESCE(decision_no,'')='';
+
+SELECT 'PROCUREMENT_REVENUE_BUSINESS_LINK_MISSING' AS check_name,COUNT(*) AS count
+FROM accounting_procurement_reviews p
+LEFT JOIN accounting_revenue_businesses r ON r.id=p.revenue_business_id
+WHERE p.status IN ('approved','contracted','completed')
+  AND (r.id IS NULL OR r.business_type NOT IN ('procurement','preferential_purchase') OR r.status NOT IN ('approved','active'));
+
+SELECT 'PROCUREMENT_CONTRACT_BOOK_MISMATCH' AS check_name,COUNT(*) AS count
+FROM accounting_procurement_reviews p
+LEFT JOIN accounting_contracts c ON c.id=p.contract_id
+WHERE p.status IN ('contracted','completed')
+  AND (c.id IS NULL OR c.book_type_code<>'revenue');
+
+SELECT 'PROCUREMENT_GUARANTEE_EXPIRING' AS check_name,COUNT(*) AS count
+FROM accounting_procurement_guarantees
+WHERE recovered=0 AND COALESCE(end_date,'')<>'' AND end_date<=date('now','+45 days');
+
+SELECT 'PURPOSE_RESERVE_NEGATIVE_BALANCE' AS check_name,COUNT(*) AS count
+FROM (
+  SELECT r.id,r.set_amount-COALESCE(SUM(t.amount),0) AS balance
+  FROM accounting_purpose_reserves r
+  LEFT JOIN accounting_purpose_reserve_transactions t ON t.reserve_id=r.id
+  GROUP BY r.id,r.set_amount
+  HAVING balance<0
+);
+
+SELECT 'FINANCE_INCIDENT_OPEN' AS check_name,COUNT(*) AS count
+FROM accounting_finance_incidents WHERE status='open';
+
+SELECT 'VEHICLE_SUCCESSION_CONTROL_MISSING' AS check_name,COUNT(*) AS count
+FROM accounting_vehicle_records
+WHERE COALESCE(succession_candidate,'')<>''
+  AND (succession_counterparty_consent=0 OR succession_no_loss=0 OR succession_price<=0
+    OR COALESCE(succession_price_basis,'')='' OR COALESCE(succession_decision_no,'')='');
+
+SELECT 'PROCUREMENT_NEXT_BOARD_REPORT_PENDING' AS check_name,COUNT(*) AS count
+FROM accounting_procurement_reviews
+WHERE status IN ('contracted','completed') AND approval_level='chairman' AND next_board_reported=0;

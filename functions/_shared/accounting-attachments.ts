@@ -26,6 +26,13 @@ export const ACCOUNTING_ATTACHMENT_REFERENCE_TYPES = [
   'vendor',
   'contract',
   'donation_export',
+  'revenue_business',
+  'procurement_review',
+  'procurement_guarantee',
+  'purpose_reserve',
+  'compliance_check',
+  'finance_incident',
+  'vehicle',
 ] as const;
 
 export type AccountingAttachmentReferenceType =
@@ -267,7 +274,14 @@ export const authorizeAccountingReference = async (
     case 'budget_change':
     case 'vendor':
     case 'contract':
-    case 'donation_export': {
+    case 'donation_export':
+    case 'revenue_business':
+    case 'procurement_review':
+    case 'procurement_guarantee':
+    case 'purpose_reserve':
+    case 'compliance_check':
+    case 'finance_incident':
+    case 'vehicle': {
       const tableMap = {
         bank_account: 'accounting_bank_accounts',
         import_batch: 'accounting_import_batches',
@@ -275,6 +289,13 @@ export const authorizeAccountingReference = async (
         vendor: 'accounting_vendors',
         contract: 'accounting_contracts',
         donation_export: 'accounting_donation_export_batches',
+        revenue_business: 'accounting_revenue_businesses',
+        procurement_review: 'accounting_procurement_reviews',
+        procurement_guarantee: 'accounting_procurement_guarantees',
+        purpose_reserve: 'accounting_purpose_reserves',
+        compliance_check: 'accounting_compliance_checks',
+        finance_incident: 'accounting_finance_incidents',
+        vehicle: 'accounting_vehicle_records',
       } as const;
       const exists = await firstExists(db, `SELECT id FROM ${tableMap[referenceType]} WHERE id=?`, referenceId);
       return {

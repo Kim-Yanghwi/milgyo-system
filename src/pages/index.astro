@@ -1791,7 +1791,17 @@ import GovLayout from '../layouts/GovLayout.astro';
         if (requestedView && ['임시저장','진행','결재대기','발송대기','완료','반려','전체'].includes(requestedView)) activateDocumentsView(requestedView);
         else if (params.get('received') === '1') activateReceivedView();
         else activateHome();
-        if (params.get('compose') === '1') setTimeout(() => $('[data-open-compose]')?.click(), 50);
+        if (params.get('compose') === '1') setTimeout(async () => {
+          try {
+            await openCompose();
+            const templateId = params.get('template');
+            if (templateId) {
+              if (!allTemplates.length) await refreshTemplates();
+              const template = findTemplate(templateId);
+              if (template?.active) applyTemplate(template);
+            }
+          } catch (error) { console.error('문서작성 바로가기 실행 실패', error); }
+        }, 50);
         if (params.get('receivedCreate') === '1') setTimeout(() => $('[data-open-received]')?.click(), 50);
         if (params.get('templates') === '1') setTimeout(() => $('[data-open-templates]')?.click(), 50);
         if (params.get('users') === '1') setTimeout(() => $('[data-open-users]')?.click(), 50);
