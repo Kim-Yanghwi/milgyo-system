@@ -1,0 +1,131 @@
+---
+import ManagementLayout from '../layouts/ManagementLayout.astro';
+---
+<ManagementLayout title="업무용 차량 관리대장" active="vehicle">
+  <div data-vehicle-register-version="2026-08-16-v72" hidden></div>
+  <div class="page-heading">
+    <div><p class="page-heading__kicker">BUSINESS VEHICLE REGISTER</p><h1>업무용 차량 관리대장</h1><p>임차·렌트·리스·구입 차량의 등록, 운행일지, 보험, 계약, 승계 및 업무용 제외 이력을 한 곳에서 관리합니다.</p></div>
+    <div class="vehicle-heading-actions"><a class="btn btn-outline" href="/accounting-compliance/?tab=vehicle">규정관리</a><button type="button" class="btn btn-primary manager-only" data-open-vehicle-form>+ 차량 등록</button></div>
+  </div>
+
+  <section class="vehicle-summary" aria-label="업무용 차량 현황">
+    <article><span>사용중 차량</span><strong data-summary-active>0대</strong></article>
+    <article><span>전체 관리기록</span><strong data-summary-total>0건</strong></article>
+    <article><span>45일 내 보험만료</span><strong data-summary-insurance>0건</strong></article>
+    <article><span>승계·반납·처분</span><strong data-summary-closed>0건</strong></article>
+  </section>
+
+  <section class="surface vehicle-list-surface">
+    <div class="toolbar toolbar--between vehicle-toolbar">
+      <div class="vehicle-doc-actions">
+        <button type="button" class="btn btn-outline" data-doc-template="TPL-FIN-VEHICLE-REVIEW">차량 검토서 작성</button>
+        <button type="button" class="btn btn-outline" data-doc-template="TPL-FIN-VEHICLE-SUCCESSION">승계 검토서 작성</button>
+      </div>
+      <div class="toolbar vehicle-filters">
+        <select data-status-filter aria-label="차량상태"><option value="">전체 상태</option><option value="active">사용중</option><option value="returned">반납</option><option value="disposed">처분</option><option value="transferred">승계완료</option></select>
+        <input type="search" data-query placeholder="관리번호·차량명·차량번호·사용자 검색" />
+        <button type="button" class="btn btn-outline" data-refresh>조회</button>
+      </div>
+    </div>
+    <div class="status-message" data-status aria-live="polite"></div>
+    <div class="data-wrap"><table class="data-table vehicle-table"><thead><tr><th>관리번호</th><th>차량</th><th>유형</th><th>주사용자</th><th>계약기간</th><th>보험만료</th><th>운행기록</th><th>상태</th><th>관리</th></tr></thead><tbody data-vehicle-rows><tr><td colspan="9">불러오는 중입니다.</td></tr></tbody></table></div>
+  </section>
+
+  <div class="modal-overlay" data-vehicle-modal hidden>
+    <section class="modal vehicle-modal">
+      <header class="modal__header"><h2 data-vehicle-modal-title>업무용 차량 등록</h2><button type="button" class="modal__close" data-close-vehicle-modal aria-label="닫기">×</button></header>
+      <form class="modal__body" data-vehicle-form>
+        <input type="hidden" name="id" />
+        <div class="form-grid vehicle-form-grid">
+          <div class="form-field"><label>관리유형</label><select name="managementType" required><option value="rental">임차·렌트</option><option value="lease">리스</option><option value="owned">구입·보유</option></select></div>
+          <div class="form-field"><label>차종·차량명</label><input name="modelName" maxlength="160" required /></div>
+          <div class="form-field"><label>차량번호</label><input name="plateNo" maxlength="40" /></div>
+          <div class="form-field"><label>주사용자</label><input name="primaryUser" maxlength="100" /></div>
+          <div class="form-field"><label>계약시작</label><input name="contractStart" type="date" /></div>
+          <div class="form-field"><label>계약종료</label><input name="contractEnd" type="date" /></div>
+          <div class="form-field"><label>월비용</label><input name="monthlyCost" class="money" inputmode="numeric" /></div>
+          <div class="form-field"><label>보험사</label><input name="insurer" maxlength="160" /></div>
+          <div class="form-field"><label>보험만료일</label><input name="insuranceEnd" type="date" /></div>
+          <div class="form-field"><label>연결 자산</label><select name="assetId" data-asset-select><option value="">선택 안 함</option></select></div>
+          <div class="form-field"><label>연결 계약</label><select name="contractId" data-contract-select><option value="">선택 안 함</option></select></div>
+          <div class="form-field"><label>상태</label><select name="status"><option value="active">사용중</option><option value="returned">반납</option><option value="disposed">처분</option></select></div>
+          <div class="form-field form-field--full"><label>업무용도</label><textarea name="purpose" rows="3" required></textarea></div>
+          <div class="form-field"><label>승인단계</label><select name="approvalLevel"><option value="auto">규정에 따라 자동판단</option><option value="secretary_general">사무총장 전결</option><option value="chairman">이사장 승인</option><option value="board">이사회 의결</option></select></div>
+          <div class="form-field"><label>의결·승인번호</label><input name="decisionNo" maxlength="120" /></div>
+          <div class="form-field form-field--full"><label class="vehicle-check"><input type="checkbox" name="renewalFlag" /> 계속·반복 갱신 계약</label></div>
+          <div class="form-field form-field--full"><label>비고</label><textarea name="memo" rows="2"></textarea></div>
+        </div>
+        <div class="modal__actions"><button type="button" class="btn btn-outline" data-close-vehicle-modal>취소</button><button type="submit" class="btn btn-primary">저장</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="modal-overlay" data-detail-modal hidden>
+    <section class="modal vehicle-detail-modal">
+      <header class="modal__header"><div><h2 data-detail-title>차량 상세관리</h2><p class="vehicle-detail-subtitle" data-detail-subtitle></p></div><button type="button" class="modal__close" data-close-detail-modal aria-label="닫기">×</button></header>
+      <div class="modal__body">
+        <div class="vehicle-detail-actions manager-only">
+          <button type="button" class="btn btn-outline" data-edit-selected>기본정보 수정</button>
+          <button type="button" class="btn btn-outline" data-doc-template="TPL-FIN-VEHICLE-REVIEW">차량 검토서</button>
+          <button type="button" class="btn btn-outline" data-doc-template="TPL-FIN-VEHICLE-SUCCESSION" data-succession-doc>승계 검토서</button>
+        </div>
+        <div class="vehicle-detail-grid">
+          <section class="vehicle-detail-card"><h3>차량 기본현황</h3><dl data-detail-facts></dl><div class="vehicle-status-actions manager-only"><button type="button" class="btn btn-outline" data-set-status="active">사용중</button><button type="button" class="btn btn-outline" data-set-status="returned">반납 처리</button><button type="button" class="btn btn-outline" data-set-status="disposed">처분 처리</button></div></section>
+          <section class="vehicle-detail-card"><h3>운행기록 등록</h3><form data-log-form><input type="hidden" name="vehicleId" /><div class="form-grid"><div class="form-field"><label>운행일</label><input name="useDate" type="date" required /></div><div class="form-field"><label>운전자</label><input name="driver" required /></div><div class="form-field"><label>운행구간</label><input name="route" /></div><div class="form-field"><label>주행거리(km)</label><input name="distanceKm" type="number" min="0" step="0.1" /></div><div class="form-field form-field--full"><label>운행목적</label><textarea name="purpose" rows="2" required></textarea></div><div class="form-field form-field--full"><label>비고</label><textarea name="memo" rows="2"></textarea></div></div><div class="form-actions"><button class="btn btn-primary">운행기록 저장</button></div></form></section>
+        </div>
+        <section class="vehicle-detail-card vehicle-log-card"><div class="vehicle-card-head"><h3>운행일지</h3><span data-log-count>0건</span></div><div class="data-wrap"><table class="data-table vehicle-log-table"><thead><tr><th>운행일</th><th>운전자</th><th>운행목적</th><th>운행구간</th><th>거리</th></tr></thead><tbody data-log-rows></tbody></table></div></section>
+        <section class="vehicle-detail-card manager-only vehicle-succession-card"><div class="vehicle-card-head"><div><h3>임차권·리스 승계 및 업무용 제외</h3><p>재무회계규정 제35조의3에 따른 요건을 확인한 뒤 승계 완료 처리하면 현행 업무용 차량에서 제외됩니다.</p></div></div><form data-succession-form><input type="hidden" name="id" /><div class="form-grid"><div class="form-field"><label>승계희망자</label><input name="successionCandidate" /></div><div class="form-field"><label>승계대가</label><input name="successionPrice" class="money" inputmode="numeric" /></div><div class="form-field form-field--full"><label>승계대가 산정근거</label><textarea name="successionPriceBasis" rows="2" placeholder="잔여 리스료·보증금·정산금·시세 등 객관적 산정근거"></textarea></div><div class="form-field"><label>이사회 의결번호</label><input name="successionDecisionNo" /></div><div class="form-field vehicle-checks"><label class="vehicle-check"><input type="checkbox" name="successionCounterpartyConsent" /> 계약상대방 승계 동의 확인</label><label class="vehicle-check"><input type="checkbox" name="successionNoLoss" /> 법인 신규채무·손실 없음 확인</label></div></div><div class="form-actions"><button type="submit" class="btn btn-outline" data-transfer-mode="save">검토자료 저장</button><button type="submit" class="btn btn-primary" data-transfer-mode="complete">승계 완료·업무용 제외</button></div></form></section>
+      </div>
+    </section>
+  </div>
+
+  <script is:inline>
+    (()=>{
+      'use strict';
+      const STORAGE_KEY='milgyo-system-session';
+      const session=(()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')}catch{return null}})();
+      if(!session?.token||!session?.user){location.replace('/');return}
+      const token=session.token,me=session.user;
+      const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+      const esc=(v)=>String(v??'').replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      const won=(v)=>`${Number(v||0).toLocaleString('ko-KR')}원`;
+      const today=()=>new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
+      const currentYear=Number(today().slice(0,4));
+      const statusLabel=(v)=>({active:'사용중',returned:'반납',disposed:'처분',transferred:'승계완료'}[v]||v||'-');
+      const typeLabel=(v)=>({owned:'구입·보유',lease:'리스',rental:'임차·렌트'}[v]||v||'-');
+      const approvalLabel=(v)=>({secretary_general:'사무총장 전결',chairman:'이사장 승인',board:'이사회 의결'}[v]||v||'-');
+      let state={permissions:{manager:false},vehicles:[],assets:[],contracts:[],selectedId:'',selected:null};
+      const api=async(path,body)=>{const res=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,token})});const text=await res.text();let data;try{data=JSON.parse(text)}catch{data={ok:false,message:`서버 응답 오류(HTTP ${res.status})`}}if(!data.ok)throw new Error(data.message||'처리 중 오류가 발생했습니다.');return data};
+      const setStatus=(message,type='')=>{const el=$('[data-status]');el.textContent=message||'';el.className=`status-message ${type}`};
+      const moneyValue=(v)=>{const n=Number(String(v??'').replace(/[^0-9.-]/g,''));return Number.isFinite(n)?Math.round(n):0};
+      const setMoneyFormatting=(root=document)=>{$$('.money',root).forEach((el)=>{if(el.dataset.moneyBound)return;el.dataset.moneyBound='1';el.addEventListener('input',()=>{const raw=el.value.replace(/[^0-9-]/g,'');if(!raw||raw==='-')return;el.value=Number(raw).toLocaleString('ko-KR')})})};
+      const formBody=(form)=>{const out={};new FormData(form).forEach((v,k)=>out[k]=v);$$('input[type="checkbox"]',form).forEach((el)=>out[el.name]=el.checked);return out};
+      const fill=(form,row)=>{for(const [key,value] of Object.entries(row||{})){const name=key.replace(/_([a-z])/g,(_,c)=>c.toUpperCase());const el=form.elements.namedItem(name);if(!el)continue;if(el.type==='checkbox')el.checked=!!Number(value);else if(el.classList?.contains('money'))el.value=Number(value||0).toLocaleString('ko-KR');else el.value=value??''}window.__MILGYO_SYNC_MANAGED_DATES__?.(form)};
+      const modalOpen=(sel)=>{$(sel).hidden=false};const modalClose=(sel)=>{$(sel).hidden=true};
+      const renderMasterOptions=()=>{const assetOptions='<option value="">선택 안 함</option>'+state.assets.map((x)=>`<option value="${esc(x.id)}">${esc(x.asset_no)} · ${esc(x.name)}</option>`).join('');const contractOptions='<option value="">선택 안 함</option>'+state.contracts.map((x)=>`<option value="${esc(x.id)}">${esc(x.contract_no)} · ${esc(x.title)}</option>`).join('');$('[data-asset-select]').innerHTML=assetOptions;$('[data-contract-select]').innerHTML=contractOptions};
+      const updateSummary=()=>{const rows=state.vehicles;const todayMs=Date.parse(today());const due=todayMs+45*86400000;$('[data-summary-active]').textContent=`${rows.filter(r=>r.status==='active').length}대`;$('[data-summary-total]').textContent=`${rows.length}건`;$('[data-summary-closed]').textContent=`${rows.filter(r=>r.status!=='active').length}건`;$('[data-summary-insurance]').textContent=`${rows.filter(r=>{const t=Date.parse(r.insurance_end||'');return Number.isFinite(t)&&t>=todayMs&&t<=due}).length}건`};
+      const filteredVehicles=()=>{const status=$('[data-status-filter]').value,q=$('[data-query]').value.trim().toLowerCase();return state.vehicles.filter((r)=>(!status||r.status===status)&&(!q||[r.vehicle_no,r.model_name,r.plate_no,r.primary_user].some(v=>String(v||'').toLowerCase().includes(q))))};
+      const renderRows=()=>{const rows=filteredVehicles();$('[data-vehicle-rows]').innerHTML=rows.length?rows.map((r)=>`<tr><td>${esc(r.vehicle_no)}</td><td><button type="button" class="vehicle-name-link" data-open-detail="${esc(r.id)}"><strong>${esc(r.model_name)}</strong>${r.plate_no?`<small>${esc(r.plate_no)}</small>`:''}</button></td><td>${esc(typeLabel(r.management_type))}</td><td>${esc(r.primary_user||'-')}</td><td>${esc(r.contract_start||'-')}<br>~ ${esc(r.contract_end||'-')}</td><td>${esc(r.insurance_end||'-')}</td><td>${Number(r.log_count||0)}건</td><td><span class="vehicle-status vehicle-status--${esc(r.status)}">${esc(statusLabel(r.status))}</span></td><td><div class="row-actions"><button type="button" class="mini" data-open-detail="${esc(r.id)}">상세</button>${state.permissions.manager&&r.status!=='transferred'?`<button type="button" class="mini" data-edit-vehicle="${esc(r.id)}">수정</button>`:''}</div></td></tr>`).join(''):'<tr><td colspan="9" class="empty">조건에 맞는 차량이 없습니다.</td></tr>';$$('[data-open-detail]').forEach(b=>b.addEventListener('click',()=>openDetail(b.dataset.openDetail)));$$('[data-edit-vehicle]').forEach(b=>b.addEventListener('click',()=>openEdit(b.dataset.editVehicle)))};
+      const loadVehicles=async()=>{const data=await api('/api/accounting-compliance/query',{action:'vehicles',limit:500});state.vehicles=data.rows||[];updateSummary();renderRows()};
+      const init=async()=>{const data=await api('/api/accounting-compliance/query',{action:'init',year:currentYear});state.permissions=data.permissions||{};state.assets=data.assets||[];state.contracts=data.contracts||[];$$('.manager-only').forEach(el=>el.hidden=!state.permissions.manager);renderMasterOptions();setMoneyFormatting();await loadVehicles();const params=new URLSearchParams(location.search);const id=params.get('vehicleId');if(id)await openDetail(id);else if(params.get('mode')==='new'&&state.permissions.manager)openCreate();else if(params.get('mode')==='succession')setStatus('승계할 차량의 상세 버튼을 눌러 대상 차량을 먼저 선택해 주세요.');else if(params.get('mode')==='logs')setStatus('운행일지를 입력할 차량의 상세 버튼을 눌러 주세요.')};
+      const openCreate=()=>{const form=$('[data-vehicle-form]');form.reset();form.elements.id.value='';$('[data-vehicle-modal-title]').textContent='업무용 차량 등록';window.__MILGYO_SYNC_MANAGED_DATES__?.(form);modalOpen('[data-vehicle-modal]')};
+      const openEdit=async(id)=>{const data=await api('/api/accounting-compliance/query',{action:'vehicle-detail',id});const form=$('[data-vehicle-form]');form.reset();fill(form,data.row);$('[data-vehicle-modal-title]').textContent=`업무용 차량 수정 · ${data.row.vehicle_no}`;modalOpen('[data-vehicle-modal]')};
+      const factsHtml=(r)=>[['관리번호',r.vehicle_no],['관리유형',typeLabel(r.management_type)],['차량번호',r.plate_no||'-'],['주사용자',r.primary_user||'-'],['계약기간',`${r.contract_start||'-'} ~ ${r.contract_end||'-'}`],['월비용',won(r.monthly_cost)],['보험',`${r.insurer||'-'} / ${r.insurance_end||'-'}`],['승인단계',approvalLabel(r.approval_level)],['의결번호',r.decision_no||'-'],['상태',statusLabel(r.status)]].map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
+      const renderLogs=(logs)=>{$('[data-log-count]').textContent=`${logs.length}건`;$('[data-log-rows]').innerHTML=logs.length?logs.map(l=>`<tr><td>${esc(l.use_date)}</td><td>${esc(l.driver)}</td><td>${esc(l.purpose)}</td><td>${esc(l.route||'-')}</td><td>${Number(l.distance_km||0).toLocaleString('ko-KR')}km</td></tr>`).join(''):'<tr><td colspan="5" class="empty">등록된 운행기록이 없습니다.</td></tr>'};
+      const openDetail=async(id)=>{const data=await api('/api/accounting-compliance/query',{action:'vehicle-detail',id});state.selectedId=id;state.selected=data.row;$('[data-detail-title]').textContent=`${data.row.vehicle_no} · ${data.row.model_name}`;$('[data-detail-subtitle]').textContent=[data.row.plate_no,statusLabel(data.row.status)].filter(Boolean).join(' · ');$('[data-detail-facts]').innerHTML=factsHtml(data.row);const logForm=$('[data-log-form]');logForm.reset();logForm.elements.vehicleId.value=id;logForm.elements.useDate.value=today();window.__MILGYO_SYNC_MANAGED_DATES__?.(logForm);const suc=$('[data-succession-form]');suc.reset();fill(suc,data.row);suc.elements.id.value=id;const successionCard=$('.vehicle-succession-card');if(successionCard)successionCard.hidden=!state.permissions.manager||data.row.status==='transferred'||!['lease','rental'].includes(data.row.management_type);const successionDoc=$('[data-succession-doc]');if(successionDoc)successionDoc.hidden=data.row.status==='transferred'||!['lease','rental'].includes(data.row.management_type);const statusActions=$('.vehicle-status-actions');if(statusActions)statusActions.hidden=!state.permissions.manager||data.row.status==='transferred';const editSelected=$('[data-edit-selected]');if(editSelected)editSelected.hidden=!state.permissions.manager||data.row.status==='transferred';renderLogs(data.logs||[]);modalOpen('[data-detail-modal]')};
+      const docLink=(template)=>{const params=new URLSearchParams({compose:'1',template});if(state.selectedId)params.set('vehicleId',state.selectedId);return `/?${params.toString()}`};
+      $$('[data-doc-template]').forEach((b)=>b.addEventListener('click',()=>{const template=b.dataset.docTemplate;if(template==='TPL-FIN-VEHICLE-SUCCESSION'){if(!state.selectedId){setStatus('승계 검토서를 작성하려면 먼저 차량 상세를 열어 대상 차량을 선택해 주세요.','error');return}if(!['lease','rental'].includes(state.selected?.management_type||'')){setStatus('승계 검토서는 임차·렌트 또는 리스 차량에만 작성할 수 있습니다.','error');return}if(state.selected?.status==='transferred'){setStatus('이미 승계 완료되어 업무용 차량에서 제외된 자료입니다.','error');return}}location.href=docLink(template)}));
+      $('[data-open-vehicle-form]').addEventListener('click',openCreate);$$('[data-close-vehicle-modal]').forEach(b=>b.addEventListener('click',()=>modalClose('[data-vehicle-modal]')));$$('[data-close-detail-modal]').forEach(b=>b.addEventListener('click',()=>modalClose('[data-detail-modal]')));
+      $('[data-vehicle-form]').addEventListener('submit',async(e)=>{e.preventDefault();try{const data=await api('/api/accounting-compliance/action',{action:'save-vehicle',year:currentYear,...formBody(e.currentTarget),monthlyCost:moneyValue(e.currentTarget.elements.monthlyCost.value)});setStatus(`${data.message} 승인단계: ${approvalLabel(data.approvalLevel)}`,'ok');modalClose('[data-vehicle-modal]');await loadVehicles();if(data.id)await openDetail(data.id)}catch(err){setStatus(err.message,'error')}});
+      $('[data-log-form]').addEventListener('submit',async(e)=>{e.preventDefault();try{const data=await api('/api/accounting-compliance/action',{action:'add-vehicle-log',...formBody(e.currentTarget)});setStatus(data.message,'ok');await openDetail(state.selectedId);await loadVehicles()}catch(err){setStatus(err.message,'error')}});
+      $('[data-succession-form]').addEventListener('submit',async(e)=>{e.preventDefault();const complete=e.submitter?.dataset.transferMode==='complete';if(complete&&!confirm('승계 완료 처리하면 현행 업무용 차량에서 제외됩니다. 계속하시겠습니까?'))return;try{const data=await api('/api/accounting-compliance/action',{action:'save-vehicle-succession',...formBody(e.currentTarget),successionPrice:moneyValue(e.currentTarget.elements.successionPrice.value),completeTransfer:complete});setStatus(data.message,'ok');await loadVehicles();await openDetail(state.selectedId)}catch(err){setStatus(err.message,'error')}});
+      $$('[data-set-status]').forEach(b=>b.addEventListener('click',async()=>{if(!state.selectedId)return;const next=b.dataset.setStatus;if(!confirm(`차량 상태를 '${statusLabel(next)}'으로 변경하시겠습니까?`))return;try{const data=await api('/api/accounting-compliance/action',{action:'set-vehicle-status',id:state.selectedId,status:next});setStatus(data.message,'ok');await loadVehicles();await openDetail(state.selectedId)}catch(err){setStatus(err.message,'error')}}));
+      $('[data-edit-selected]').addEventListener('click',()=>{if(state.selectedId){modalClose('[data-detail-modal]');openEdit(state.selectedId)}});$('[data-refresh]').addEventListener('click',()=>loadVehicles().catch(e=>setStatus(e.message,'error')));$('[data-status-filter]').addEventListener('change',renderRows);$('[data-query]').addEventListener('input',renderRows);setMoneyFormatting();init().catch(e=>{alert(e.message);location.replace('/')});
+    })();
+  </script>
+
+  <style is:global>
+    .vehicle-heading-actions,.vehicle-doc-actions{display:flex;gap:.5rem;flex-wrap:wrap}.vehicle-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin-bottom:1rem}.vehicle-summary article{background:#fff;border:1px solid var(--gov-border);border-radius:9px;padding:1rem;box-shadow:0 1px 2px #00000008}.vehicle-summary span{display:block;color:var(--gov-muted);font-size:.78rem}.vehicle-summary strong{display:block;margin-top:.5rem;color:#214f84;font-size:1.35rem}.vehicle-toolbar{margin-bottom:.85rem}.vehicle-filters input{min-width:280px}.vehicle-table{min-width:1050px}.vehicle-table th,.vehicle-table td,.vehicle-log-table th,.vehicle-log-table td{text-align:center!important;vertical-align:middle!important;border:1px solid var(--gov-border)!important}.vehicle-name-link{border:0;background:transparent;color:#244f84;font:inherit;cursor:pointer}.vehicle-name-link strong,.vehicle-name-link small{display:block}.vehicle-name-link small{margin-top:.2rem;color:#6b7280}.vehicle-status{display:inline-flex;align-items:center;justify-content:center;min-width:64px;padding:.25rem .55rem;border-radius:999px;background:#edf0f4;font-size:.76rem;font-weight:700}.vehicle-status--active{background:#e4f3e8;color:#1d6d35}.vehicle-status--returned{background:#eef1f5;color:#536273}.vehicle-status--disposed{background:#fbe7e7;color:#9b3131}.vehicle-status--transferred{background:#e8efff;color:#315f9f}.row-actions{display:flex;justify-content:center;gap:.25rem}.vehicle-modal{width:min(980px,calc(100vw - 2rem))}.vehicle-detail-modal{width:min(1180px,calc(100vw - 2rem))}.vehicle-form-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.vehicle-check{display:flex!important;align-items:center;gap:.5rem;font-size:.82rem;font-weight:700}.vehicle-check input{width:16px;height:16px;min-height:0;margin:0}.vehicle-detail-actions{display:flex;justify-content:flex-end;gap:.45rem;flex-wrap:wrap;margin-bottom:.8rem}.vehicle-detail-subtitle{margin:.2rem 0 0;color:var(--gov-muted);font-size:.78rem}.vehicle-detail-grid{display:grid;grid-template-columns:1fr 1.15fr;gap:.8rem}.vehicle-detail-card{border:1px solid var(--gov-border);border-radius:8px;padding:1rem;background:#fff;margin-bottom:.8rem}.vehicle-detail-card h3{margin:0 0 .8rem;font-size:1rem}.vehicle-detail-card dl{margin:0}.vehicle-detail-card dl div{display:grid;grid-template-columns:110px 1fr;border-bottom:1px solid #edf1f5;padding:.45rem 0}.vehicle-detail-card dt{font-weight:700;color:#4a596d}.vehicle-detail-card dd{margin:0;text-align:right}.vehicle-status-actions{display:flex;gap:.4rem;justify-content:flex-end;margin-top:.8rem}.vehicle-card-head{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin-bottom:.7rem}.vehicle-card-head h3,.vehicle-card-head p{margin:0}.vehicle-card-head p{margin-top:.3rem;color:var(--gov-muted);font-size:.78rem}.vehicle-log-table{min-width:760px}.vehicle-succession-card .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.vehicle-checks{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}.vehicle-list-surface .data-wrap,.vehicle-detail-card .data-wrap{border-color:#9aadc3}.vehicle-list-surface .data-table th,.vehicle-list-surface .data-table td,.vehicle-detail-card .data-table th,.vehicle-detail-card .data-table td{border-color:#9aadc3!important}.money{text-align:right;font-variant-numeric:tabular-nums}
+    @media(max-width:980px){.vehicle-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.vehicle-form-grid,.vehicle-detail-grid,.vehicle-succession-card .form-grid{grid-template-columns:1fr}.vehicle-filters input{min-width:180px}}@media(max-width:620px){.vehicle-summary{grid-template-columns:1fr}.vehicle-heading-actions,.vehicle-doc-actions{width:100%}.vehicle-heading-actions .btn,.vehicle-doc-actions .btn{flex:1}.vehicle-filters input,.vehicle-filters select,.vehicle-filters button{width:100%}}
+  </style>
+</ManagementLayout>

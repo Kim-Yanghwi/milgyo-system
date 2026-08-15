@@ -231,6 +231,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const rank: Record<string, number> = { secretary_general: 1, chairman: 2, board: 3 };
       const approvalLevel = requestedApproval === 'auto' ? requiredApproval : ((rank[requestedApproval] || 0) >= (rank[requiredApproval] || 0) ? requestedApproval : requiredApproval);
       const status = clean(payload.status, 20) || 'active';
+      if (!['active','returned','disposed'].includes(status)) return json({ ok: false, message: '차량 상태 값이 올바르지 않습니다.' }, 400);
       const decisionNo = clean(payload.decisionNo, 120);
       if (approvalLevel === 'board' && !decisionNo && status === 'active') return json({ ok: false, message: '이사회 의결 대상 차량은 의결번호를 입력해 주세요.' }, 400);
       const successionCandidate = clean(payload.successionCandidate, 120);
@@ -249,6 +250,43 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         operationAudit(db, 'save', 'vehicle', id, me, { vehicleNo, managementType, modelName, approvalLevel, requiredApproval, renewalFlag, status }, now),
       ]);
       return json({ ok: true, id, vehicleNo, approvalLevel, message: '업무용 차량 관리자료를 저장했습니다.' });
+    }
+
+    if (action === 'save-vehicle-succession') {
+      const id = clean(payload.id, 100);
+      if (!id) return json({ ok: false, message: '승계 대상 차량을 선택해 주세요.' }, 400);
+      const vehicle = await db.prepare(`SELECT id,vehicle_no,status,management_type FROM accounting_vehicle_records WHERE id=?`).bind(id).first<any>();
+      if (!vehicle) return json({ ok: false, message: '업무용 차량 자료를 찾을 수 없습니다.' }, 404);
+      if (!['lease','rental'].includes(String(vehicle.management_type||''))) return json({ ok: false, message: '임차권·리스 승계 관리는 임차·렌트 또는 리스 차량에만 적용할 수 있습니다.' }, 400);
+      const successionCandidate = clean(payload.successionCandidate, 120);
+      const successionPrice = positiveMoney(payload.successionPrice);
+      const successionPriceBasis = clean(payload.successionPriceBasis, 1200);
+      const successionCounterpartyConsent = flag(payload.successionCounterpartyConsent);
+      const successionNoLoss = flag(payload.successionNoLoss);
+      const successionDecisionNo = clean(payload.successionDecisionNo, 120);
+      const completeTransfer = flag(payload.completeTransfer);
+      if (!successionCandidate || successionPrice <= 0 || !successionPriceBasis || !successionCounterpartyConsent || !successionNoLoss || !successionDecisionNo) {
+        return json({ ok: false, message: '승계희망자, 승계대가·산정근거, 계약상대방 동의, 법인 손실 없음 확인, 이사회 의결번호를 모두 입력해 주세요.' }, 400);
+      }
+      const status = completeTransfer ? 'transferred' : String(vehicle.status || 'active');
+      await db.batch([
+        db.prepare(`UPDATE accounting_vehicle_records SET succession_candidate=?,succession_price=?,succession_price_basis=?,succession_counterparty_consent=1,succession_no_loss=1,succession_decision_no=?,status=?,updated_at=? WHERE id=?`)
+          .bind(successionCandidate,successionPrice,successionPriceBasis,successionDecisionNo,status,now,id),
+        operationAudit(db, completeTransfer ? 'transfer' : 'save', 'vehicle-succession', id, me, { vehicleNo: vehicle.vehicle_no, successionCandidate, successionPrice, successionDecisionNo, status }, now),
+      ]);
+      return json({ ok: true, id, status, message: completeTransfer ? '승계 완료 처리하여 업무용 차량 현행 목록에서 제외했습니다.' : '차량 승계 검토자료를 저장했습니다.' });
+    }
+
+    if (action === 'set-vehicle-status') {
+      const id = clean(payload.id, 100), status = clean(payload.status, 20);
+      if (!id || !['active','returned','disposed'].includes(status)) return json({ ok: false, message: '차량과 변경할 상태를 확인해 주세요.' }, 400);
+      const vehicle = await db.prepare(`SELECT id,vehicle_no,status FROM accounting_vehicle_records WHERE id=?`).bind(id).first<any>();
+      if (!vehicle) return json({ ok: false, message: '업무용 차량 자료를 찾을 수 없습니다.' }, 404);
+      await db.batch([
+        db.prepare(`UPDATE accounting_vehicle_records SET status=?,updated_at=? WHERE id=?`).bind(status,now,id),
+        operationAudit(db, 'status', 'vehicle', id, me, { vehicleNo: vehicle.vehicle_no, from: vehicle.status, to: status }, now),
+      ]);
+      return json({ ok: true, id, status, message: `차량 상태를 ${status === 'active' ? '사용중' : status === 'returned' ? '반납' : '처분'}으로 변경했습니다.` });
     }
 
     if (action === 'add-vehicle-log') {

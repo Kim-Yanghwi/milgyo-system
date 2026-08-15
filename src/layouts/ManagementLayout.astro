@@ -2,7 +2,7 @@
 import GovLayout from './GovLayout.astro';
 export interface Props {
   title: string;
-  active: 'registers' | 'employment' | 'ordination';
+  active: 'registers' | 'vehicle' | 'employment' | 'ordination';
 }
 const { title, active } = Astro.props;
 ---
@@ -63,6 +63,7 @@ const { title, active } = Astro.props;
         <div class="sidebar-group">
           <p class="sidebar-group__title">대장관리기능</p>
           <a class:list={["sidebar-link","sidebar-external-link", active === 'registers' && 'active']} href="/register-management">공고·관인·인영 대장</a>
+          <a class:list={["sidebar-link","sidebar-external-link", active === 'vehicle' && 'active']} href="/vehicle-register" data-accounting-access-link hidden>업무용 차량 관리대장</a>
         </div>
         <div class="sidebar-group">
           <p class="sidebar-group__title">증명서 발급·대장</p>
