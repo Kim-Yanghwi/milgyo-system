@@ -67,6 +67,35 @@ export const formatDepartmentDisplay = (value: unknown, position = '') => {
   return parts.length > 1 ? `${parts[0]}(${parts.slice(1).join(' - ')})` : parts[0];
 };
 
+const DEPARTMENT_HEAD_TITLES: Record<string, string> = {
+  '이사장': '이사장',
+  '이사회': '이사장',
+  '감사': '감사',
+  '종정': '종정',
+  '사무처': '사무총장',
+  '재정국': '재정국장',
+  '준법윤리국': '준법윤리국장',
+  '국제교류국': '국제교류국장',
+  '문화홍보국': '문화홍보국장',
+  '사회공헌국': '사회공헌국장',
+  '총무원': '총무원장',
+  '교육·포교원': '교육·포교원장',
+  '람림불교교육원': '람림불교교육원장',
+  '신도회': '신도회장',
+  '사찰운영위원회': '사찰운영위원장',
+};
+
+/** 담당부서 선택값을 문서 발신명의용 부서장 직책으로 변환합니다. */
+export const resolveDepartmentHeadTitle = (value: unknown, position = '') => {
+  const normalized = normalizeDepartmentValue(value, position);
+  if (!normalized) return '';
+  const parts = normalized.split(/\s+-\s+/).map((part) => part.trim()).filter(Boolean);
+  const target = parts.length > 1 ? parts[parts.length - 1] : parts[0];
+  if (!target) return '';
+  if (DEPARTMENT_HEAD_TITLES[target]) return DEPARTMENT_HEAD_TITLES[target];
+  return target.endsWith('교구') ? `${target}장` : '';
+};
+
 export const toHex = (bytes: ArrayBuffer) =>
   Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, '0')).join('');
 

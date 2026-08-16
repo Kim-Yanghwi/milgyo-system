@@ -272,13 +272,18 @@ import GovLayout from '../layouts/GovLayout.astro';
             <label for="c-access-scope">열람범위</label>
             <select id="c-access-scope" name="accessScope"><option value="전체">전체 구성원</option><option value="관련자">기안자·검토자·협조자·결재자·관리자만</option></select>
 
-            <label>발신명의 표시(선택)</label>
+            <label for="c-issue-display-mode">발신명의 표시방식(선택)</label>
             <div class="signer-option-row">
-              <label class="inline-check"><input type="checkbox" name="issueSignerEnabled" data-issue-signer-enabled /> 직함·성명 표시</label>
+              <select id="c-issue-display-mode" name="issueDisplayMode" data-issue-display-mode class="signer-option-mode">
+                <option value="organization">기본 발신명의(종단명·직인)</option>
+                <option value="signer">직함·성명 추가</option>
+                <option value="department-head">담당부서장 직책만 표시</option>
+              </select>
               <div class="signer-option-fields" data-issue-signer-fields hidden>
                 <input name="issueSignerPosition" type="text" maxlength="40" placeholder="직함(예: 이사장)" />
                 <input name="issueSignerName" type="text" maxlength="40" placeholder="성명" />
               </div>
+              <p class="signer-department-title-help" data-issue-department-title-help hidden>표시 직책: <strong data-issue-department-title-label>-</strong></p>
             </div>
           </fieldset>
 
@@ -350,11 +355,12 @@ import GovLayout from '../layouts/GovLayout.astro';
 
             <div class="official-doc__issue">
               <div class="official-doc__issue-name">
-                <span class="official-doc__issuer-org">
+                <span class="official-doc__issuer-org" data-preview-issuer-org>
                   <span class="official-doc__issuer-org-text">사단법인 대한불교밀교종</span>
                   <span class="stamp-mark" data-stamp="preview">밀교종印</span>
                 </span>
                 <span class="official-doc__issuer-signer" data-preview-signer-wrap hidden><span data-preview-signer-position></span> <span data-preview-signer-name></span></span>
+                <span class="official-doc__issuer-department-title" data-preview-department-title hidden></span>
               </div>
             </div>
             <p class="official-doc__footer">사단법인 대한불교밀교종 · milgyo.org</p>
@@ -596,11 +602,12 @@ import GovLayout from '../layouts/GovLayout.astro';
 
             <div class="official-doc__issue">
               <div class="official-doc__issue-name">
-                <span class="official-doc__issuer-org">
+                <span class="official-doc__issuer-org" data-detail-preview-issuer-org>
                   <span class="official-doc__issuer-org-text">사단법인 대한불교밀교종</span>
                   <span class="stamp-mark" data-detail-preview-stamp data-stamp="detail">밀교종印</span>
                 </span>
                 <span class="official-doc__issuer-signer" data-detail-preview-signer-wrap hidden><span data-detail-preview-signer-position></span> <span data-detail-preview-signer-name></span></span>
+                <span class="official-doc__issuer-department-title" data-detail-preview-department-title hidden></span>
               </div>
             </div>
             <p class="official-doc__footer">사단법인 대한불교밀교종 · milgyo.org</p>
@@ -780,6 +787,20 @@ import GovLayout from '../layouts/GovLayout.astro';
         const path = resolveDepartmentPath(value, position);
         if (path.primary === '-') return '-';
         return path.secondary ? `${path.primary}(${path.secondary})` : path.primary;
+      };
+      const departmentHeadTitleMap = {
+        '이사장': '이사장', '이사회': '이사장', '감사': '감사', '종정': '종정',
+        '사무처': '사무총장', '재정국': '재정국장', '준법윤리국': '준법윤리국장',
+        '국제교류국': '국제교류국장', '문화홍보국': '문화홍보국장', '사회공헌국': '사회공헌국장',
+        '총무원': '총무원장', '교육·포교원': '교육·포교원장', '람림불교교육원': '람림불교교육원장',
+        '신도회': '신도회장', '사찰운영위원회': '사찰운영위원장',
+      };
+      const resolveDepartmentHeadTitle = (value, position='') => {
+        const path = resolveDepartmentPath(value, position);
+        const target = path.secondary || path.primary;
+        if (!target || target === '-') return '';
+        if (departmentHeadTitleMap[target]) return departmentHeadTitleMap[target];
+        return target.endsWith('교구') ? `${target}장` : '';
       };
       const departmentParentLabel = (dep) => dep.name;
       const renderDepartmentOptions = (placeholder = '담당부서 선택(선택)') => `<option value="">${esc(placeholder)}</option>` + departmentTree.map((dep) => {
@@ -1272,9 +1293,14 @@ import GovLayout from '../layouts/GovLayout.astro';
             }
           }
         }
-        values._issueSignerEnabled = composeForm.elements.issueSignerEnabled?.checked ? 'true' : 'false';
+        const issueDisplayMode = String(composeForm.elements.issueDisplayMode?.value || 'organization');
+        values._issueDisplayMode = issueDisplayMode;
+        values._issueSignerEnabled = issueDisplayMode === 'signer' ? 'true' : 'false';
         values._issueSignerPosition = String(composeForm.elements.issueSignerPosition?.value || '');
         values._issueSignerName = String(composeForm.elements.issueSignerName?.value || '');
+        values._issueDepartmentHeadTitle = issueDisplayMode === 'department-head'
+          ? resolveDepartmentHeadTitle(composeForm.elements.department?.value || '', getMe()?.position || '')
+          : '';
         return values;
       };
       const fillTemplate = (template, values) => {
@@ -1323,14 +1349,21 @@ import GovLayout from '../layouts/GovLayout.astro';
         updateApprovalMode(); updatePreview();
       });
       $$('input[name="docType"]', composeForm).forEach((radio) => radio.addEventListener('change', () => { recipientField.hidden = composeForm.elements.docType.value !== '발송'; updatePreview(); }));
-      const signerEnabledInput = $('[data-issue-signer-enabled]');
+      const issueDisplayModeInput = $('[data-issue-display-mode]');
       const signerFields = $('[data-issue-signer-fields]');
-      const syncSignerFields = () => {
-        signerFields.hidden = !signerEnabledInput.checked;
-        composeForm.elements.issueSignerPosition.disabled = !signerEnabledInput.checked;
-        composeForm.elements.issueSignerName.disabled = !signerEnabledInput.checked;
+      const departmentTitleHelp = $('[data-issue-department-title-help]');
+      const syncIssueDisplayFields = () => {
+        const mode = String(issueDisplayModeInput?.value || 'organization');
+        const signerMode = mode === 'signer';
+        signerFields.hidden = !signerMode;
+        composeForm.elements.issueSignerPosition.disabled = !signerMode;
+        composeForm.elements.issueSignerName.disabled = !signerMode;
+        const title = resolveDepartmentHeadTitle(composeForm.elements.department?.value || '', getMe()?.position || '');
+        departmentTitleHelp.hidden = mode !== 'department-head';
+        $('[data-issue-department-title-label]').textContent = title || '하위 담당부서를 선택해 주세요';
       };
-      signerEnabledInput.addEventListener('change', () => { syncSignerFields(); updatePreview(); });
+      issueDisplayModeInput.addEventListener('change', () => { syncIssueDisplayFields(); updatePreview(); });
+      composeForm.elements.department.addEventListener('change', () => { syncIssueDisplayFields(); updatePreview(); });
 
       const updatePreview = () => {
         const data = new FormData(composeForm), me = getMe() || {};
@@ -1352,10 +1385,15 @@ import GovLayout from '../layouts/GovLayout.astro';
           { type: mode, user: findUser(data.get('approverUserId')) || (mode === '전결' ? me : null) },
         ];
         renderApprovalStrip($('[data-preview-approval-strip]'), { name: me.name || '-', position: me.position || '-' }, previewLines, false);
-        const signerEnabled = !!composeForm.elements.issueSignerEnabled?.checked;
+        const issueDisplayMode = String(composeForm.elements.issueDisplayMode?.value || 'organization');
+        const signerEnabled = issueDisplayMode === 'signer';
+        const departmentHeadTitle = resolveDepartmentHeadTitle(data.get('department'), me.position || '');
+        $('[data-preview-issuer-org]').hidden = issueDisplayMode === 'department-head';
         $('[data-preview-signer-wrap]').hidden = !signerEnabled;
         $('[data-preview-signer-position]').textContent = signerEnabled ? String(composeForm.elements.issueSignerPosition?.value || '') : '';
         $('[data-preview-signer-name]').textContent = signerEnabled ? String(composeForm.elements.issueSignerName?.value || '') : '';
+        $('[data-preview-department-title]').hidden = issueDisplayMode !== 'department-head';
+        $('[data-preview-department-title]').textContent = issueDisplayMode === 'department-head' ? (departmentHeadTitle || '담당부서장 직책 미지정') : '';
       };
       composeForm.addEventListener('input', updatePreview); composeForm.addEventListener('change', updatePreview);
 
@@ -1387,7 +1425,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         composeForm.reset(); $('[data-compose-document-id]').value=''; $('[data-compose-request-id]').value=randomRequestId();
         pendingAttachmentFiles=[]; renderPendingAttachments(); templateSelect.value=''; renderTemplateFields(null); bodyAuto=true; titleAuto=true;
         selectedReviewerIds=[]; selectedCooperatorIds=[]; renderApprovalPickers();
-        recipientField.hidden=true; signerEnabledInput.checked=false; syncSignerFields();
+        recipientField.hidden=true; issueDisplayModeInput.value='organization'; syncIssueDisplayFields();
         const defaultMode = importantCategories.includes(categorySelect.value) ? '결재' : '전결';
         const modeInput = composeForm.querySelector(`input[name="approvalMode"][value="${defaultMode}"]`); if (modeInput) modeInput.checked = true;
         updateApprovalMode(); updateTrackHint(); updatePreview();
@@ -1409,6 +1447,11 @@ import GovLayout from '../layouts/GovLayout.astro';
         try {
           const data = new FormData(composeForm); const payload = Object.fromEntries(data.entries()); delete payload.attachmentsFile;
           payload.token=getToken(); payload.saveAsDraft=saveAsDraft; payload.formData=getTemplateValues();
+          if (payload.formData._issueDisplayMode === 'department-head' && !payload.formData._issueDepartmentHeadTitle) {
+            statusEl.textContent='담당부서장 직책 표시를 사용하려면 직책이 지정된 담당부서를 선택해 주세요.';
+            composeForm.elements.department.focus();
+            return;
+          }
           payload.reviewerUserIds=[...selectedReviewerIds]; payload.cooperatorUserIds=[...selectedCooperatorIds];
           payload.templateName=activeTemplate?.name || ''; payload.clientRequestId=$('[data-compose-request-id]').value || randomRequestId();
           const me=getMe()||{};
@@ -1497,10 +1540,16 @@ import GovLayout from '../layouts/GovLayout.astro';
         $('[data-detail-preview-department]').textContent=`담당부서: ${formatDepartmentLabel(doc.department, doc.drafter_position||'')}`;
         $('[data-detail-preview-track]').textContent=`${modeLabel}: ${detailTrackLabel}`;
         renderApprovalStrip($('[data-detail-preview-approval-strip]'),{name:doc.drafter||'-',position:doc.drafter_position||'-'},currentDetailApprovalLines,true);
-        const signerEnabled=String(doc.form_data?._issueSignerEnabled||'false')==='true';
+        const legacySignerEnabled=String(doc.form_data?._issueSignerEnabled||'false')==='true';
+        const issueDisplayMode=String(doc.form_data?._issueDisplayMode||(legacySignerEnabled?'signer':'organization'));
+        const signerEnabled=issueDisplayMode==='signer';
+        const departmentHeadTitle=String(doc.form_data?._issueDepartmentHeadTitle||resolveDepartmentHeadTitle(doc.department,doc.drafter_position||''));
+        $('[data-detail-preview-issuer-org]').hidden=issueDisplayMode==='department-head';
         $('[data-detail-preview-signer-wrap]').hidden=!signerEnabled;
         $('[data-detail-preview-signer-position]').textContent=signerEnabled?(doc.form_data?._issueSignerPosition||''):'';
         $('[data-detail-preview-signer-name]').textContent=signerEnabled?(doc.form_data?._issueSignerName||''):'';
+        $('[data-detail-preview-department-title]').hidden=issueDisplayMode!=='department-head';
+        $('[data-detail-preview-department-title]').textContent=issueDisplayMode==='department-head'?(departmentHeadTitle||'담당부서장 직책 미지정'):'';
         $('[data-detail-preview-stamp]').style.opacity=['승인','발송완료'].includes(doc.status)?'1':'0.25';
         const currentLine=findCurrentApprovalLine(currentDetailApprovalLines);
         const activeStatus=['검토대기','협조대기','결재대기','전결대기'].includes(doc.status);
@@ -1546,9 +1595,10 @@ import GovLayout from '../layouts/GovLayout.astro';
         if(doc.approval_track==='이사회의결')composeForm.elements.approvalTrackChoice.value='이사회의결';
         const tpl=findTemplate(doc.template_id);templateSelect.value=doc.template_id||'';renderTemplateFields(tpl,doc.form_data||{});activeTemplate=tpl||null;
         bodyAuto=false;titleAuto=false;recipientField.hidden=doc.doc_type!=='발송';
-        composeForm.elements.issueSignerEnabled.checked=String(doc.form_data?._issueSignerEnabled||'false')==='true';
+        const legacySignerEnabled=String(doc.form_data?._issueSignerEnabled||'false')==='true';
+        composeForm.elements.issueDisplayMode.value=doc.form_data?._issueDisplayMode||(legacySignerEnabled?'signer':'organization');
         composeForm.elements.issueSignerPosition.value=doc.form_data?._issueSignerPosition||'';composeForm.elements.issueSignerName.value=doc.form_data?._issueSignerName||'';
-        syncSignerFields();renderApprovalPickers();updateTrackHint();updatePreview();detailModal.hidden=true;composeModal.hidden=false;
+        syncIssueDisplayFields();renderApprovalPickers();updateTrackHint();updatePreview();detailModal.hidden=true;composeModal.hidden=false;
       };
       $('[data-copy-document]').addEventListener('click',()=>loadDocumentIntoCompose(currentDetailDoc,true));
       $('[data-recall-document]').addEventListener('click',async()=>{if(!currentDetailId||!confirm('진행 중인 문서를 회수하여 임시저장함으로 이동하시겠습니까?'))return;const result=await callApi('/api/documents/recall',{token:getToken(),id:currentDetailId});if(!result.ok){statusEl.textContent=result.message;return;}detailModal.hidden=true;statusEl.textContent=result.message;activateDocumentsView('임시저장');});
@@ -1558,7 +1608,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         const w=window.open('','_blank','width=900,height=1000');
         if(!w)return;
         w.document.write(`<html><head><meta charset="utf-8"><title>${esc(currentDetailDoc?.title||'문서')}</title><style>
-          body{font-family:Batang,serif;padding:30px;color:#222}.official-doc{max-width:720px;margin:auto}.official-doc__masthead{display:flex;flex-direction:column;align-items:stretch;margin-bottom:2px;width:100%}.official-doc__brand{display:flex;align-items:center;align-self:center;justify-content:center;gap:6px;white-space:nowrap}.official-doc__number-row{display:flex;justify-content:flex-end;align-items:flex-end;width:100%;min-height:13px;padding-top:2px;margin-bottom:1px}.official-doc__number{white-space:nowrap;text-align:right;font-size:10px;color:#666;margin:0}.official-doc__issue,.official-doc__footer{text-align:center}.official-doc__emblem{width:38px;height:38px;flex:0 0 38px}.official-doc__emblem img{width:100%;height:100%;object-fit:contain}.official-doc__orgname{margin:0;font-size:21px;line-height:1.2;letter-spacing:.1em}.official-doc__meta{border-top:2px solid #222;border-bottom:1px solid #222}.official-doc__meta-row{display:flex;gap:12px;padding:7px 4px;line-height:1.45}.official-doc__meta-row>span{width:48px}.official-doc__body{min-height:300px;white-space:pre-wrap;padding:24px 0 26px;font-size:14px;line-height:1.65}.official-doc__approval-strip{display:flex;flex-wrap:wrap;justify-content:flex-start;width:620px;max-width:100%;margin:12px auto 0 0}.approval-person{display:grid;grid-template-columns:30px minmax(70px,1fr) 20px;flex:0 0 126px;border:1px solid #777;margin:-1px 0 0 -1px;min-height:36px;font-size:8.7px}.approval-person>*{display:flex;align-items:center;justify-content:center;padding:2px}.approval-person>span{background:#f4f0e6;border-right:1px solid #777}.approval-person>strong{flex-direction:column;line-height:1.15;overflow:hidden}.approval-person>em{font-style:normal;border-left:1px solid #777}.approval-person b,.approval-person i{display:block;max-width:100%;white-space:nowrap;font-style:normal;font-weight:400}.approval-person b{overflow:visible;text-overflow:clip;font-size:8px;letter-spacing:-.04em}.approval-person i{overflow:hidden;text-overflow:ellipsis;font-size:8.5px}.official-doc__approval-meta{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;width:620px;max-width:100%;margin:4px auto 0 0}.official-doc__issue-department,.official-doc__issue-track--under{margin:0;font-size:10px;color:#666;white-space:nowrap}.official-doc__issue-department{text-align:left}.official-doc__issue-track--under{text-align:right}.official-doc__issue{margin-top:9px;padding-top:16px;border-top:1px solid #ddd}.official-doc__issue-name{position:relative;display:inline-flex;flex-direction:column;align-items:flex-end;gap:1px;font-size:18px;font-weight:700}.official-doc__issuer-org{position:relative;display:inline-block;line-height:1.45;padding-right:17px}.official-doc__issuer-org-text{position:relative;z-index:2;white-space:nowrap}.official-doc__issuer-signer{display:block;margin-right:17px;line-height:1.35;white-space:nowrap;text-align:right}.stamp-mark{position:absolute;z-index:1;right:-8px;bottom:-9px;display:inline-flex;width:46px;height:46px;align-items:center;justify-content:center;border:2px solid #b22;border-radius:50%;color:#b22;font-size:9px;overflow:hidden;transform:none}.stamp-mark--image{border:0;border-radius:0;opacity:.9;overflow:visible;transform:none;mix-blend-mode:multiply}.stamp-mark img{display:block;width:100%;height:100%;object-fit:contain}.official-doc__footer{margin-top:18px;font-size:10px;color:#8a8578}
+          body{font-family:Batang,serif;padding:30px;color:#222}.official-doc{max-width:720px;margin:auto}.official-doc__masthead{display:flex;flex-direction:column;align-items:stretch;margin-bottom:2px;width:100%}.official-doc__brand{display:flex;align-items:center;align-self:center;justify-content:center;gap:6px;white-space:nowrap}.official-doc__number-row{display:flex;justify-content:flex-end;align-items:flex-end;width:100%;min-height:13px;padding-top:2px;margin-bottom:1px}.official-doc__number{white-space:nowrap;text-align:right;font-size:10px;color:#666;margin:0}.official-doc__issue,.official-doc__footer{text-align:center}.official-doc__emblem{width:38px;height:38px;flex:0 0 38px}.official-doc__emblem img{width:100%;height:100%;object-fit:contain}.official-doc__orgname{margin:0;font-size:21px;line-height:1.2;letter-spacing:.1em}.official-doc__meta{border-top:2px solid #222;border-bottom:1px solid #222}.official-doc__meta-row{display:flex;gap:12px;padding:7px 4px;line-height:1.45}.official-doc__meta-row>span{width:48px}.official-doc__body{min-height:300px;white-space:pre-wrap;padding:24px 0 26px;font-size:14px;line-height:1.65}.official-doc__approval-strip{display:flex;flex-wrap:wrap;justify-content:flex-start;width:620px;max-width:100%;margin:12px auto 0 0}.approval-person{display:grid;grid-template-columns:30px minmax(70px,1fr) 20px;flex:0 0 126px;border:1px solid #777;margin:-1px 0 0 -1px;min-height:36px;font-size:8.7px}.approval-person>*{display:flex;align-items:center;justify-content:center;padding:2px}.approval-person>span{background:#f4f0e6;border-right:1px solid #777}.approval-person>strong{flex-direction:column;line-height:1.15;overflow:hidden}.approval-person>em{font-style:normal;border-left:1px solid #777}.approval-person b,.approval-person i{display:block;max-width:100%;white-space:nowrap;font-style:normal;font-weight:400}.approval-person b{overflow:visible;text-overflow:clip;font-size:8px;letter-spacing:-.04em}.approval-person i{overflow:hidden;text-overflow:ellipsis;font-size:8.5px}.official-doc__approval-meta{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;width:620px;max-width:100%;margin:4px auto 0 0}.official-doc__issue-department,.official-doc__issue-track--under{margin:0;font-size:10px;color:#666;white-space:nowrap}.official-doc__issue-department{text-align:left}.official-doc__issue-track--under{text-align:right}.official-doc__issue{margin-top:9px;padding-top:16px;border-top:1px solid #ddd}.official-doc__issue-name{position:relative;display:inline-flex;flex-direction:column;align-items:flex-end;gap:1px;font-size:18px;font-weight:700}.official-doc__issuer-org{position:relative;display:inline-block;line-height:1.45;padding-right:17px}.official-doc__issuer-org[hidden],.official-doc__issuer-signer[hidden]{display:none!important}.official-doc__issuer-org-text{position:relative;z-index:2;white-space:nowrap}.official-doc__issuer-signer{display:block;margin-right:17px;line-height:1.35;white-space:nowrap;text-align:right}.official-doc__issuer-department-title{display:block;line-height:1.45;white-space:nowrap;text-align:center;font-size:18px;letter-spacing:.04em}.official-doc__issuer-department-title[hidden]{display:none!important}.stamp-mark{position:absolute;z-index:1;right:-8px;bottom:-9px;display:inline-flex;width:46px;height:46px;align-items:center;justify-content:center;border:2px solid #b22;border-radius:50%;color:#b22;font-size:9px;overflow:hidden;transform:none}.stamp-mark--image{border:0;border-radius:0;opacity:.9;overflow:visible;transform:none;mix-blend-mode:multiply}.stamp-mark img{display:block;width:100%;height:100%;object-fit:contain}.official-doc__footer{margin-top:18px;font-size:10px;color:#8a8578}
         </style></head><body>${node.outerHTML}</body></html>`);
         w.document.close();
         w.focus();
@@ -2135,7 +2185,10 @@ import GovLayout from '../layouts/GovLayout.astro';
     .inline-check { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 500; white-space: nowrap; }
     .account-permission-row, .signer-option-row { display: flex; align-items: center; gap: 0.8rem 1.4rem; flex-wrap: wrap; }
     .account-permission-row { min-height: 42px; }
+    .signer-option-mode { flex: 0 1 310px; min-width: 230px; }
     .signer-option-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; flex: 1 1 320px; }
+    .signer-department-title-help { margin: 0; font-size: 0.82rem; color: var(--gov-muted); flex: 1 1 260px; }
+    .signer-department-title-help strong { color: var(--gov-text); font-size: 0.88rem; }
     .hint { font-size: 0.8rem; color: var(--gov-muted); margin: -0.1rem 0 0; }
     .compose-form__actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 0.25rem; }
     .account-action-button {
@@ -2320,10 +2373,15 @@ import GovLayout from '../layouts/GovLayout.astro';
     .official-doc__issuer-org {
       position: relative; display: inline-block; line-height: 1.45; padding-right: 1.05rem;
     }
+    .official-doc__issuer-org[hidden], .official-doc__issuer-signer[hidden] { display: none !important; }
     .official-doc__issuer-org-text { position: relative; z-index: 2; white-space: nowrap; }
     .official-doc__issuer-signer {
       display: block; margin-right: 1.05rem; line-height: 1.35; white-space: nowrap; text-align: right;
     }
+    .official-doc__issuer-department-title {
+      display: block; line-height: 1.45; white-space: nowrap; text-align: center; font-size: 1rem; letter-spacing: 0.04em;
+    }
+    .official-doc__issuer-department-title[hidden] { display: none !important; }
     .stamp-mark {
       position: absolute; z-index: 1; right: -0.45rem; bottom: -0.55rem;
       display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px;
