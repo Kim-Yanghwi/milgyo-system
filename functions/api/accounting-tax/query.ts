@@ -141,16 +141,25 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const entityId = clean(payload.entityId, 80);
 
     if (action === 'init') {
-      const [fiscalYears, accounts, master, summary, validation, payees] = await Promise.all([
+      const includeOverview = payload.includeOverview === true;
+      if (includeOverview) {
+        const [fiscalYears, accounts, master, summary, validation] = await Promise.all([
+          db.prepare(`SELECT year,name,start_date,end_date,base_currency,status,closed_at FROM accounting_fiscal_years ORDER BY year`).all(),
+          db.prepare(`SELECT code,name,account_type,normal_side,parent_code,active,system_account FROM accounting_accounts WHERE active=1 ORDER BY code`).all(),
+          getDimensionMaster(db),
+          taxSummary(db, year, entityId),
+          getTaxValidation(db, year, entityId),
+        ]);
+        return json({ ok: true, me: auth.user, permissions: { manager, canViewAll, audit: auth.user.role === 'audit' }, year,
+          fiscalYears: fiscalYears.results || [], accounts: accounts.results || [], ...master, summary, validation });
+      }
+      const [fiscalYears, accounts, master] = await Promise.all([
         db.prepare(`SELECT year,name,start_date,end_date,base_currency,status,closed_at FROM accounting_fiscal_years ORDER BY year`).all(),
         db.prepare(`SELECT code,name,account_type,normal_side,parent_code,active,system_account FROM accounting_accounts WHERE active=1 ORDER BY code`).all(),
         getDimensionMaster(db),
-        taxSummary(db, year, entityId),
-        getTaxValidation(db, year, entityId),
-        db.prepare(`SELECT * FROM accounting_tax_payees WHERE active=1 ORDER BY name,payee_no`).all(),
       ]);
       return json({ ok: true, me: auth.user, permissions: { manager, canViewAll, audit: auth.user.role === 'audit' }, year,
-        fiscalYears: fiscalYears.results || [], accounts: accounts.results || [], ...master, summary, validation, payees: payees.results || [] });
+        fiscalYears: fiscalYears.results || [], accounts: accounts.results || [], ...master });
     }
 
     if (action === 'overview') return json({ ok: true, summary: await taxSummary(db, year, entityId), validation: await getTaxValidation(db, year, entityId) });

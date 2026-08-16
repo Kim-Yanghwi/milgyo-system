@@ -299,8 +299,11 @@ import GovLayout from '../layouts/GovLayout.astro';
       const refreshResolutionAttachmentModal=async()=>{if(!activeResolutionAttachment.id)return;const d=await listResolutionAttachments(activeResolutionAttachment.id);activeResolutionPermissions=d.permissions||activeResolutionPermissions;applyResolutionPermissions();renderResolutionAttachmentRows(d.rows||[]);};
       const statusLabel=(s)=>({draft:'작성중',approval_pending:'결재진행',approved:'승인',posted:'전표처리',rejected:'반려',cancelled:'취소',reversed:'역분개'}[s]||s||'-');
       const typeLabel=(t)=>({income:'수입',expense:'지출',asset:'자산',liability:'부채',equity:'순자산',revenue:'수입',expense:'지출',debit:'차변',credit:'대변'}[t]||t||'-');
-      const showTab=(name)=>{$$('.acc-nav').forEach((b)=>b.classList.toggle('active',b.dataset.tab===name));$$('.tab-panel').forEach((p)=>p.classList.toggle('active',p.dataset.panel===name));if(name==='budget')loadBudgets();if(name==='resolution')loadResolutions();if(name==='journal')loadJournals();if(name==='ledger'){loadTrial();}if(name==='closing')loadClosing();if(name==='accounts')renderAccounts();};
+      const accountingTabs=new Set(['dashboard','budget','resolution','journal','ledger','closing','accounts']);
+      const accountingTabFromUrl=()=>{const tab=new URLSearchParams(location.search).get('tab')||'dashboard';return accountingTabs.has(tab)?tab:'dashboard'};
+      const showTab=(name,{historyMode='push'}={})=>{if(!accountingTabs.has(name))name='dashboard';$$('.acc-nav').forEach((b)=>b.classList.toggle('active',b.dataset.tab===name));$$('.tab-panel').forEach((p)=>p.classList.toggle('active',p.dataset.panel===name));const url=new URL(location.href);if(name==='dashboard')url.searchParams.delete('tab');else url.searchParams.set('tab',name);if(historyMode==='push'&&url.href!==location.href)history.pushState({accountingTab:name},'',url);else if(historyMode==='replace')history.replaceState({accountingTab:name},'',url);if(name==='budget')loadBudgets();if(name==='resolution')loadResolutions();if(name==='journal')loadJournals();if(name==='ledger'){loadTrial();}if(name==='closing')loadClosing();if(name==='accounts')renderAccounts();};
       $$('.acc-nav').forEach((b)=>b.addEventListener('click',()=>showTab(b.dataset.tab)));$$('[data-go-tab]').forEach((b)=>b.addEventListener('click',()=>showTab(b.dataset.goTab)));
+      window.addEventListener('popstate',()=>showTab(accountingTabFromUrl(),{historyMode:'none'}));
       $$('[data-toggle-form]').forEach((b)=>b.addEventListener('click',()=>{const f=$(`[data-form="${b.dataset.toggleForm}"]`);f.hidden=!f.hidden}));$$('[data-close-form]').forEach((b)=>b.addEventListener('click',()=>{$(`[data-form="${b.dataset.closeForm}"]`).hidden=true}));
       $('[data-logout]').addEventListener('click',()=>{localStorage.removeItem(STORAGE_KEY);location.replace('/')});
       $('[data-user-label]').textContent=`${me.name} · ${me.position||'구성원'}`;
@@ -399,7 +402,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         if(e.status===403){alert(e.message);location.replace('/');return;}
         notice(e.message,'error');
       }};
-      $('[data-global-year]').addEventListener('change',async(e)=>{state.year=Number(e.target.value);await loadInit();showTab($('.acc-nav.active').dataset.tab)});
+      $('[data-global-year]').addEventListener('change',async(e)=>{state.year=Number(e.target.value);await loadInit();showTab(accountingTabFromUrl(),{historyMode:'replace'})});
       const retryIntegrationButton=$('[data-retry-integration]');
       if(retryIntegrationButton)retryIntegrationButton.addEventListener('click',async()=>{
         retryIntegrationButton.disabled=true;
@@ -530,7 +533,7 @@ import GovLayout from '../layouts/GovLayout.astro';
 
       syncDateWeekdays();
       bindApprovalMulti();
-      loadInit();
+      loadInit().then(()=>showTab(accountingTabFromUrl(),{historyMode:'replace'}));
     })();
   </script>
 

@@ -1,5 +1,8 @@
 import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
 import { ensureAccountingTables, hasAccountingAccess, isAccountingManager } from '../../_shared/accounting';
+import { ensureAccountingOperationsTables } from '../../_shared/accounting-operations';
+import { ensureAccountingTaxTables } from '../../_shared/accounting-tax';
+import { ensureAccountingComplianceTables } from '../../_shared/accounting-compliance';
 import {
   getAccountingAttachmentPolicy,
   assertAccountingAttachmentRetentionElapsed,
@@ -56,6 +59,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if ('message' in auth) return json({ ok: false, message: auth.message }, auth.status);
   if (!hasAccountingAccess(auth.user)) return json({ ok: false, message: '회계 권한이 없습니다.' }, 403);
   await ensureAccountingTables(env.ACCOUNTING_DB);
+  await Promise.all([
+    ensureAccountingOperationsTables(env.ACCOUNTING_DB),
+    ensureAccountingTaxTables(env.ACCOUNTING_DB),
+    ensureAccountingComplianceTables(env.ACCOUNTING_DB),
+  ]);
 
   const action = clean(payload.action, 60);
   const manager = isAccountingManager(auth.user);

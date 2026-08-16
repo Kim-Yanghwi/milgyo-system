@@ -56,12 +56,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     if (action === 'init') {
-      const [dimensions, fiscalYears, accounts, contracts, assets, summary, priorYearIncome, annualProcurementTotal, organizationUsersRaw] = await Promise.all([
+      const [dimensions, fiscalYears, contracts, summary, priorYearIncome, annualProcurementTotal, organizationUsersRaw] = await Promise.all([
         getDimensionMaster(db),
         db.prepare(`SELECT year,name,start_date,end_date,status FROM accounting_fiscal_years ORDER BY year`).all(),
-        db.prepare(`SELECT code,name,account_type FROM accounting_accounts WHERE active=1 ORDER BY code`).all(),
         db.prepare(`SELECT c.id,c.contract_no,c.title,c.contract_amount,c.start_date,c.end_date,c.status,c.book_type_code,bt.name AS book_type_name FROM accounting_contracts c LEFT JOIN accounting_book_types bt ON bt.code=c.book_type_code ORDER BY c.contract_date DESC,c.created_at DESC LIMIT 300`).all(),
-        db.prepare(`SELECT id,asset_no,name,category,status FROM accounting_assets WHERE status<>'disposed' ORDER BY name LIMIT 300`).all(),
         db.prepare(`SELECT
           (SELECT COUNT(*) FROM accounting_revenue_businesses WHERE fiscal_year=? AND status IN ('review','approved','active')) AS revenue_businesses,
           (SELECT COUNT(*) FROM accounting_procurement_reviews WHERE fiscal_year=? AND status IN ('review','approved','contracted')) AS procurements,
@@ -93,9 +91,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         permissions: { manager, canViewAll: viewAll, audit: me.role === 'audit' },
         ...dimensions,
         fiscalYears: fiscalYears.results || [],
-        accounts: accounts.results || [],
         contracts: contracts.results || [],
-        assets: assets.results || [],
         organizationDepartments: organizationDepartmentOptions,
         organizationUsers,
         summary: summary || {},

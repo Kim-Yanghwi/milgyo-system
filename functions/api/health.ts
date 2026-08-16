@@ -7,6 +7,9 @@ import {
   ensureAccountingIntegrationSchema,
   getAccountingOutboxSummary,
 } from '../_shared/accounting-integration';
+import { ensureAccountingOperationsTables } from '../_shared/accounting-operations';
+import { ensureAccountingTaxTables } from '../_shared/accounting-tax';
+import { ensureAccountingComplianceTables } from '../_shared/accounting-compliance';
 
 interface Env {
   DB: D1Database;
@@ -47,6 +50,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
 
     if (env.ACCOUNTING_DB) {
       await ensureAccountingTables(env.ACCOUNTING_DB);
+      await Promise.all([
+        ensureAccountingOperationsTables(env.ACCOUNTING_DB),
+        ensureAccountingTaxTables(env.ACCOUNTING_DB),
+        ensureAccountingComplianceTables(env.ACCOUNTING_DB),
+      ]);
 
       const version = await env.ACCOUNTING_DB
         .prepare(`

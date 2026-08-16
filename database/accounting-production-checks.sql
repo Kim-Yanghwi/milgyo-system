@@ -22,6 +22,29 @@ SELECT 'REQUIRED_TABLES_MISSING' AS check_name,COUNT(*) AS count,GROUP_CONCAT(re
 FROM required LEFT JOIN sqlite_master m ON m.type='table' AND m.name=required.name
 WHERE m.name IS NULL;
 
+
+-- v71~v73 규정대응·공공조달·준비금·차량 스키마 존재 확인
+WITH required(name) AS (
+  VALUES
+    ('accounting_revenue_businesses'),
+    ('accounting_procurement_reviews'),
+    ('accounting_procurement_guarantees'),
+    ('accounting_purpose_reserves'),
+    ('accounting_purpose_reserve_transactions'),
+    ('accounting_compliance_checks'),
+    ('accounting_finance_incidents'),
+    ('accounting_vehicle_records'),
+    ('accounting_vehicle_logs')
+)
+SELECT 'COMPLIANCE_TABLES_MISSING' AS check_name,COUNT(*) AS count,GROUP_CONCAT(required.name) AS detail
+FROM required LEFT JOIN sqlite_master m ON m.type='table' AND m.name=required.name
+WHERE m.name IS NULL;
+
+WITH required(name) AS (VALUES ('responsible_user_id'),('responsible_name'))
+SELECT 'PROCUREMENT_V73_COLUMNS_MISSING' AS check_name,COUNT(*) AS count,GROUP_CONCAT(required.name) AS detail
+FROM required LEFT JOIN pragma_table_info('accounting_procurement_reviews') p ON p.name=required.name
+WHERE p.name IS NULL;
+
 WITH required(name) AS (
   VALUES
     ('trg_journal_source_duplicate_insert'),
@@ -229,3 +252,20 @@ WHERE COALESCE(succession_candidate,'')<>''
 SELECT 'PROCUREMENT_NEXT_BOARD_REPORT_PENDING' AS check_name,COUNT(*) AS count
 FROM accounting_procurement_reviews
 WHERE status IN ('contracted','completed') AND approval_level='chairman' AND next_board_reported=0;
+
+
+-- 현행 규정대응 참조 무결성
+SELECT 'PROCUREMENT_GUARANTEE_ORPHAN' AS check_name,COUNT(*) AS count
+FROM accounting_procurement_guarantees g
+LEFT JOIN accounting_procurement_reviews p ON p.id=g.procurement_review_id
+WHERE p.id IS NULL;
+
+SELECT 'PURPOSE_RESERVE_TRANSACTION_ORPHAN' AS check_name,COUNT(*) AS count
+FROM accounting_purpose_reserve_transactions t
+LEFT JOIN accounting_purpose_reserves r ON r.id=t.reserve_id
+WHERE r.id IS NULL;
+
+SELECT 'VEHICLE_LOG_ORPHAN' AS check_name,COUNT(*) AS count
+FROM accounting_vehicle_logs l
+LEFT JOIN accounting_vehicle_records v ON v.id=l.vehicle_id
+WHERE v.id IS NULL;

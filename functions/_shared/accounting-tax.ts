@@ -32,10 +32,14 @@ export const ensureAccountingTaxTables = async (db: D1Database) => {
         db.prepare(`SELECT meta_value FROM accounting_meta WHERE meta_key='schema_version'`),
       ]);
       const installedVersion = String((version.results?.[0] as any)?.meta_value || '');
-      if (Number((tables.results?.[0] as any)?.count || 0) !== REQUIRED_TAX_TABLES.length
-        || installedVersion !== TAX_SCHEMA_VERSION) {
-        throw new Error(`세무·신고자료 DB 스키마가 준비되지 않았습니다. v64 마이그레이션 ${TAX_SCHEMA_VERSION}을 적용해 주세요.`);
+      // accounting_meta.schema_version은 회계 DB 전체의 최신 버전을 나타냅니다.
+      // v64 이후의 직제/규정대응 마이그레이션이 적용되면 값이 더 커지는 것이 정상입니다.
+      // 따라서 v64 전용 테이블의 실제 존재 여부를 기준으로 준비 상태를 판정하고,
+      // 전체 스키마 버전이 정확히 2026-08-08.2인지 비교하지 않습니다.
+      if (Number((tables.results?.[0] as any)?.count || 0) !== REQUIRED_TAX_TABLES.length) {
+        throw new Error(`세무·신고자료 DB 스키마가 준비되지 않았습니다. v64 마이그레이션 ${TAX_SCHEMA_VERSION} 이상을 적용해 주세요.`);
       }
+      if (!installedVersion) throw new Error('세무·신고자료 DB 스키마 버전을 확인할 수 없습니다.');
       taxSchemaReady.add(key);
     })().catch((error) => {
       taxSchemaPromises.delete(key);
