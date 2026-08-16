@@ -14,7 +14,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       <span class="login-card__corner login-card__corner--br" aria-hidden="true"></span>
 
       <div class="login-card__inner">
-        <img class="login-card__logo" src="/logo.png" alt="대한불교밀교종 로고" />
+        <img class="login-card__logo" src="/login-logo-transparent.png" alt="대한불교밀교종 로고" />
         <h1 class="login-card__brand-heading">
           <img class="login-card__wordmark" src="/brand-wordmark-symbol.svg" alt="대한불교밀교종" />
         </h1>
@@ -1939,7 +1939,8 @@ import GovLayout from '../layouts/GovLayout.astro';
       display: flex;
       align-items: center;
       justify-content: center;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: auto;
       padding: 2.25rem 1rem 4.5rem;
       background:
         radial-gradient(circle at 50% 28%, rgba(150,55,70,.35) 0%, rgba(101,31,45,.06) 38%, transparent 66%),
@@ -1950,7 +1951,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       position: absolute;
       inset: 0;
       z-index: -1;
-      background-image: url('/login-pattern.svg');
+      background-image: url('/login-lotus-pattern.png');
       background-size: 315px 315px;
       background-position: 35px 20px;
       opacity: .12;
@@ -1981,10 +1982,8 @@ import GovLayout from '../layouts/GovLayout.astro';
       z-index: 2;
       width: 100%;
       max-width: 560px;
-      max-height: calc(100vh - 7.25rem);
-      overflow-y: auto;
-      scrollbar-width: thin;
-      scrollbar-color: rgba(143,122,69,.45) transparent;
+      max-height: none;
+      overflow: visible;
       background: linear-gradient(180deg, #fffdf8 0%, var(--login-ivory) 100%);
       border-radius: 4px;
       padding: 3.35rem 3.25rem 2.75rem;
@@ -2036,7 +2035,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       object-fit: contain;
       display: block;
       margin: 0 auto 1.15rem;
-      border-radius: 12px;
+      border-radius: 0;
       filter: saturate(.96) contrast(1.03);
     }
     .login-card__brand-heading {
@@ -2134,7 +2133,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       transform: translateY(-1px);
       box-shadow: 0 8px 22px rgba(101,31,45,.36);
     }
-    .login-card__help { color: #8a7d70; font-size: .76rem; margin: .9rem 0 0; }
+    .login-card__help { color: #8a7d70; font-size: .76rem; line-height: 1.45; margin: .85rem 0 0; padding: 0 .25rem .15rem; }
     .login-card__error { color: #a12626; font-size: .82rem; text-align: left; margin: .2rem 0 0; }
     .login-card__error--ok { color: #1e6f2b; }
     .login-card__toggle {
@@ -2191,13 +2190,30 @@ import GovLayout from '../layouts/GovLayout.astro';
       .login-screen__footer { bottom: 18px; font-size: .58rem; letter-spacing: .07em; }
     }
     @media (max-height: 760px) and (min-width: 641px) {
-      .login-screen { padding-top: 1rem; padding-bottom: 3.5rem; }
-      .login-card { max-height: calc(100vh - 5rem); padding-top: 2.7rem; padding-bottom: 2.25rem; }
-      .login-card__logo { width: 64px; height: 64px; margin-bottom: .7rem; }
-      .login-card__wordmark { max-height: 48px; }
-      .login-card__desc { margin-bottom: 1.35rem; }
-      .login-card__divider { margin-bottom: 1.35rem; }
-      .login-screen__footer { bottom: 16px; }
+      .login-screen {
+        align-items: flex-start;
+        overflow-y: auto;
+        padding-top: .85rem;
+        padding-bottom: 3.9rem;
+      }
+      .login-card {
+        max-height: none;
+        overflow: visible;
+        margin: 0 auto;
+        padding-top: 2.15rem;
+        padding-bottom: 2rem;
+      }
+      .login-card__logo { width: 58px; height: 58px; margin-bottom: .55rem; }
+      .login-card__wordmark { max-height: 44px; }
+      .login-card__subtitle-row { margin-top: .5rem; margin-bottom: .35rem; }
+      .login-card__desc { margin-bottom: 1rem; }
+      .login-card__divider { margin-bottom: 1rem; }
+      .login-card form { gap: .4rem; }
+      .login-card input { padding-top: .68rem; padding-bottom: .68rem; }
+      .login-card .btn-primary { padding-top: .72rem; padding-bottom: .72rem; }
+      .login-card__toggle { margin-top: .75rem; }
+      .login-card__help { margin-top: .65rem; }
+      .login-screen__footer { bottom: 14px; }
     }
     .btn {
       border: 1px solid transparent; border-radius: 3px; padding: 0.55rem 1rem; font-size: 0.92rem; font-weight: 600;
