@@ -65,7 +65,7 @@ import GovLayout from '../layouts/GovLayout.astro';
     <header class="app-topbar">
       <button type="button" class="app-topbar__menu-toggle" data-toggle-sidebar aria-label="메뉴 접기">☰</button>
       <button type="button" class="app-topbar__brand" data-go-home aria-label="대한불교밀교종 종단관리시스템 홈으로 이동">
-        <img class="app-topbar__logo" src="/logo.png" alt="대한불교밀교종 로고" data-topbar-logo />
+        <img class="app-topbar__logo" src="/brand-logo-transparent.png" alt="대한불교밀교종 로고" data-topbar-logo />
         <span class="app-topbar__brand-title">
           <img class="app-topbar__wordmark" src="/brand-wordmark-symbol.svg" alt="대한불교밀교종" />
           <span class="app-topbar__system-name">종단관리시스템</span>
@@ -355,7 +355,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           <div class="official-doc" data-official-doc="preview">
             <div class="official-doc__masthead">
               <div class="official-doc__brand">
-                <div class="official-doc__emblem" data-emblem="preview"><img src="/logo.png" alt="대한불교밀교종 로고" /></div>
+                <div class="official-doc__emblem" data-emblem="preview"><img src="/brand-logo-transparent.png" alt="대한불교밀교종 로고" /></div>
                 <h3 class="official-doc__orgname">사단법인 대한불교밀교종</h3>
               </div>
               <div class="official-doc__number-row"><p class="official-doc__number" data-preview-number>문서번호 : 밀교종-연도-000</p></div>
@@ -602,7 +602,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           <div class="official-doc" data-official-doc="detail">
             <div class="official-doc__masthead">
               <div class="official-doc__brand">
-                <div class="official-doc__emblem" data-emblem="detail"><img src="/logo.png" alt="대한불교밀교종 로고" /></div>
+                <div class="official-doc__emblem" data-emblem="detail"><img src="/brand-logo-transparent.png" alt="대한불교밀교종 로고" /></div>
                 <h3 class="official-doc__orgname">사단법인 대한불교밀교종</h3>
               </div>
               <div class="official-doc__number-row"><p class="official-doc__number" data-detail-preview-number></p></div>
@@ -1819,11 +1819,11 @@ import GovLayout from '../layouts/GovLayout.astro';
         };
         image.onerror=()=>resolve(dataUrl);image.src=dataUrl;
       });
-      const applyBranding=()=>{const logoSource=orgLogoImage||'/logo.png';$$('[data-emblem]').forEach((el)=>{el.innerHTML=`<img src="${logoSource}" alt="대한불교밀교종 로고" />`;});$$('[data-stamp]').forEach((el)=>{el.innerHTML=orgSealImage?`<img src="${orgSealImage}" alt="관인" />`:'밀교종印';el.classList.toggle('stamp-mark--image',!!orgSealImage);});$$('[data-topbar-logo]').forEach((el)=>{el.src=logoSource;});};
+      const applyBranding=()=>{const logoSource=orgLogoImage||'/brand-logo-transparent.png';$$('[data-emblem]').forEach((el)=>{el.innerHTML=`<img src="${logoSource}" alt="대한불교밀교종 로고" />`;});$$('[data-stamp]').forEach((el)=>{el.innerHTML=orgSealImage?`<img src="${orgSealImage}" alt="관인" />`:'밀교종印';el.classList.toggle('stamp-mark--image',!!orgSealImage);});$$('[data-topbar-logo]').forEach((el)=>{el.src=logoSource;});};
       const loadOrgSettings=async()=>{const d=await callApi('/api/settings/get',{token:getToken()});if(d.ok){orgSealImage=await trimTransparentImage(d.sealImage||'');orgLogoImage=d.logoImage||'';applyBranding();}};
       const brandingModal=$('[data-branding-modal]'),brandingForm=$('[data-branding-form]');let pendingLogo='',pendingSeal='';
       const readImage=(file)=>new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||''));r.onerror=()=>reject(r.error);r.readAsDataURL(file);});
-      const renderBranding=()=>{$('[data-branding-logo-preview]').innerHTML=`<img src="${pendingLogo||orgLogoImage||'/logo.png'}" alt="로고" />`;$('[data-branding-seal-preview]').innerHTML=(pendingSeal||orgSealImage)?`<img src="${pendingSeal||orgSealImage}" alt="관인" />`:'<span class="muted">등록된 관인 없음</span>';};
+      const renderBranding=()=>{$('[data-branding-logo-preview]').innerHTML=`<img src="${pendingLogo||orgLogoImage||'/brand-logo-transparent.png'}" alt="로고" />`;$('[data-branding-seal-preview]').innerHTML=(pendingSeal||orgSealImage)?`<img src="${pendingSeal||orgSealImage}" alt="관인" />`:'<span class="muted">등록된 관인 없음</span>';};
       $('[data-open-branding]').addEventListener('click',()=>{pendingLogo='';pendingSeal='';renderBranding();brandingModal.hidden=false;});$$('[data-close-branding]').forEach((b)=>b.addEventListener('click',()=>brandingModal.hidden=true));$('#brand-logo').addEventListener('change',async(e)=>{if(e.target.files[0])pendingLogo=await readImage(e.target.files[0]);renderBranding();});$('#brand-seal').addEventListener('change',async(e)=>{if(e.target.files[0])pendingSeal=await trimTransparentImage(await readImage(e.target.files[0]));renderBranding();});brandingForm.addEventListener('submit',async(e)=>{e.preventDefault();const d=await callApi('/api/settings/save',{token:getToken(),logoImage:pendingLogo,sealImage:pendingSeal});$('[data-branding-status]').textContent=d.message||'';if(d.ok){await loadOrgSettings();renderBranding();}});
 
       // 조직도
