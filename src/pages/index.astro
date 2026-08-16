@@ -6,9 +6,8 @@ import GovLayout from '../layouts/GovLayout.astro';
   <div class="login-screen" data-login-screen>
     <div class="login-card">
       <img class="login-card__logo" src="/logo.png" alt="대한불교밀교종 로고" />
-      <p class="login-card__kicker">사단법인 대한불교밀교종</p>
       <h1 class="login-card__brand-heading"><img src="/brand-wordmark-symbol.svg" alt="대한불교밀교종" /><span>종단관리시스템</span></h1>
-      <p class="login-card__desc">문서등록대장 · 전자결재 · 접수발송대장</p>
+      <p class="login-card__desc">문서등록대장 · 전자결재 · 회계시스템</p>
       <form data-login-form>
         <label for="login-username">아이디</label>
         <input id="login-username" name="username" type="text" autocomplete="username" required />
@@ -1922,12 +1921,45 @@ import GovLayout from '../layouts/GovLayout.astro';
       overflow-y: auto;
     }
     .login-card__logo { width: 68px; height: 68px; object-fit: contain; display: block; margin: 0 auto 0.55rem; }
-    .login-card__kicker { color: var(--gov-gold); font-weight: 700; margin: 0 0 0.2rem; font-size: 0.85rem; }
-    .login-card h1 { margin: 0 0 0.3rem; font-size: clamp(1.12rem, 4.8vw, 1.38rem); letter-spacing: -0.025em; white-space: nowrap; }
-    .login-card__brand-heading { display:flex; align-items:center; justify-content:center; gap:.55rem; min-width:0; }
-    .login-card__brand-heading img { display:block; width:210px; max-width:58%; height:auto; max-height:34px; object-fit:contain; flex:0 1 auto; }
-    .login-card__brand-heading span { font-family:"Noto Serif KR","Nanum Myeongjo",Batang,serif; font-size:1.05rem; font-weight:700; letter-spacing:.025em; white-space:nowrap; }
+    .login-card h1 { margin: 0 0 0.45rem; font-size: clamp(1.12rem, 4.8vw, 1.38rem); letter-spacing: -0.025em; white-space: nowrap; }
+    .login-card__brand-heading {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-wrap:nowrap;
+      gap:.38rem;
+      width:calc(100% - 1.5rem);
+      margin-inline:auto;
+      padding-inline:.25rem;
+      box-sizing:border-box;
+      min-width:0;
+      white-space:nowrap;
+    }
+    .login-card__brand-heading img {
+      display:block;
+      width:clamp(148px, 45vw, 176px);
+      max-width:52%;
+      height:auto;
+      max-height:27px;
+      object-fit:contain;
+      flex:0 1 auto;
+      min-width:0;
+    }
+    .login-card__brand-heading span {
+      font-family:"Noto Serif KR","Nanum Myeongjo",Batang,serif;
+      font-size:clamp(.92rem, 3.8vw, 1.08rem);
+      line-height:1.08;
+      font-weight:700;
+      letter-spacing:-.025em;
+      white-space:nowrap;
+      flex:0 0 auto;
+    }
     .login-card__desc { color: var(--gov-muted); margin: 0 0 1.4rem; font-size: 0.9rem; }
+    @media (max-width: 440px) {
+      .login-card__brand-heading { width:calc(100% - 1rem); gap:.3rem; padding-inline:.15rem; }
+      .login-card__brand-heading img { width:clamp(138px, 47vw, 160px); max-width:52%; max-height:24px; }
+      .login-card__brand-heading span { font-size:clamp(.86rem, 4vw, .98rem); }
+    }
     .login-card form { display: flex; flex-direction: column; gap: 0.5rem; text-align: left; }
     .login-card label { font-size: 0.85rem; font-weight: 600; }
     .login-card input { border: 1px solid var(--gov-border); border-radius: 8px; padding: 0.6rem 0.8rem; font-size: 1rem; }
