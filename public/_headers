@@ -13,7 +13,7 @@
   Cache-Control: no-cache, must-revalidate
 
 /logo.png
-  Cache-Control: public, max-age=86400
+  Cache-Control: no-cache, must-revalidate
 
 /brand-logo-transparent.png
   Cache-Control: public, max-age=86400
