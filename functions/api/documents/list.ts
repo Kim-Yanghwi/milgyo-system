@@ -108,8 +108,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const parts = department.split(/\s+-\s+/).map((part) => part.trim()).filter(Boolean);
     if (parts.length > 1) {
       const leaf = parts[parts.length - 1];
-      filters.push(`(department = ? OR department = ?)`);
-      bindings.push(department, leaf);
+      if (leaf === '진향회(향천사)') {
+        filters.push(`(department = ? OR department = ? OR department = ? OR department = ?)`);
+        bindings.push(department, leaf, '위원회·신도단체 - 신도회', '신도회');
+      } else {
+        filters.push(`(department = ? OR department = ?)`);
+        bindings.push(department, leaf);
+      }
     } else {
       filters.push(`(department = ? OR department LIKE ?)`);
       bindings.push(department, `${department} - %`);

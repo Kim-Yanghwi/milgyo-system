@@ -24,12 +24,21 @@ export const clean = (value: unknown, maxLength: number) => {
 
 
 const OFFICE_DEPARTMENTS = new Set(['재정국', '준법윤리국', '국제교류국', '문화홍보국', '사회공헌국']);
+const ASSOCIATION_DEPARTMENT = '진향회(향천사)';
+const ASSOCIATION_TOKEN = '진향회[향천사]';
+const protectAssociationDepartment = (value: string) => value.replaceAll(ASSOCIATION_DEPARTMENT, ASSOCIATION_TOKEN);
+const restoreAssociationDepartment = (value: string) => value.replaceAll(ASSOCIATION_TOKEN, ASSOCIATION_DEPARTMENT);
 const legacyOfficeDepartment = (name: string, position = '') => {
   if (name === '재정·회계') return '재정국';
   if (name === '준법·윤리') return '준법윤리국';
   if (name === '대외협력·사회공헌') return /사회공헌/.test(position) ? '사회공헌국' : '국제교류국';
   if (name === '문화·홍보') return '문화홍보국';
   return name;
+};
+const legacyDepartmentName = (name: string, position = '') => {
+  const restored = restoreAssociationDepartment(name);
+  if (restored === '신도회') return ASSOCIATION_DEPARTMENT;
+  return legacyOfficeDepartment(restored, position);
 };
 
 /**
@@ -39,18 +48,17 @@ const legacyOfficeDepartment = (name: string, position = '') => {
 export const normalizeDepartmentValue = (value: unknown, position = '') => {
   let text = clean(value, 120);
   if (!text) return '';
-  text = text.replace(/\s*[–—]\s*/g, ' - ');
+  text = protectAssociationDepartment(text).replace(/\s*[–—]\s*/g, ' - ');
   const parenthesized = /^(.+?)\s*\(([^()]+)\)\s*$/.exec(text);
   if (parenthesized) text = `${parenthesized[1].trim()} - ${parenthesized[2].trim()}`;
 
   let parts = text.split(/\s+-\s+/).map((part) => part.trim()).filter(Boolean);
-  let primary = parts[0] || '';
-  let secondary = parts.slice(1).join(' - ');
+  let primary = legacyDepartmentName(parts[0] || '', position);
+  let secondary = legacyDepartmentName(parts.slice(1).join(' - '), position);
   if (primary === '사무국') primary = '사무처';
 
-  if (secondary) secondary = legacyOfficeDepartment(secondary, position);
   if (!secondary) {
-    const mapped = legacyOfficeDepartment(primary, position);
+    const mapped = legacyDepartmentName(primary, position);
     if (mapped !== primary || OFFICE_DEPARTMENTS.has(mapped)) {
       primary = '사무처';
       secondary = mapped;
@@ -79,9 +87,17 @@ const DEPARTMENT_HEAD_TITLES: Record<string, string> = {
   '문화홍보국': '문화홍보국장',
   '사회공헌국': '사회공헌국장',
   '총무원': '총무원장',
+  '부원장': '부원장',
+  '총무부': '총무부장',
+  '교무부': '교육부장',
+  '재무부': '재무부장',
+  '교육부': '교육부장',
+  '법무감사부': '법무감사부장',
+  '문화복지부': '문화복지부장',
   '교육·포교원': '교육·포교원장',
   '람림불교교육원': '람림불교교육원장',
-  '신도회': '신도회장',
+  '진향회(향천사)': '진향회장',
+  '신도회': '진향회장',
   '사찰운영위원회': '사찰운영위원장',
 };
 
@@ -365,7 +381,7 @@ const BUILT_IN_TEMPLATES = [
     fields: [
       { id: 'subject', label: '결산 건명', type: 'text', required: true, width: 'full' },
       { id: 'submissionDate', label: '제출일', type: 'date', required: true, width: 'half' },
-      { id: 'organization', label: '제출기구', type: 'select', required: true, options: ['사무처', '총무원', '교육·포교원', '재정국', '준법윤리국', '국제교류국', '문화홍보국', '사회공헌국', '활동거점', '기타'], width: 'half' },
+      { id: 'organization', label: '제출기구', type: 'select', required: true, options: ['사무처', '총무원', '부원장', '총무부', '교무부', '재무부', '교육부', '법무감사부', '문화복지부', '교육·포교원', '재정국', '준법윤리국', '국제교류국', '문화홍보국', '사회공헌국', '사찰운영위원회', '진향회(향천사)', '활동거점', '기타'], width: 'half' },
       { id: 'submitter', label: '제출자', type: 'text', required: true, width: 'half' },
       { id: 'fiscalYear', label: '사업연도', type: 'number', required: true, defaultValue: '{{CURRENT_YEAR}}', width: 'half' },
       { id: 'businessName', label: '주요 사업명', type: 'text', required: true, width: 'full' },

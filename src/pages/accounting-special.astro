@@ -195,15 +195,17 @@ import GovLayout from '../layouts/GovLayout.astro';
       const departmentTree=[
         {name:'이사장'},{name:'이사회'},{name:'감사'},{name:'종정'},
         {name:'사무처',children:['재정국','준법윤리국','국제교류국','문화홍보국','사회공헌국']},
-        {name:'총무원'},{name:'교육·포교원'},
+        {name:'총무원',children:['부원장','총무부','교무부','재무부','교육부','법무감사부','문화복지부']},{name:'교육·포교원'},
         {name:'소속기관·교구',children:['람림불교교육원','서울·인천·경기교구','강원교구','대전·세종·충남교구','충북교구','전남광주·전북교구','대구·경북교구','부산·울산·경남교구','제주교구']},
-        {name:'위원회·신도단체',children:['신도회','사찰운영위원회']},
+        {name:'위원회·신도단체',children:['사찰운영위원회','진향회(향천사)']},
       ];
       const responsiblePositions=[
-        '종정','회장','총무원장','교육·포교원장','사무총장','재정국장','준법윤리국장','국제교류국장','문화홍보국장','사회공헌국장','교구장','사무처','총무원','교육·포교원','활동거점 운영책임자','사무장','직원','간사','사무보조자','사무담당','인사·노무담당','법무담당','기획담당','재무담당','회계담당','재정관리담당','종무담당','종무담당자','법회담당자','의례담당자','시설관리담당','안전관리담당','교육담당','교육담당자','포교담당','포교담당자','홍보담당','신도회담당자','지역활동담당자','온라인포교담당자','교재담당자','교육운영담당자','통역·번역담당','국내외 불교교류담당','외국인 수행지도자 지원담당','국제교류 행정담당','콘텐츠담당','홈페이지·사회관계망서비스담당','불교문화행사담당','봉사활동담당','자비나눔담당','마음치유사업담당','사회공헌행사담당','강사','수행지도자','외부전문가','승려','법사','명상지도자','운영책임자'
+        '종정','회장','총무원장','부원장','총무부장','교육부장','재무부장','법무감사부장','문화복지부장','교육·포교원장','사무총장','재정국장','준법윤리국장','국제교류국장','문화홍보국장','사회공헌국장','진향회장','사찰운영위원장','교구장','사무처','총무원','교육·포교원','활동거점 운영책임자','사무장','직원','간사','사무보조자','사무담당','인사·노무담당','법무담당','기획담당','재무담당','회계담당','재정관리담당','종무담당','종무담당자','법회담당자','의례담당자','시설관리담당','안전관리담당','교육담당','교육담당자','포교담당','포교담당자','홍보담당','진향회담당자','지역활동담당자','온라인포교담당자','교재담당자','교육운영담당자','통역·번역담당','국내외 불교교류담당','외국인 수행지도자 지원담당','국제교류 행정담당','콘텐츠담당','홈페이지·사회관계망서비스담당','불교문화행사담당','봉사활동담당','자비나눔담당','마음치유사업담당','사회공헌행사담당','강사','수행지도자','외부전문가','승려','법사','명상지도자','운영책임자'
       ];
       const officeDepartments=new Set(['재정국','준법윤리국','국제교류국','문화홍보국','사회공헌국']);
-      const normalizeDepartmentValue=(value,position='')=>{let text=String(value||'').trim();if(!text)return '';text=text.replace(/\s*[–—]\s*/g,' - ');const p=/^(.+?)\s*\(([^()]+)\)\s*$/.exec(text);if(p)text=`${p[1].trim()} - ${p[2].trim()}`;const parts=text.split(/\s+-\s+/).map((x)=>x.trim()).filter(Boolean);let primary=parts[0]||'',secondary=parts.slice(1).join(' - ');const map=(name)=>name==='재정·회계'?'재정국':name==='준법·윤리'?'준법윤리국':name==='대외협력·사회공헌'?(/사회공헌/.test(position)?'사회공헌국':'국제교류국'):name==='문화·홍보'?'문화홍보국':name;if(primary==='사무국')primary='사무처';if(secondary)secondary=map(secondary);if(!secondary){const mapped=map(primary);if(mapped!==primary||officeDepartments.has(mapped)){primary='사무처';secondary=mapped;}}return secondary?`${primary} - ${secondary}`:primary;};
+      const associationDepartment='진향회(향천사)',associationToken='진향회[향천사]';
+      const protectAssociation=(value)=>String(value||'').replaceAll(associationDepartment,associationToken),restoreAssociation=(value)=>String(value||'').replaceAll(associationToken,associationDepartment);
+      const normalizeDepartmentValue=(value,position='')=>{let text=String(value||'').trim();if(!text)return '';text=protectAssociation(text).replace(/\s*[–—]\s*/g,' - ');const p=/^(.+?)\s*\(([^()]+)\)\s*$/.exec(text);if(p)text=`${p[1].trim()} - ${p[2].trim()}`;const parts=text.split(/\s+-\s+/).map((x)=>x.trim()).filter(Boolean);const map=(name)=>{name=restoreAssociation(name);if(name==='신도회')return associationDepartment;return name==='재정·회계'?'재정국':name==='준법·윤리'?'준법윤리국':name==='대외협력·사회공헌'?(/사회공헌/.test(position)?'사회공헌국':'국제교류국'):name==='문화·홍보'?'문화홍보국':name;};let primary=map(parts[0]||''),secondary=map(parts.slice(1).join(' - '));if(primary==='사무국')primary='사무처';if(!secondary){const mapped=map(primary);if(mapped!==primary||officeDepartments.has(mapped)){primary='사무처';secondary=mapped;}}return secondary?`${primary} - ${secondary}`:primary;};
       const formatDepartmentLabel=(value,position='')=>{const n=normalizeDepartmentValue(value,position);if(!n)return '-';const parts=n.split(/\s+-\s+/);return parts.length>1?`${parts[0]}(${parts.slice(1).join(' - ')})`:parts[0];};
       const cardIssuers=[
         {group:'전업 카드사',items:['BC카드','KB국민카드','신한카드','삼성카드','현대카드','롯데카드','우리카드','하나카드']},
