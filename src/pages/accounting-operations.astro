@@ -132,14 +132,14 @@ import GovLayout from '../layouts/GovLayout.astro';
     const departmentTree=[
       {name:'이사장'},{name:'이사회'},{name:'감사'},{name:'종정'},
       {name:'사무처',children:['재정국','준법윤리국','국제교류국','문화홍보국','사회공헌국']},
-      {name:'총무원',children:['부원장','총무부','교무부','재무부','교육부','법무감사부','문화복지부']},{name:'교육·포교원'},
+      {name:'총무원',children:['부원장','총무부','교무부','재무부','법무감사부','문화복지부']},{name:'교육·포교원'},
       {name:'소속기관·교구',children:['람림불교교육원','서울·인천·경기교구','강원교구','대전·세종·충남교구','충북교구','전남광주·전북교구','대구·경북교구','부산·울산·경남교구','제주교구']},
       {name:'위원회·신도단체',children:['사찰운영위원회','진향회(향천사)']},
     ];
     const officeDepartments=new Set(['재정국','준법윤리국','국제교류국','문화홍보국','사회공헌국']);
     const associationDepartment='진향회(향천사)',associationToken='진향회[향천사]';
     const protectAssociation=(value)=>String(value||'').replaceAll(associationDepartment,associationToken),restoreAssociation=(value)=>String(value||'').replaceAll(associationToken,associationDepartment);
-    const normalizeDepartmentValue=(value,position='')=>{let text=String(value||'').trim();if(!text)return '';text=protectAssociation(text).replace(/\s*[–—]\s*/g,' - ');const p=/^(.+?)\s*\(([^()]+)\)\s*$/.exec(text);if(p)text=`${p[1].trim()} - ${p[2].trim()}`;const parts=text.split(/\s+-\s+/).map((x)=>x.trim()).filter(Boolean);const map=(name)=>{name=restoreAssociation(name);if(name==='신도회')return associationDepartment;return name==='재정·회계'?'재정국':name==='준법·윤리'?'준법윤리국':name==='대외협력·사회공헌'?(/사회공헌/.test(position)?'사회공헌국':'국제교류국'):name==='문화·홍보'?'문화홍보국':name;};let primary=map(parts[0]||''),secondary=map(parts.slice(1).join(' - '));if(primary==='사무국')primary='사무처';if(!secondary){const mapped=map(primary);if(mapped!==primary||officeDepartments.has(mapped)){primary='사무처';secondary=mapped;}}return secondary?`${primary} - ${secondary}`:primary;};
+    const normalizeDepartmentValue=(value,position='')=>{let text=String(value||'').trim();if(!text)return '';text=protectAssociation(text).replace(/\s*[–—]\s*/g,' - ');const p=/^(.+?)\s*\(([^()]+)\)\s*$/.exec(text);if(p)text=`${p[1].trim()} - ${p[2].trim()}`;const parts=text.split(/\s+-\s+/).map((x)=>x.trim()).filter(Boolean);const map=(name)=>{name=restoreAssociation(name);if(name==='신도회')return associationDepartment;if(name==='교육부')return '교무부';return name==='재정·회계'?'재정국':name==='준법·윤리'?'준법윤리국':name==='대외협력·사회공헌'?(/사회공헌/.test(position)?'사회공헌국':'국제교류국'):name==='문화·홍보'?'문화홍보국':name;};let primary=map(parts[0]||''),secondary=map(parts.slice(1).join(' - '));if(primary==='사무국')primary='사무처';if(!secondary){const mapped=map(primary);if(mapped!==primary||officeDepartments.has(mapped)){primary='사무처';secondary=mapped;}}return secondary?`${primary} - ${secondary}`:primary;};
     const formatDepartmentLabel=(value,position='')=>{const n=normalizeDepartmentValue(value,position);if(!n)return '-';const parts=n.split(/\s+-\s+/);return parts.length>1?`${parts[0]}(${parts.slice(1).join(' - ')})`:parts[0];};
     const departmentOptions=()=>'<option value="">담당부서 선택(선택)</option>'+departmentTree.map((dep)=>dep.children?`<optgroup label="${esc(dep.name)}"><option value="${esc(dep.name)}">${esc(dep.name)}</option>${dep.children.map((child)=>`<option value="${esc(dep.name+' - '+child)}">　${esc(child)}</option>`).join('')}</optgroup>`:`<option value="${esc(dep.name)}">${esc(dep.name)}</option>`).join('');
     const populateMasters=()=>{

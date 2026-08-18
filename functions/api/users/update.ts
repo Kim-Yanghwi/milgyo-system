@@ -5,6 +5,7 @@ import {
   hashPassword,
   json,
   normalizeDepartmentValue,
+  normalizePositionValue,
 } from '../../_shared/helpers';
 
 interface Env {
@@ -51,7 +52,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!target) return json({ ok: false, message: '해당 계정을 찾을 수 없습니다.' }, 404);
 
     const name = clean(payload.name, 40);
-    const position = clean(payload.position, 40);
+    const position = normalizePositionValue(payload.position);
     const grade = clean(payload.grade, 20);
     const department = normalizeDepartmentValue(payload.department, position);
     const role = payload.role === 'admin' ? 'admin' : payload.role === 'audit' ? 'audit' : 'user';

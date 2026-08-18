@@ -5,6 +5,7 @@ import {
   hashPassword,
   insertSystemUser,
   normalizeDepartmentValue,
+  normalizePositionValue,
   isSchemaError,
   json,
   repairTables,
@@ -72,7 +73,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const name = clean(payload.name, 40);
     const username = clean(payload.username, 60);
     const password = typeof payload.password === 'string' ? payload.password.slice(0, 200) : '';
-    const position = clean(payload.position, 40);
+    const position = normalizePositionValue(payload.position);
     const grade = clean(payload.grade, 20);
     const department = normalizeDepartmentValue(payload.department, position);
     const role: 'admin' | 'audit' | 'user' = payload.role === 'admin' ? 'admin' : payload.role === 'audit' ? 'audit' : 'user';

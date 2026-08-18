@@ -111,6 +111,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (leaf === '진향회(향천사)') {
         filters.push(`(department = ? OR department = ? OR department = ? OR department = ?)`);
         bindings.push(department, leaf, '위원회·신도단체 - 신도회', '신도회');
+      } else if (leaf === '교무부') {
+        // v82에서 잠시 잘못 노출된 '교육부' 저장값도 현행 교무부 조회에 포함합니다.
+        filters.push(`(department = ? OR department = ? OR department = ? OR department = ?)`);
+        bindings.push(department, leaf, '총무원 - 교육부', '교육부');
       } else {
         filters.push(`(department = ? OR department = ?)`);
         bindings.push(department, leaf);

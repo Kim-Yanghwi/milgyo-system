@@ -6,6 +6,8 @@ import {
   ensureTables,
   json,
   recordAuthFailure,
+  normalizeDepartmentValue,
+  normalizePositionValue,
   verifyPassword,
 } from '../../_shared/helpers';
 
@@ -52,13 +54,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     await clearAuthFailures(env.DB, authRateLimit.rateKey);
 
     const token = await createSession(env.DB, user.id);
+    const position = normalizePositionValue(user.position);
+    const department = normalizeDepartmentValue(user.department, position);
 
     return json({
       ok: true,
       token,
       user: {
         id: user.id, name: user.name, username: user.username,
-        position: user.position, grade: user.grade, department: user.department, role: user.role,
+        position, grade: user.grade, department, role: user.role,
         canApprove: !!user.can_approve, canAccounting: user.role === 'admin' || !!user.can_accounting,
       },
     });

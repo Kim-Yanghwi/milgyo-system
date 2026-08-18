@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
+import { authenticateSession, clean, ensureTables, json, normalizeDepartmentValue, normalizePositionValue } from '../../_shared/helpers';
 
 interface Env {
   DB: D1Database;
@@ -28,7 +28,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       ${includeInactive ? '' : 'WHERE active = 1'}
       ORDER BY created_at ASC, name ASC
     `).all();
-    return json({ ok: true, rows: rows.results ?? [] });
+    const normalizedRows = (rows.results ?? []).map((row: Record<string, unknown>) => {
+      const position = normalizePositionValue(row.position);
+      return { ...row, position, department: normalizeDepartmentValue(row.department, position) };
+    });
+    return json({ ok: true, rows: normalizedRows });
   } catch (error) {
     console.error('user list failed', error);
     return json({ ok: false, message: '계정 목록 조회 중 오류가 발생했습니다.' }, 500);

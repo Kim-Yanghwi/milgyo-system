@@ -22,6 +22,11 @@ export const clean = (value: unknown, maxLength: number) => {
   return stripped.trim().slice(0, maxLength);
 };
 
+export const normalizePositionValue = (value: unknown) => {
+  const position = clean(value, 40);
+  return position === '교육부장' ? '교무부장' : position;
+};
+
 
 const OFFICE_DEPARTMENTS = new Set(['재정국', '준법윤리국', '국제교류국', '문화홍보국', '사회공헌국']);
 const ASSOCIATION_DEPARTMENT = '진향회(향천사)';
@@ -38,6 +43,7 @@ const legacyOfficeDepartment = (name: string, position = '') => {
 const legacyDepartmentName = (name: string, position = '') => {
   const restored = restoreAssociationDepartment(name);
   if (restored === '신도회') return ASSOCIATION_DEPARTMENT;
+  if (restored === '교육부') return '교무부';
   return legacyOfficeDepartment(restored, position);
 };
 
@@ -89,9 +95,8 @@ const DEPARTMENT_HEAD_TITLES: Record<string, string> = {
   '총무원': '총무원장',
   '부원장': '부원장',
   '총무부': '총무부장',
-  '교무부': '교육부장',
+  '교무부': '교무부장',
   '재무부': '재무부장',
-  '교육부': '교육부장',
   '법무감사부': '법무감사부장',
   '문화복지부': '문화복지부장',
   '교육·포교원': '교육·포교원장',
@@ -381,7 +386,7 @@ const BUILT_IN_TEMPLATES = [
     fields: [
       { id: 'subject', label: '결산 건명', type: 'text', required: true, width: 'full' },
       { id: 'submissionDate', label: '제출일', type: 'date', required: true, width: 'half' },
-      { id: 'organization', label: '제출기구', type: 'select', required: true, options: ['사무처', '총무원', '부원장', '총무부', '교무부', '재무부', '교육부', '법무감사부', '문화복지부', '교육·포교원', '재정국', '준법윤리국', '국제교류국', '문화홍보국', '사회공헌국', '사찰운영위원회', '진향회(향천사)', '활동거점', '기타'], width: 'half' },
+      { id: 'organization', label: '제출기구', type: 'select', required: true, options: ['사무처', '총무원', '부원장', '총무부', '교무부', '재무부', '법무감사부', '문화복지부', '교육·포교원', '재정국', '준법윤리국', '국제교류국', '문화홍보국', '사회공헌국', '사찰운영위원회', '진향회(향천사)', '활동거점', '기타'], width: 'half' },
       { id: 'submitter', label: '제출자', type: 'text', required: true, width: 'half' },
       { id: 'fiscalYear', label: '사업연도', type: 'number', required: true, defaultValue: '{{CURRENT_YEAR}}', width: 'half' },
       { id: 'businessName', label: '주요 사업명', type: 'text', required: true, width: 'full' },
@@ -1525,7 +1530,9 @@ export const authenticateSession = async (
     return { ok: false, message: '로그인이 만료되었습니다. 다시 로그인해 주세요.', status: 401 };
   }
   const { id, name, username, position, grade, department, role, can_approve, can_accounting } = row;
-  return { ok: true, user: { id, name, username, position, grade, department, role, can_approve, can_accounting } };
+  const normalizedPosition = normalizePositionValue(position);
+  const normalizedDepartment = normalizeDepartmentValue(department, normalizedPosition);
+  return { ok: true, user: { id, name, username, position: normalizedPosition, grade, department: normalizedDepartment, role, can_approve, can_accounting } };
 };
 
 export const canReadDocument = (user: SessionUser, document: Record<string, unknown>) => {
