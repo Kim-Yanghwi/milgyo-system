@@ -1,0 +1,597 @@
+/* 대한불교밀교종 종단관리시스템 공통 UI 정합성 레이어 (2026-08-19) */
+:root {
+  --milgyo-ui-topbar: 58px;
+  --milgyo-ui-sidebar: 225px;
+  --milgyo-ui-blue: #315f9f;
+  --milgyo-ui-blue-dark: #244d7c;
+  --milgyo-ui-blue-soft: #edf3fa;
+  --milgyo-ui-border: #cbd5e1;
+  --milgyo-ui-border-strong: #9fb0c4;
+  --milgyo-ui-panel: #ffffff;
+  --milgyo-ui-canvas: #eef2f7;
+  --milgyo-ui-text: #202733;
+  --milgyo-ui-muted: #667085;
+  --milgyo-ui-radius: 8px;
+  --milgyo-ui-transition: 150ms ease;
+}
+
+/* 회계 계열 화면의 상단 헤더를 하나의 시각 언어로 고정합니다. */
+.accounting-topbar {
+  min-height: var(--milgyo-ui-topbar) !important;
+  height: var(--milgyo-ui-topbar) !important;
+  padding: 0 1rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 1rem !important;
+  background: linear-gradient(180deg, var(--milgyo-ui-blue), var(--milgyo-ui-blue-dark)) !important;
+  border: 0 !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(23, 51, 84, .2) !important;
+  position: relative !important;
+  top: auto !important;
+  z-index: 30 !important;
+}
+.accounting-brand {
+  display: flex !important;
+  align-items: center !important;
+  gap: .55rem !important;
+  min-width: 0 !important;
+  color: #fff !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+}
+.accounting-brand__logo {
+  width: 27px !important;
+  height: 27px !important;
+  object-fit: contain !important;
+  flex: 0 0 27px !important;
+}
+.accounting-brand__title {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: .48rem !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+}
+.accounting-brand__wordmark {
+  display: block !important;
+  width: 158px !important;
+  height: auto !important;
+  max-height: 25px !important;
+  object-fit: contain !important;
+  filter: brightness(0) invert(1) !important;
+  flex: 0 0 auto !important;
+}
+.accounting-brand__system-name {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  padding: 0 !important;
+  border: 0 !important;
+  color: #fff !important;
+  font-family: "Noto Serif KR", "Nanum Myeongjo", Batang, serif !important;
+  font-size: .98rem !important;
+  font-weight: 700 !important;
+  letter-spacing: .025em !important;
+}
+.accounting-topbar__actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: .42rem !important;
+  min-width: 0 !important;
+  font-size: .82rem !important;
+}
+.accounting-user-label {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255,255,255,.92) !important;
+  margin-right: .2rem !important;
+}
+.accounting-topbar .btn {
+  min-height: 34px !important;
+  width: auto !important;
+  margin: 0 !important;
+  padding: 7px 10px !important;
+  border: 1px solid rgba(255,255,255,.48) !important;
+  border-radius: 5px !important;
+  background: rgba(255,255,255,.08) !important;
+  color: #fff !important;
+  font-family: inherit !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+  box-shadow: none !important;
+  transition: background var(--milgyo-ui-transition), border-color var(--milgyo-ui-transition) !important;
+}
+.accounting-topbar .btn:hover,
+.accounting-topbar .btn:focus-visible,
+.accounting-topbar .btn.is-current {
+  background: #fff !important;
+  border-color: #fff !important;
+  color: var(--milgyo-ui-blue-dark) !important;
+}
+.accounting-topbar .btn.is-current {
+  box-shadow: inset 0 -2px 0 #d4a73f !important;
+}
+
+/* 회계 하위화면의 좌측 메뉴 폭·색·활성상태를 통일합니다. */
+.accounting-app .acc-shell,
+.special-app .shell,
+.ops-app .shell,
+.compliance-app .shell,
+.tax-app .shell {
+  grid-template-columns: var(--milgyo-ui-sidebar) minmax(0, 1fr) !important;
+  min-height: calc(100vh - var(--milgyo-ui-topbar)) !important;
+}
+.accounting-app .acc-sidebar,
+.special-app .sidebar,
+.ops-app .sidebar,
+.compliance-app .sidebar,
+.tax-app .sidebar {
+  background: #fff !important;
+  color: #374151 !important;
+  border-right: 1px solid #d4dce7 !important;
+  padding: 18px 14px !important;
+}
+.accounting-app .acc-year-box,
+.special-app .year-box,
+.ops-app .year-box,
+.compliance-app .year-box,
+.tax-app .scope-box {
+  background: #f4f7fb !important;
+  border: 1px solid #d7dfeb !important;
+  border-radius: 8px !important;
+  color: #465162 !important;
+}
+.accounting-app .acc-nav,
+.accounting-app .acc-special-link,
+.special-app .nav,
+.ops-app .nav,
+.compliance-app .nav,
+.tax-app .nav {
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  min-height: 38px !important;
+  margin: 0 !important;
+  padding: .58rem .65rem !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  background: transparent !important;
+  color: #202733 !important;
+  font-family: inherit !important;
+  font-size: .88rem !important;
+  font-weight: 500 !important;
+  line-height: 1.35 !important;
+  text-align: left !important;
+  text-decoration: none !important;
+  transition: background var(--milgyo-ui-transition), color var(--milgyo-ui-transition) !important;
+}
+.accounting-app .acc-nav:hover,
+.accounting-app .acc-special-link:hover,
+.special-app .nav:hover,
+.ops-app .nav:hover,
+.compliance-app .nav:hover,
+.tax-app .nav:hover {
+  background: var(--milgyo-ui-blue-soft) !important;
+  color: #233f62 !important;
+}
+.accounting-app .acc-nav.active,
+.special-app .nav.active,
+.ops-app .nav.active,
+.compliance-app .nav.active,
+.tax-app .nav.active {
+  background: var(--milgyo-ui-blue) !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+}
+
+/* 카드·입력·표의 기본 촉감을 동일하게 맞춥니다. */
+:is(.accounting-app,.special-app,.ops-app,.compliance-app,.tax-app,.file-admin) {
+  background: var(--milgyo-ui-canvas) !important;
+  color: var(--milgyo-ui-text) !important;
+}
+:is(.accounting-app,.special-app,.ops-app,.compliance-app,.tax-app,.file-admin) :is(.card,.surface) {
+  border-color: #d6deea !important;
+  border-radius: 10px !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,.035) !important;
+}
+:is(.accounting-app,.special-app,.ops-app,.compliance-app,.tax-app,.file-admin) :is(input,select,textarea) {
+  border-color: #bcc9d8;
+  border-radius: 5px;
+}
+:is(.accounting-app,.special-app,.ops-app,.compliance-app,.tax-app,.file-admin) :is(input,select,textarea):focus {
+  outline: 2px solid rgba(49,95,159,.28);
+  outline-offset: 1px;
+  border-color: #7f9fc2;
+}
+:is(.accounting-app,.special-app,.ops-app,.compliance-app,.tax-app,.file-admin) .table-wrap {
+  border-color: var(--milgyo-ui-border-strong) !important;
+  border-radius: 6px !important;
+}
+:is(.accounting-app,.special-app,.ops-app,.compliance-app,.tax-app,.file-admin) .table-wrap table {
+  border-collapse: collapse !important;
+}
+:is(.accounting-app,.special-app,.ops-app,.compliance-app,.tax-app,.file-admin) .table-wrap th {
+  background: #edf3f9 !important;
+  color: #344a64 !important;
+}
+
+/* 공통 날짜 입력: 8자리 직접 입력 + 달력 + 요일 표시를 같은 레이아웃으로 표시합니다. */
+.date-with-weekday,
+.managed-date-with-weekday {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.date-input-shell,
+.managed-date-input-shell {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+.date-input-shell input[type="date"],
+.managed-date-input-shell input[type="date"] {
+  width: 100%;
+  min-width: 0;
+}
+.date-display-value,
+.managed-date-display {
+  pointer-events: none;
+}
+.date-weekday,
+.managed-date-weekday {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  height: 38px;
+  padding: 0 9px;
+  border: 1px solid #a9bdd4;
+  border-radius: 6px;
+  background: #eaf2fb;
+  color: #244d7c;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.date-weekday[hidden],
+.managed-date-weekday[hidden] { display: none !important; }
+
+@media (max-width: 1240px) {
+  .accounting-topbar {
+    height: auto !important;
+    min-height: var(--milgyo-ui-topbar) !important;
+    padding: 9px 12px !important;
+    align-items: flex-start !important;
+    flex-wrap: wrap !important;
+  }
+  .accounting-topbar__actions {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+  }
+  .accounting-user-label { max-width: none; }
+}
+
+@media (max-width: 780px) {
+  .accounting-brand__wordmark { width: 132px !important; }
+  .accounting-brand__system-name { font-size: .88rem !important; }
+  .accounting-app .acc-shell,
+  .special-app .shell,
+  .ops-app .shell,
+  .compliance-app .shell,
+  .tax-app .shell { display: block !important; }
+  .accounting-app .acc-sidebar,
+  .special-app .sidebar,
+  .ops-app .sidebar,
+  .compliance-app .sidebar,
+  .tax-app .sidebar {
+    border-right: 0 !important;
+    border-bottom: 1px solid #d4dce7 !important;
+    padding: 12px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accounting-topbar .btn,
+  .accounting-app *,
+  .special-app *,
+  .ops-app *,
+  .compliance-app *,
+  .tax-app *,
+  .file-admin * {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* 날짜 필드의 표시문자와 달력 아이콘이 겹치지 않도록 모든 관리화면에서 동일하게 처리합니다. */
+.date-input-shell input[type="date"],
+.managed-date-input-shell input[type="date"] {
+  position: relative;
+  z-index: 1;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  padding-right: 42px !important;
+}
+.date-input-shell input[type="date"]::-webkit-datetime-edit,
+.date-input-shell input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+.date-input-shell input[type="date"]::-webkit-datetime-edit-year-field,
+.date-input-shell input[type="date"]::-webkit-datetime-edit-month-field,
+.date-input-shell input[type="date"]::-webkit-datetime-edit-day-field,
+.date-input-shell input[type="date"]::-webkit-datetime-edit-text,
+.managed-date-input-shell input[type="date"]::-webkit-datetime-edit,
+.managed-date-input-shell input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+.managed-date-input-shell input[type="date"]::-webkit-datetime-edit-year-field,
+.managed-date-input-shell input[type="date"]::-webkit-datetime-edit-month-field,
+.managed-date-input-shell input[type="date"]::-webkit-datetime-edit-day-field,
+.managed-date-input-shell input[type="date"]::-webkit-datetime-edit-text {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+}
+.date-input-shell input[type="date"]::-webkit-calendar-picker-indicator,
+.managed-date-input-shell input[type="date"]::-webkit-calendar-picker-indicator {
+  position: relative;
+  z-index: 3;
+  opacity: 1;
+  cursor: pointer;
+}
+.date-display-value,
+.managed-date-display {
+  position: absolute;
+  z-index: 2;
+  left: 11px;
+  right: 42px;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  color: var(--milgyo-ui-text);
+  font-size: 13px;
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.date-display-value.is-placeholder,
+.managed-date-display.is-placeholder { color: #7a8798; }
+/* 기존 날짜 수정 시 native 연/월/일 편집영역을 그대로 노출해 겹침을 방지합니다. */
+.date-input-shell.is-native-editing input[type="date"],
+.managed-date-input-shell.is-native-editing input[type="date"] {
+  color: var(--milgyo-ui-text) !important;
+  -webkit-text-fill-color: var(--milgyo-ui-text) !important;
+}
+.date-input-shell.is-native-editing input[type="date"]::-webkit-datetime-edit,
+.date-input-shell.is-native-editing input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+.date-input-shell.is-native-editing input[type="date"]::-webkit-datetime-edit-year-field,
+.date-input-shell.is-native-editing input[type="date"]::-webkit-datetime-edit-month-field,
+.date-input-shell.is-native-editing input[type="date"]::-webkit-datetime-edit-day-field,
+.date-input-shell.is-native-editing input[type="date"]::-webkit-datetime-edit-text,
+.managed-date-input-shell.is-native-editing input[type="date"]::-webkit-datetime-edit,
+.managed-date-input-shell.is-native-editing input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+.managed-date-input-shell.is-native-editing input[type="date"]::-webkit-datetime-edit-year-field,
+.managed-date-input-shell.is-native-editing input[type="date"]::-webkit-datetime-edit-month-field,
+.managed-date-input-shell.is-native-editing input[type="date"]::-webkit-datetime-edit-day-field,
+.managed-date-input-shell.is-native-editing input[type="date"]::-webkit-datetime-edit-text {
+  color: var(--milgyo-ui-text) !important;
+  -webkit-text-fill-color: var(--milgyo-ui-text) !important;
+}
+.date-input-shell.is-native-editing .date-display-value,
+.managed-date-input-shell.is-native-editing .managed-date-display {
+  display: none !important;
+}
+
+/* 전자문서·대장·증명서 화면도 회계 화면과 같은 헤더/사이드바 치수를 사용합니다. */
+@media (min-width: 1051px) {
+  .management-shell .app-topbar {
+    min-height: var(--milgyo-ui-topbar) !important;
+    height: var(--milgyo-ui-topbar) !important;
+    padding: 0 1rem !important;
+    box-shadow: 0 2px 8px rgba(23, 51, 84, .2);
+  }
+  .management-shell .app-sidebar {
+    width: var(--milgyo-ui-sidebar) !important;
+    flex-basis: var(--milgyo-ui-sidebar) !important;
+  }
+}
+.management-shell .btn { border-radius: 5px; }
+.management-shell .surface { border-color: #d6deea; box-shadow: 0 1px 2px rgba(0,0,0,.035); }
+.management-shell :is(input,select,textarea):focus {
+  outline: 2px solid rgba(49,95,159,.28);
+  outline-offset: 1px;
+  border-color: #7f9fc2;
+}
+
+/* 세무 기본정보의 자격기간: 8자리 숫자 필드와 달력 버튼을 분리해 브라우저별 date 입력 차이를 제거합니다. */
+.date8-control {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 42px auto;
+  gap: 8px;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+.date8-control > input[type="text"] { min-width: 0; margin: 0 !important; }
+.date8-picker-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  min-width: 42px;
+  min-height: 38px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #a9bdd4;
+  border-radius: 6px;
+  background: #fff;
+  color: #244d7c;
+  cursor: pointer;
+}
+.date8-picker-button:hover { background: #f2f6fb; }
+.date8-picker-button svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.date8-native-picker {
+  position: absolute !important;
+  right: 50px;
+  bottom: 0;
+  width: 1px !important;
+  height: 1px !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  opacity: .01;
+  pointer-events: none;
+}
+.date8-weekday {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  min-height: 38px;
+  padding: 0 9px;
+  border: 1px solid #a9bdd4;
+  border-radius: 6px;
+  background: #eaf2fb;
+  color: #244d7c;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.date8-weekday[hidden] { display: none !important; }
+@media (max-width: 520px) {
+  .date8-control { grid-template-columns: minmax(0,1fr) 42px; }
+  .date8-weekday { grid-column: 1 / -1; width: max-content; }
+}
+
+/* 과거 페이지별 nth-of-type 숨김 규칙 때문에 상단 메뉴가 화면마다 달라지지 않도록 보정합니다. */
+.accounting-topbar__link:not([hidden]) { display: inline-flex !important; }
+
+/* ACCOUNTING_OVERVIEW_SINGLE_COLUMN_V81_1
+   At 150% browser zoom a 1920px display exposes roughly 1280 CSS pixels.
+   Collapse only the overview cards so forms and data tables keep their
+   task-oriented layouts. */
+@media (max-width: 1300px) {
+  .accounting-app [data-panel="dashboard"] > .summary-grid,
+  .accounting-app [data-panel="dashboard"] .integration-summary,
+  .ops-app [data-panel="overview"] > .summary-grid,
+  .ops-app [data-panel="overview"] > .guide-grid,
+  .special-app [data-panel="overview"] > .summary-grid,
+  .special-app [data-panel="overview"] .feature-grid,
+  .compliance-app [data-panel="overview"] > .summary-grid,
+  .compliance-app [data-panel="overview"] > .guide-grid,
+  .tax-app [data-panel="overview"] > .summary-grid,
+  .tax-app [data-panel="overview"] .guide-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+/* DOMAIN_HIDDEN_FAIL_CLOSED_V4
+   Domain-owned controls/panels must remain hidden even when shared UI rules
+   force nav/buttons to display:flex !important. */
+:is(.accounting-app,.special-app,.ops-app,.compliance-app,.tax-app,.file-admin) [data-domain][hidden] {
+  display: none !important;
+}
+
+/* DATE_NATIVE_FIRST_V51
+   Existing/selected dates use the browser-native date editor.
+   The synthetic overlay is draft-only for empty-field 8-digit entry.
+   This final canonical block intentionally outranks legacy transparent-date CSS. */
+:is(.accounting-app,.special-app,.ops-app,.compliance-app,.tax-app,.file-admin,.management-shell)
+:is(.date-input-shell,.managed-date-input-shell):not([data-numeric-date-drafting="1"])
+input[type="date"] {
+  color: var(--milgyo-ui-text, #202733) !important;
+  -webkit-text-fill-color: var(--milgyo-ui-text, #202733) !important;
+  padding-right: 12px !important;
+}
+
+:is(.accounting-app,.special-app,.ops-app,.compliance-app,.tax-app,.file-admin,.management-shell)
+:is(.date-input-shell,.managed-date-input-shell):not([data-numeric-date-drafting="1"])
+input[type="date"]::-webkit-datetime-edit,
+:is(.accounting-app,.special-app,.ops-app,.compliance-app,.tax-app,.file-admin,.management-shell)
+:is(.date-input-shell,.managed-date-input-shell):not([data-numeric-date-drafting="1"])
+input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+:is(.accounting-app,.special-app,.ops-app,.compliance-app,.tax-app,.file-admin,.management-shell)
+:is(.date-input-shell,.managed-date-input-shell):not([data-numeric-date-drafting="1"])
+input[type="date"]::-webkit-datetime-edit-year-field,
+:is(.accounting-app,.special-app,.ops-app,.compliance-app,.tax-app,.file-admin,.management-shell)
+:is(.date-input-shell,.managed-date-input-shell):not([data-numeric-date-drafting="1"])
+input[type="date"]::-webkit-datetime-edit-month-field,
+:is(.accounting-app,.special-app,.ops-app,.compliance-app,.tax-app,.file-admin,.management-shell)
+:is(.date-input-shell,.managed-date-input-shell):not([data-numeric-date-drafting="1"])
+input[type="date"]::-webkit-datetime-edit-day-field,
+:is(.accounting-app,.special-app,.ops-app,.compliance-app,.tax-app,.file-admin,.management-shell)
+:is(.date-input-shell,.managed-date-input-shell):not([data-numeric-date-drafting="1"])
+input[type="date"]::-webkit-datetime-edit-text {
+  color: var(--milgyo-ui-text, #202733) !important;
+  -webkit-text-fill-color: var(--milgyo-ui-text, #202733) !important;
+}
+
+/* No overlay during normal/native editing, so zoom/reflow cannot desync it. */
+:is(.accounting-app,.special-app,.ops-app,.compliance-app,.tax-app,.file-admin,.management-shell)
+:is(.date-input-shell,.managed-date-input-shell):not([data-numeric-date-drafting="1"])
+:is(.date-display-value,.managed-date-display) {
+  display: none !important;
+}
+
+/* Overlay is allowed only for the temporary 8-digit numeric draft. */
+:is(.accounting-app,.special-app,.ops-app,.compliance-app,.tax-app,.file-admin,.management-shell)
+:is(.date-input-shell,.managed-date-input-shell)[data-numeric-date-drafting="1"]
+:is(.date-display-value,.managed-date-display) {
+  display: flex !important;
+}
+
+/* Keep native calendar affordance stable at browser zoom/reflow. */
+:is(.accounting-app,.special-app,.ops-app,.compliance-app,.tax-app,.file-admin,.management-shell)
+:is(.date-input-shell,.managed-date-input-shell)
+input[type="date"]::-webkit-calendar-picker-indicator {
+  position: static !important;
+  z-index: auto !important;
+  flex: 0 0 auto !important;
+  margin-left: 6px !important;
+  opacity: 1 !important;
+  cursor: pointer !important;
+}
+
+/* ACCOUNTING_TABLE_GRID_CONTRACT_V81_2
+   Canonical accounting table contract. The unused ID in :is() deliberately
+   raises specificity so this contract outranks page-local legacy !important
+   rules while still matching each real accounting workspace class. */
+:is(#accounting-table-contract,.accounting-app,.ops-app,.special-app,.compliance-app,.tax-app,.file-admin) table {
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+}
+
+:is(#accounting-table-contract,.accounting-app,.ops-app,.special-app,.compliance-app,.tax-app,.file-admin) table :is(th,td) {
+  border: 1px solid #8fa4bb !important;
+  vertical-align: middle !important;
+}
+
+:is(#accounting-table-contract,.accounting-app,.ops-app,.special-app,.compliance-app,.tax-app,.file-admin) table thead th {
+  text-align: center !important;
+}
+
+:is(#accounting-table-contract,.accounting-app,.ops-app,.special-app,.compliance-app,.tax-app,.file-admin) table :is(tbody,tfoot) :is(td,th):is(.accounting-money-value,.num,.money) {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+
+:is(#accounting-table-contract,.accounting-app,.ops-app,.special-app,.compliance-app,.tax-app,.file-admin) table :is(tbody,tfoot) :is(td,th):is(.accounting-money-value,.num,.money)
+:is(input,select,textarea) {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}

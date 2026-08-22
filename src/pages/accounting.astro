@@ -1,22 +1,10 @@
 ---
 import GovLayout from '../layouts/GovLayout.astro';
+import AccountingHeader from '../components/AccountingHeader.astro';
 ---
-<GovLayout title="종단 회계관리 | 대한불교밀교종">
-  <div class="accounting-app" data-app data-accounting-ui-version="2026-07-31-date-display-v47" hidden>
-    <header class="acc-topbar">
-      <a href="/accounting/" class="acc-brand" aria-label="종단 회계관리 홈">
-        <img class="acc-brand__logo" src="/brand-logo-transparent.png" alt="대한불교밀교종 로고" />
-        <span class="acc-brand__title">
-          <img class="acc-brand__wordmark" src="/brand-wordmark-symbol.svg" alt="대한불교밀교종" />
-          <span class="acc-brand__system-name">종단 회계관리</span>
-        </span>
-      </a>
-      <div class="acc-topbar__right">
-        <span data-user-label></span>
-        <a href="/" class="btn btn-outline">전자문서</a><a href="/accounting-tax/" class="btn btn-outline">세무·신고자료</a><a href="/accounting-files/" class="btn btn-outline attachment-ops-only">점검·정책</a>
-        <button type="button" class="btn btn-outline" data-logout>로그아웃</button>
-      </div>
-    </header>
+<GovLayout title="회계·예산·결산 | 대한불교밀교종">
+  <div class="accounting-app" data-app data-accounting-ui-version="2026-08-21-v81-integrated-stabilization" hidden>
+    <AccountingHeader current="core" title="회계관리시스템" homeHref="/accounting/?domain=core" />
 
     <div class="acc-shell">
       <aside class="acc-sidebar">
@@ -25,17 +13,16 @@ import GovLayout from '../layouts/GovLayout.astro';
           <select id="global-year" data-global-year></select>
         </div>
         <nav>
-          <button class="acc-nav active" data-tab="dashboard">회계 대시보드</button>
-          <button class="acc-nav" data-tab="budget">예산관리</button>
-          <button class="acc-nav" data-tab="resolution">수입·지출결의</button>
-          <button class="acc-nav" data-tab="journal">전표관리</button>
-          <button class="acc-nav" data-tab="ledger">장부</button>
-          <button class="acc-nav" data-tab="closing">결산·마감</button>
-          <button class="acc-nav" data-tab="accounts">계정과목</button>
-          <a class="acc-special-link" href="/accounting-special/">종단 특화회계</a>
-          <a class="acc-special-link" href="/accounting-operations/">거래대사·예산통제·계약</a>
-          <a class="acc-special-link" href="/accounting-compliance/">규정·공공조달·점검</a>
-          <a class="acc-special-link" href="/accounting-tax/">세무·신고자료·제출패키지</a>
+          <button class="acc-nav active" data-tab="dashboard" data-domain="core">회계·예산·결산 현황</button>
+          <button class="acc-nav" data-tab="budget" data-domain="core">예산 편성·집행</button>
+          <button class="acc-nav" data-tab="resolution" data-domain="core">수입·지출결의</button>
+          <button class="acc-nav" data-tab="journal" data-domain="core">전표관리</button>
+          <button class="acc-nav" data-tab="ledger" data-domain="core">장부</button>
+          <button class="acc-nav" data-tab="closing" data-domain="core">결산·마감</button>
+          <button class="acc-nav" data-tab="accounts" data-domain="core">계정과목</button>
+          <div class="acc-nav-group-label">연계 관리</div>
+          <a class="acc-special-link" href="/accounting-operations/?domain=core&tab=budget">예산 변경·통제</a>
+          <a class="acc-special-link" href="/accounting-special/?domain=core&tab=master">회계구분·조직·재원</a>
         </nav>
         <div class="acc-sidebar__note">
           <span>승인된 결의서만 장부에 반영됩니다.</span>
@@ -46,8 +33,8 @@ import GovLayout from '../layouts/GovLayout.astro';
       <main class="acc-main">
         <div class="notice" data-notice hidden></div>
 
-        <section class="tab-panel active" data-panel="dashboard">
-          <div class="page-heading"><div><p>ACCOUNTING</p><h1>종단 회계 현황</h1><span>예산·결의·전표·장부·결산을 전자결재와 연결합니다.</span></div><button class="btn btn-primary" data-go-tab="resolution">+ 결의서 작성</button></div>
+        <section class="tab-panel active" data-panel="dashboard" data-domain="core">
+          <div class="page-heading"><div><p>ACCOUNTING CORE</p><h1>회계·예산·결산 현황</h1><span>예산 편성부터 결의·전표·장부·결산까지 하나의 회계 흐름으로 관리합니다.</span></div><button class="btn btn-primary" data-go-tab="resolution">+ 결의서 작성</button></div>
           <div class="summary-grid">
             <article><span>수입 누계</span><strong data-summary-income>0원</strong></article>
             <article><span>지출 누계</span><strong data-summary-expense>0원</strong></article>
@@ -65,7 +52,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           </div>
         </section>
 
-        <section class="tab-panel" data-panel="budget">
+        <section class="tab-panel" data-panel="budget" data-domain="core">
           <div class="page-heading"><div><p>BUDGET</p><h1>예산관리</h1><span>부서·사업·지출계정별 본예산, 추경, 전용과 집행현황을 관리합니다.</span></div><button class="btn btn-primary manager-only" data-toggle-form="budget-form">+ 예산 편성</button></div>
           <form class="card form-card manager-only" data-form="budget-form" hidden>
             <div class="form-grid four">
@@ -89,7 +76,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           </div>
         </section>
 
-        <section class="tab-panel" data-panel="resolution">
+        <section class="tab-panel" data-panel="resolution" data-domain="core">
           <div class="page-heading"><div><p>RESOLUTION</p><h1>수입·지출결의</h1><span>결의서를 작성해 기존 전자결재로 상신하고 승인 시 자동 전표 처리합니다.</span></div><button class="btn btn-primary" data-toggle-form="resolution-form">+ 결의서 작성</button></div>
           <form class="card form-card" data-form="resolution-form" hidden>
             <div class="form-grid three">
@@ -109,7 +96,7 @@ import GovLayout from '../layouts/GovLayout.astro';
               <label>세액(선택)<input name="taxAmount" class="money-input" inputmode="decimal" placeholder="0" /></label>
               <label class="span-3">비고<textarea name="memo" rows="3"></textarea></label>
             </div>
-            <p class="resolution-card-help">법인카드 결의는 일반 미지급금 전표만 생성합니다. 카드별 사용내역·증빙·대금결제 관리는 <a href="/accounting-special">특화회계 &gt; 법인카드</a>에서 처리해 주세요.</p>
+            <p class="resolution-card-help">법인카드 결의는 일반 미지급금 전표만 생성합니다. 카드별 사용내역·증빙·대금결제 관리는 <a href="/accounting-special/?domain=cash&tab=card">자금·거래관리 &gt; 법인카드 원장·사용내역</a>에서 처리해 주세요.</p>
             <div class="attachment-box" data-resolution-upload-box>
               <div class="attachment-box__head">
                 <h3>증빙자료 첨부</h3>
@@ -151,7 +138,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           </div>
         </section>
 
-        <section class="tab-panel" data-panel="journal">
+        <section class="tab-panel" data-panel="journal" data-domain="core">
           <div class="page-heading"><div><p>JOURNAL</p><h1>전표관리</h1><span>승인된 결의서의 복식전표와 회계담당자가 입력한 수동전표를 관리합니다.</span></div><button class="btn btn-primary manager-only" data-toggle-form="journal-form">+ 수동전표</button></div>
           <form class="card form-card manager-only" data-form="journal-form" hidden>
             <div class="form-grid five"><label>전표일자<input name="journalDate" type="date" required /></label><label>적요<input name="description" required /></label><label>회계구분<select name="bookTypeCode" data-book-select required></select></label><label>회계조직<select name="entityId" data-entity-select required></select></label><label>재원<select name="fundId" data-fund-select></select></label></div>
@@ -166,20 +153,20 @@ import GovLayout from '../layouts/GovLayout.astro';
           <div class="card"><div class="card-head"><h2>전표 목록</h2><div class="filter-row"><input data-journal-search placeholder="전표번호·적요 검색" /><button class="btn btn-outline" data-load-journals>조회</button></div></div><div class="table-wrap"><table class="journal-list-table"><thead><tr><th>전표번호</th><th>일자</th><th>구분</th><th>적요</th><th>차변</th><th>대변</th><th>문서번호</th><th>상태</th><th></th></tr></thead><tbody data-journal-rows></tbody></table></div></div>
         </section>
 
-        <section class="tab-panel" data-panel="ledger">
+        <section class="tab-panel" data-panel="ledger" data-domain="core">
           <div class="page-heading"><div><p>LEDGER</p><h1>장부</h1><span>계정별 원장과 합계잔액시산표를 조회합니다.</span></div></div>
           <div class="card"><div class="card-head"><h2>계정별 원장</h2><div class="filter-row"><select data-ledger-account></select><button class="btn btn-outline" data-load-ledger disabled>조회</button><button class="btn btn-outline" data-export="ledger">CSV</button></div></div><div class="table-wrap"><table class="ledger-table"><thead><tr><th>일자</th><th>전표번호</th><th>적요</th><th>거래처</th><th>부서·사업</th><th>차변</th><th>대변</th><th>누계</th></tr></thead><tbody data-ledger-rows><tr><td colspan="8" class="empty">계정과목을 선택하면 거래내역이 표시됩니다.</td></tr></tbody></table></div></div>
           <div class="card"><div class="card-head"><h2>합계잔액시산표</h2><button class="btn btn-outline" data-load-trial>새로고침</button></div><div class="table-wrap"><table class="trial-table"><thead><tr><th>코드</th><th>계정과목</th><th>유형</th><th>차변합계</th><th>대변합계</th><th>잔액</th></tr></thead><tbody data-trial-rows></tbody><tfoot><tr><th colspan="3">합계</th><th data-trial-debit>0</th><th data-trial-credit>0</th><th></th></tr></tfoot></table></div></div>
         </section>
 
-        <section class="tab-panel" data-panel="closing">
+        <section class="tab-panel" data-panel="closing" data-domain="core">
           <div class="page-heading"><div><p>CLOSING</p><h1>결산·마감</h1><span>월 마감, 수입·지출 결산과 기간 잠금을 관리합니다.</span></div></div>
           <div class="summary-grid"><article><span>수입</span><strong data-closing-income>0원</strong></article><article><span>지출</span><strong data-closing-expense>0원</strong></article><article><span>당기 수지</span><strong data-closing-balance>0원</strong></article><article><span>분개 검증</span><strong data-closing-check>일치</strong></article></div>
           <div class="card"><div class="card-head"><h2>월별 마감</h2><span class="muted">마감 후 해당 월의 결의·전표 입력과 취소가 제한됩니다.</span></div><div class="table-wrap month-table-wrap"><table class="month-table"><colgroup><col class="month-col" /><col class="status-col" /><col class="report-col" /><col class="action-col" /></colgroup><thead><tr><th>월</th><th>상태</th><th>결산자료</th><th>관리</th></tr></thead><tbody data-month-grid></tbody></table></div></div>
           <div class="card"><div class="card-head"><h2>수입·지출 결산서</h2><button class="btn btn-outline" data-export="statement">CSV</button></div><div class="table-wrap"><table class="statement-table"><thead><tr><th>구분</th><th>코드</th><th>계정과목</th><th>금액</th></tr></thead><tbody data-statement-rows></tbody></table></div></div>
         </section>
 
-        <section class="tab-panel" data-panel="accounts">
+        <section class="tab-panel" data-panel="accounts" data-domain="core">
           <div class="page-heading"><div><p>CHART OF ACCOUNTS</p><h1>계정과목</h1><span>종단 회계에 사용하는 계정과목 체계를 관리합니다.</span></div><button class="btn btn-primary manager-only" data-toggle-form="account-form">+ 계정과목</button></div>
           <form class="card form-card manager-only" data-form="account-form" hidden><div class="form-grid five"><label>코드<input name="code" required /></label><label>계정과목명<input name="name" required /></label><label>유형<select name="accountType"><option value="asset">자산</option><option value="liability">부채</option><option value="equity">순자산</option><option value="revenue">수입</option><option value="expense">지출</option></select></label><label>정상잔액<select name="normalSide"><option value="debit">차변</option><option value="credit">대변</option></select></label><label>상위코드<input name="parentCode" /></label></div><div class="form-actions"><button class="btn btn-outline" type="button" data-close-form="account-form">취소</button><button class="btn btn-primary" type="submit">저장</button></div></form>
           <div class="card"><div class="table-wrap"><table class="accounts-table"><thead><tr><th>코드</th><th>계정과목</th><th>유형</th><th>정상잔액</th><th>상위코드</th><th>구분</th></tr></thead><tbody data-account-rows></tbody></table></div></div>
@@ -226,6 +213,9 @@ import GovLayout from '../layouts/GovLayout.astro';
     </div>
   </div>
 
+  <script is:inline src="/accounting-domain-api.js"></script>
+  <script is:inline src="/accounting-api-client.js"></script>
+  <script is:inline src="/accounting-domain-ui.js"></script>
   <script is:inline>
     (()=>{
       'use strict';
@@ -239,9 +229,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       const bytesLabel=(value)=>{const size=Number(value||0);if(size>=1024*1024)return `${(size/(1024*1024)).toFixed(2)}MB`;if(size>=1024)return `${(size/1024).toFixed(1)}KB`;return `${size}B`;};
       const moneyValue=(v)=>{const t=String(v??'').trim();const n=Number(t.replace(/[^0-9.-]/g,''));return Number.isFinite(n)?Math.round(n):0};
       const today=()=>new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
-      const weekdayLabel=(value)=>{const match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value||''));if(!match)return '';const year=Number(match[1]),month=Number(match[2]),day=Number(match[3]);const date=new Date(Date.UTC(year,month-1,day));if(date.getUTCFullYear()!==year||date.getUTCMonth()!==month-1||date.getUTCDate()!==day)return '';return `(${['일','월','화','수','목','금','토'][date.getUTCDay()]})`;};
-      const setupDateWeekday=(input)=>{if(!(input instanceof HTMLInputElement)||input.type!=='date'||input.hasAttribute('data-no-weekday'))return;input.lang='en-CA';let wrapper=input.closest('.date-with-weekday');if(!wrapper){wrapper=document.createElement('div');wrapper.className='date-with-weekday';input.before(wrapper);wrapper.append(input);}let shell=input.closest('.date-input-shell');if(!shell){shell=document.createElement('div');shell.className='date-input-shell';input.before(shell);shell.append(input);}let display=shell.querySelector('.date-display-value');if(!display){display=document.createElement('span');display.className='date-display-value';display.setAttribute('aria-hidden','true');shell.append(display);}let output=wrapper.querySelector('.date-weekday');if(!output){output=document.createElement('span');output.className='date-weekday';output.setAttribute('aria-live','polite');wrapper.append(output);}const sync=()=>{const value=String(input.value||'');display.textContent=value;display.hidden=!value;const text=weekdayLabel(value);output.textContent=text;output.hidden=!text;};if(!input.dataset.weekdayBound){input.dataset.weekdayBound='1';input.addEventListener('input',sync);input.addEventListener('change',sync);}sync();};
-      const syncDateWeekdays=(root=document)=>root.querySelectorAll('input[type="date"]').forEach(setupDateWeekday);
+      const syncDateWeekdays=(root=document)=>window.__MILGYO_SYNC_DATE_INPUTS__?.(root);
       const currentFiscalYear=Number(today().slice(0,4));
       let state={year:currentFiscalYear,accounts:[],permissions:{},summary:{},users:[],books:[],entities:[],funds:[],budgetRows:[],ledgerRows:[],statementRows:[]};
       let resolutionPendingFiles=[];
@@ -282,7 +270,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         $$('[data-fund-select]').forEach((el)=>{const v=el.value;el.innerHTML=fundOptions;if(v)el.value=v;});
       };
       populateDepartments();
-      const api=async(path,body)=>{const res=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,token})});const text=await res.text();let data;try{data=JSON.parse(text)}catch{data={ok:false,message:`서버 응답 오류(HTTP ${res.status})`}}if(!data.ok)throw Object.assign(new Error(data.message||'처리 중 오류가 발생했습니다.'),{data,status:res.status});return data};
+      const api=(path,body={})=>window.AccountingApiClient.post(path,body,token);
       const notice=(message,type='ok')=>{const el=$('[data-notice]');el.textContent=message;el.className=`notice ${type}`;el.hidden=false;clearTimeout(notice.timer);notice.timer=setTimeout(()=>el.hidden=true,5000)};
       const resolutionPolicyText=()=>`허용 확장자: ${(resolutionAttachmentPolicy.allowedExtensions||[]).join(', ')} · 파일당 최대 ${Math.round(resolutionAttachmentPolicy.maxFileBytes/1024/1024)}MB · 자료별 최대 ${resolutionAttachmentPolicy.maxFilesPerReference}개 / ${Math.round(resolutionAttachmentPolicy.maxTotalBytesPerReference/1024/1024)}MB`;
       const applyResolutionAttachmentPolicy=()=>{const text=resolutionPolicyText();const help=$('[data-resolution-policy]'),modalHelp=$('[data-resolution-modal-policy]');if(help)help.textContent=`${text} · 실제 파일은 회계 전용 저장소에 보관됩니다.`;if(modalHelp)modalHelp.textContent=text;const accept=(resolutionAttachmentPolicy.allowedExtensions||[]).map((extension)=>`.${extension}`).join(',');const input=$('[data-resolution-file-input]'),modalInput=$('[data-resolution-modal-file-input]');if(input)input.accept=accept;if(modalInput)modalInput.accept=accept;};
@@ -307,7 +295,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       $$('.acc-nav').forEach((b)=>b.addEventListener('click',()=>showTab(b.dataset.tab)));$$('[data-go-tab]').forEach((b)=>b.addEventListener('click',()=>showTab(b.dataset.goTab)));
       window.addEventListener('popstate',()=>showTab(accountingTabFromUrl(),{historyMode:'none'}));
       $$('[data-toggle-form]').forEach((b)=>b.addEventListener('click',()=>{const f=$(`[data-form="${b.dataset.toggleForm}"]`);f.hidden=!f.hidden}));$$('[data-close-form]').forEach((b)=>b.addEventListener('click',()=>{$(`[data-form="${b.dataset.closeForm}"]`).hidden=true}));
-      $('[data-logout]').addEventListener('click',()=>{localStorage.removeItem(STORAGE_KEY);location.replace('/')});
+      $('[data-logout]').addEventListener('click',async()=>{try{await fetch('/api/auth/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})})}catch{}localStorage.removeItem(STORAGE_KEY);location.replace('/')});
       $('[data-user-label]').textContent=`${me.name} · ${me.position||'구성원'}`;
       document.addEventListener('click',(event)=>{const target=event.target.closest('[data-file-remove]');if(!target||target.closest('[data-resolution-attachment-modal]'))return;removeQueuedFile(target.dataset.fileBucket,target.dataset.fileRemove);});
       renderYearOptions();

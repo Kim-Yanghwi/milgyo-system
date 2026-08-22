@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
+import { authenticateSession, clean, ensureTables, json, randomHex, toHex } from '../../_shared/helpers';
 import { ensureAccountingTables } from '../../_shared/accounting';
 import {
   arrayBufferToBase64,
@@ -67,6 +67,22 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!object) return json({ ok: false, message: 'R2에서 회계 첨부파일을 찾을 수 없습니다.' }, 404);
 
   const buffer = await object.arrayBuffer();
+  const actualChecksum = toHex(await crypto.subtle.digest('SHA-256', buffer));
+  const expectedSize = Number(attachment.size_bytes || 0);
+  const expectedChecksum = String(attachment.checksum_sha256 || '').toLowerCase();
+  const issueType = expectedSize !== buffer.byteLength ? 'SIZE_MISMATCH'
+    : expectedChecksum && expectedChecksum !== actualChecksum ? 'CHECKSUM_MISMATCH' : '';
+  if (issueType) {
+    const now = new Date().toISOString(), issueKey = `${issueType}:${attachment.object_key}`;
+    await env.ACCOUNTING_DB.prepare(`INSERT INTO accounting_attachment_integrity_issues
+      (id,issue_key,issue_type,attachment_id,object_key,reference_type,reference_id,status,details_json,detected_at,last_seen_at)
+      VALUES (?,?,?,?,?,?,?,'open',?,?,?)
+      ON CONFLICT(issue_key) DO UPDATE SET status='open',details_json=excluded.details_json,last_seen_at=excluded.last_seen_at,
+        resolved_at=NULL,resolved_by=NULL,resolution_action=NULL`)
+      .bind(`AII-${randomHex(22)}`, issueKey, issueType, attachment.id, attachment.object_key, attachment.reference_type,
+        attachment.reference_id, JSON.stringify({ expectedSize, actualSize: buffer.byteLength, expectedChecksum, actualChecksum }), now, now).run();
+    return json({ ok: false, message: '첨부파일의 크기 또는 SHA-256이 등록 당시 정보와 달라 다운로드를 차단했습니다. 무결성 점검이 필요합니다.' }, 409);
+  }
   const mimeType = attachment.content_type || object.httpMetadata?.contentType || 'application/octet-stream';
   const fileName = String(attachment.original_filename || 'attachment');
   if (payload.binary === true) {
@@ -91,7 +107,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     fileName,
     mimeType,
     sizeBytes: Number(attachment.size_bytes || buffer.byteLength),
-    checksumSha256: attachment.checksum_sha256 || null,
+    checksumSha256: actualChecksum,
     dataBase64: arrayBufferToBase64(buffer),
   });
 };

@@ -1,5 +1,5 @@
 import { clean } from './helpers';
-import { nextSpecialSequence } from './accounting-special';
+import { nextSpecialSequence } from './accounting-numbering';
 
 export const COMPLIANCE_SCHEMA_VERSION = '2026-08-16.1';
 
@@ -115,7 +115,8 @@ export const getProcurementApproval = async (db: D1Database, raw: Record<string,
 
 const periodBounds = (year: number, periodType: string, periodKey: string) => {
   if (periodType === 'quarter') {
-    const q = Math.min(4, Math.max(1, Number(periodKey.replace(/[^1-4]/g, '') || 1)));
+    if (!/^Q[1-4]$/.test(periodKey)) throw new Error('분기 값은 Q1~Q4 형식이어야 합니다.');
+    const q = Number(periodKey.slice(1));
     const startMonth = (q - 1) * 3 + 1;
     const endMonth = startMonth + 2;
     return {
@@ -124,7 +125,8 @@ const periodBounds = (year: number, periodType: string, periodKey: string) => {
       months: [startMonth, startMonth + 1, endMonth],
     };
   }
-  const month = Math.min(12, Math.max(1, Number(periodKey.replace(/[^0-9]/g, '') || 1)));
+  if (periodType !== 'month' || !/^(0[1-9]|1[0-2])$/.test(periodKey)) throw new Error('월 값은 01~12 형식이어야 합니다.');
+  const month = Number(periodKey);
   return {
     start: `${year}-${String(month).padStart(2, '0')}-01`,
     end: `${year}-${String(month).padStart(2, '0')}-31`,
@@ -137,7 +139,7 @@ export const buildComplianceSnapshot = async (db: D1Database, year: number, peri
   const monthPlaceholders = bounds.months.map(() => '?').join(',');
   const [unmatched, missingEvidence, budgetOver, pendingBudget, openIncidents, integrityIssues, procurementRisk, accountBalance, periodTotals, donationIncome, revenueTaxRisk] = await db.batch([
     db.prepare(`SELECT COUNT(*) AS count FROM accounting_import_transactions WHERE transaction_date BETWEEN ? AND ? AND status IN ('unmatched','suggested')`).bind(bounds.start, bounds.end),
-    db.prepare(`SELECT COUNT(*) AS count FROM accounting_resolutions r WHERE r.fiscal_year=? AND r.resolution_date BETWEEN ? AND ? AND r.status IN ('approved','posted') AND NOT EXISTS (SELECT 1 FROM accounting_attachments a WHERE a.reference_type='resolution' AND a.reference_id=r.id AND a.status='active')`).bind(year, bounds.start, bounds.end),
+    db.prepare(`SELECT COUNT(*) AS count FROM accounting_resolutions r WHERE r.fiscal_year=? AND r.resolution_date BETWEEN ? AND ? AND r.status IN ('approved','posted') AND NOT EXISTS (SELECT 1 FROM accounting_attachments a WHERE a.reference_type='resolution' AND a.reference_id=r.id AND a.deleted_at IS NULL)`).bind(year, bounds.start, bounds.end),
     db.prepare(`SELECT COUNT(*) AS count FROM accounting_budget_plans b WHERE b.fiscal_year=? AND (b.original_amount+b.supplementary_amount+b.transfer_in-b.transfer_out) < COALESCE((SELECT SUM(CASE WHEN r.resolution_type='expense' AND r.status IN ('approved','posted') THEN r.amount ELSE 0 END) FROM accounting_resolutions r WHERE r.fiscal_year=b.fiscal_year AND r.department=b.department AND r.project=b.project AND r.account_code=b.account_code),0)`).bind(year),
     db.prepare(`SELECT COUNT(*) AS count FROM accounting_budget_change_requests WHERE fiscal_year=? AND status='pending'`).bind(year),
     db.prepare(`SELECT COUNT(*) AS count FROM accounting_finance_incidents WHERE fiscal_year=? AND status='open'`).bind(year),

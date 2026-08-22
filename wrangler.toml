@@ -28,3 +28,22 @@ bucket_name = "milgyo-system-files"
 [[r2_buckets]]
 binding = "ACCOUNTING_FILES"
 bucket_name = "milgyo-accounting-files"
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "milgyo-system-db-preview-v2"
+database_id = "9b1eaf97-f037-48e4-ae5f-e24bbfd4759d"
+migrations_dir = "migrations/main"
+
+[[env.preview.d1_databases]]
+binding = "ACCOUNTING_DB"
+database_name = "milgyo-accounting-db-preview"
+database_id = "e1a43a3d-ada9-4463-9ac4-c7b1bacd0e1f"
+migrations_dir = "migrations/accounting"
+
+[[env.preview.r2_buckets]]
+binding = "FILES"
+bucket_name = "milgyo-system-files-preview"
+
+[[env.preview.r2_buckets]]
+binding = "ACCOUNTING_FILES"
+bucket_name = "milgyo-accounting-files-preview"

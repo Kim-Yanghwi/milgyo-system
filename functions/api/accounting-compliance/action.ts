@@ -11,10 +11,9 @@ import {
 
 interface Env { DB: D1Database; ACCOUNTING_DB: D1Database; }
 type Payload = Record<string, unknown> & { token?: string; action?: string };
-const currentYear = () => new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCFullYear();
 const toYear = (value: unknown) => {
-  const y = Number(value || currentYear());
-  return Number.isInteger(y) && y >= 2000 && y <= 2200 ? y : currentYear();
+  const y = Number(value);
+  return Number.isInteger(y) && y >= 2000 && y <= 2200 ? y : 0;
 };
 const flag = (value: unknown) => value === true || value === 1 || value === '1' || value === 'true' || value === 'on';
 const positiveMoney = (value: unknown) => Math.max(0, Math.abs(parseMoney(value)));
@@ -22,6 +21,11 @@ const dateOrNull = (value: unknown) => {
   const v = clean(value, 10);
   if (v && !validComplianceDate(v)) throw new Error('날짜 형식을 확인해 주세요.');
   return v || null;
+};
+const validDateTime = (value: string) => {
+  const match = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})?$/.exec(value);
+  if (!match || !validComplianceDate(match[1])) return false;
+  return Number(match[2]) <= 23 && Number(match[3]) <= 59 && Number(match[4] || 0) <= 59;
 };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -42,12 +46,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const action = clean(payload.action, 60);
   const year = toYear(payload.year);
   const now = new Date().toISOString();
+  if (!year) return json({ ok: false, message: '회계연도를 확인해 주세요.' }, 400);
 
   try {
     if (action === 'save-revenue-business') {
       const id = clean(payload.id, 100) || `RB-${randomHex(20)}`;
       const title = clean(payload.title, 200), businessType = clean(payload.businessType, 60), actionType = clean(payload.actionType, 20) || 'new';
-      if (!title || !businessType) return json({ ok: false, message: '사업명과 수익사업 유형을 입력해 주세요.' }, 400);
+      if (!title || !['education','content','goods','experience','facility','event','online','procurement','preferential_purchase','other'].includes(businessType)
+        || !['new','change','stop'].includes(actionType)) return json({ ok: false, message: '사업명·수익사업 유형·처리구분을 확인해 주세요.' }, 400);
       const existing = await db.prepare(`SELECT business_no FROM accounting_revenue_businesses WHERE id=?`).bind(id).first<any>();
       const businessNo = existing?.business_no || await nextComplianceNumber(db, 'revenue-business', year);
       const routineAnnualPlan = flag(payload.routineAnnualPlan);
@@ -63,6 +69,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const status = clean(payload.status, 30) || 'review';
       const permitStatus = clean(payload.permitStatus, 30) || 'review';
       const taxReviewStatus = clean(payload.taxReviewStatus, 30) || 'review';
+      if (!['review','approved','active','stopped'].includes(status)
+        || !['review','not_required','complete'].includes(permitStatus)
+        || !['review','complete','external_review'].includes(taxReviewStatus)) return json({ ok: false, message: '수익사업 상태·허가·세무검토 값을 확인해 주세요.' }, 400);
+      const startDate = dateOrNull(payload.startDate), endDate = dateOrNull(payload.endDate);
+      if (startDate && endDate && startDate > endDate) return json({ ok: false, message: '수익사업 종료일은 시작일보다 빠를 수 없습니다.' }, 400);
       const department = normalizeDepartmentValue(payload.department);
       const managerName = clean(payload.managerName, 100);
       if (status === 'active' && (permitStatus === 'review' || taxReviewStatus === 'review')) return json({ ok: false, message: '수익사업을 운영중으로 전환하려면 등록·허가 및 세무 검토를 완료하거나 해당없음으로 확정해 주세요.' }, 400);
@@ -74,7 +85,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           (id,business_no,fiscal_year,title,business_type,action_type,charter_basis,start_date,end_date,expected_income,expected_expense,department,manager_name,permit_status,tax_review_status,routine_annual_plan,major_purpose_impact,basic_property_impact,borrowing_guarantee_impact,major_financial_burden,approval_level,approval_reasons,decision_no,status,memo,created_by,created_at,updated_at)
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
           ON CONFLICT(id) DO UPDATE SET fiscal_year=excluded.fiscal_year,title=excluded.title,business_type=excluded.business_type,action_type=excluded.action_type,charter_basis=excluded.charter_basis,start_date=excluded.start_date,end_date=excluded.end_date,expected_income=excluded.expected_income,expected_expense=excluded.expected_expense,department=excluded.department,manager_name=excluded.manager_name,permit_status=excluded.permit_status,tax_review_status=excluded.tax_review_status,routine_annual_plan=excluded.routine_annual_plan,major_purpose_impact=excluded.major_purpose_impact,basic_property_impact=excluded.basic_property_impact,borrowing_guarantee_impact=excluded.borrowing_guarantee_impact,major_financial_burden=excluded.major_financial_burden,approval_level=excluded.approval_level,approval_reasons=excluded.approval_reasons,decision_no=excluded.decision_no,status=excluded.status,memo=excluded.memo,updated_at=excluded.updated_at`)
-          .bind(id,businessNo,year,title,businessType,actionType,clean(payload.charterBasis,300) || '정관 제5조·제6조 / 재무회계규정 제10조의2~제10조의4',dateOrNull(payload.startDate),dateOrNull(payload.endDate),positiveMoney(payload.expectedIncome),positiveMoney(payload.expectedExpense),department,managerName,permitStatus,taxReviewStatus,routineAnnualPlan?1:0,flag(payload.majorPurposeImpact)?1:0,flag(payload.basicPropertyImpact)?1:0,flag(payload.borrowingGuaranteeImpact)?1:0,flag(payload.majorFinancialBurden)?1:0,approvalLevel,approvalReasons.join(' / '),clean(payload.decisionNo,100)||null,status,clean(payload.memo,2000)||null,me.name,now,now),
+          .bind(id,businessNo,year,title,businessType,actionType,clean(payload.charterBasis,300) || '정관 제5조·제6조 / 재무회계규정 제10조의2~제10조의4',startDate,endDate,positiveMoney(payload.expectedIncome),positiveMoney(payload.expectedExpense),department,managerName,permitStatus,taxReviewStatus,routineAnnualPlan?1:0,flag(payload.majorPurposeImpact)?1:0,flag(payload.basicPropertyImpact)?1:0,flag(payload.borrowingGuaranteeImpact)?1:0,flag(payload.majorFinancialBurden)?1:0,approvalLevel,approvalReasons.join(' / '),clean(payload.decisionNo,100)||null,status,clean(payload.memo,2000)||null,me.name,now,now),
         operationAudit(db, 'save', 'revenue-business', id, me, { businessNo, title, actionType, approvalLevel, approvalReasons, status }, now),
       ]);
       return json({ ok: true, id, businessNo, approvalLevel, approvalReasons, message: '수익사업 검토자료를 저장했습니다.' });
@@ -84,6 +95,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const id = clean(payload.id, 100) || `PCR-${randomHex(20)}`;
       const agency = clean(payload.agency, 160), title = clean(payload.title, 240);
       if (!agency || !title) return json({ ok: false, message: '발주기관과 공고명을 입력해 주세요.' }, 400);
+      const bidMethod = clean(payload.bidMethod, 50) || 'competitive';
+      const bidDate = dateOrNull(payload.bidDate), openingDate = dateOrNull(payload.openingDate), deliveryDueDate = dateOrNull(payload.deliveryDueDate);
+      const contractStart = dateOrNull(payload.contractStart), contractEnd = dateOrNull(payload.contractEnd);
+      if (!['competitive','negotiation','quotation','other'].includes(bidMethod)) return json({ ok: false, message: '입찰방식을 확인해 주세요.' }, 400);
+      if ((bidDate && openingDate && bidDate > openingDate) || (contractStart && contractEnd && contractStart > contractEnd)
+        || (openingDate && contractStart && openingDate > contractStart) || (contractEnd && deliveryDueDate && contractEnd > deliveryDueDate)) {
+        return json({ ok: false, message: '입찰일≤개찰일≤계약시작일≤계약종료일≤납품기한의 선후관계를 확인해 주세요.' }, 400);
+      }
       const existing = await db.prepare(`SELECT review_no FROM accounting_procurement_reviews WHERE id=?`).bind(id).first<any>();
       const reviewNo = existing?.review_no || await nextComplianceNumber(db, 'procurement', year);
       const approval = await getProcurementApproval(db, {
@@ -96,6 +115,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         materialFinancialRisk: flag(payload.materialFinancialRisk),
       }, year, id);
       const status = clean(payload.status, 30) || 'review';
+      const vatStatus = clean(payload.vatStatus, 30) || 'review';
+      const purposeReserveReview = clean(payload.purposeReserveReview, 30) || 'review';
+      if (!['review','approved','contracted','completed','withdrawn'].includes(status)
+        || !['review','taxable','exempt'].includes(vatStatus)
+        || !['review','applicable','not_applicable'].includes(purposeReserveReview)) return json({ ok: false, message: '공공조달 상태·부가가치세·준비금 검토 값을 확인해 주세요.' }, 400);
       const qualifications = ['businessRegistrationOk','biddingRegistrationOk','qualificationOk','competitionOk','sanctionClear','charterScopeOk'].every((key) => flag(payload[key]));
       if (['approved','contracted','completed'].includes(status) && !qualifications) return json({ ok: false, message: '승인·계약 상태로 저장하려면 필수 참가자격 확인항목을 모두 충족해야 합니다.' }, 400);
       const decisionNo = clean(payload.decisionNo, 100);
@@ -114,9 +138,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (['contracted','completed'].includes(status) && !contractId) return json({ ok: false, message: '계약 상태로 확정하려면 회계관리의 기존 계약을 연결해 주세요.' }, 400);
       if (['contracted','completed'].includes(status) && positiveMoney(payload.actualContractAmount) <= 0) return json({ ok: false, message: '계약 상태로 확정하려면 실제 계약금액을 입력해 주세요.' }, 400);
       if (contractId) {
-        const linkedContract = await db.prepare(`SELECT id,contract_no,book_type_code FROM accounting_contracts WHERE id=?`).bind(contractId).first<any>();
+        const linkedContract = await db.prepare(`SELECT id,contract_no,book_type_code,contract_amount,start_date,end_date,status FROM accounting_contracts WHERE id=?`).bind(contractId).first<any>();
         if (!linkedContract) return json({ ok: false, message: '연결할 기존 계약을 찾을 수 없습니다.' }, 404);
         if (linkedContract.book_type_code !== 'revenue') return json({ ok: false, message: `${linkedContract.contract_no} 계약은 수익사업회계로 구분되어 있지 않습니다. 계약관리에서 회계구분을 수익사업회계로 저장한 뒤 연결해 주세요.` }, 400);
+        if (['terminated'].includes(String(linkedContract.status || ''))) return json({ ok: false, message: '종료된 계약은 공공조달 검토자료와 연결할 수 없습니다.' }, 409);
+        if (positiveMoney(payload.actualContractAmount) && Number(linkedContract.contract_amount) !== positiveMoney(payload.actualContractAmount)) return json({ ok: false, message: '연결 계약의 계약금액과 실제 계약금액이 일치해야 합니다.' }, 400);
+        if ((contractStart && linkedContract.start_date !== contractStart) || (contractEnd && linkedContract.end_date !== contractEnd)) return json({ ok: false, message: '연결 계약의 시작일·종료일과 조달 검토자료의 계약기간이 일치해야 합니다.' }, 400);
       }
       const nextBoardReported = flag(payload.nextBoardReported);
       const nextBoardReportDate = dateOrNull(payload.nextBoardReportDate);
@@ -134,7 +161,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           (id,review_no,fiscal_year,revenue_business_id,contract_id,agency,announcement_no,title,bid_method,bid_date,opening_date,estimated_price,planned_bid_amount,actual_contract_amount,delivery_due_date,delivery_place,responsible_user_id,responsible_name,contract_start,contract_end,business_registration_ok,bidding_registration_ok,qualification_ok,competition_ok,sanction_clear,charter_scope_ok,cost_material,cost_outsource,cost_labor,cost_delivery,cost_guarantee,cost_other,cost_contingency,vat_status,purpose_reserve_review,expected_loss,response_plan,related_party,borrowing_or_guarantee,basic_property_collateral,material_financial_risk,prior_year_income_override,approval_level,approval_reasons,decision_no,authority_permit_no,next_board_reported,next_board_report_date,status,memo,created_by,created_at,updated_at)
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
           ON CONFLICT(id) DO UPDATE SET fiscal_year=excluded.fiscal_year,revenue_business_id=excluded.revenue_business_id,contract_id=excluded.contract_id,agency=excluded.agency,announcement_no=excluded.announcement_no,title=excluded.title,bid_method=excluded.bid_method,bid_date=excluded.bid_date,opening_date=excluded.opening_date,estimated_price=excluded.estimated_price,planned_bid_amount=excluded.planned_bid_amount,actual_contract_amount=excluded.actual_contract_amount,delivery_due_date=excluded.delivery_due_date,delivery_place=excluded.delivery_place,responsible_user_id=excluded.responsible_user_id,responsible_name=excluded.responsible_name,contract_start=excluded.contract_start,contract_end=excluded.contract_end,business_registration_ok=excluded.business_registration_ok,bidding_registration_ok=excluded.bidding_registration_ok,qualification_ok=excluded.qualification_ok,competition_ok=excluded.competition_ok,sanction_clear=excluded.sanction_clear,charter_scope_ok=excluded.charter_scope_ok,cost_material=excluded.cost_material,cost_outsource=excluded.cost_outsource,cost_labor=excluded.cost_labor,cost_delivery=excluded.cost_delivery,cost_guarantee=excluded.cost_guarantee,cost_other=excluded.cost_other,cost_contingency=excluded.cost_contingency,vat_status=excluded.vat_status,purpose_reserve_review=excluded.purpose_reserve_review,expected_loss=excluded.expected_loss,response_plan=excluded.response_plan,related_party=excluded.related_party,borrowing_or_guarantee=excluded.borrowing_or_guarantee,basic_property_collateral=excluded.basic_property_collateral,material_financial_risk=excluded.material_financial_risk,prior_year_income_override=excluded.prior_year_income_override,approval_level=excluded.approval_level,approval_reasons=excluded.approval_reasons,decision_no=excluded.decision_no,authority_permit_no=excluded.authority_permit_no,next_board_reported=excluded.next_board_reported,next_board_report_date=excluded.next_board_report_date,status=excluded.status,memo=excluded.memo,updated_at=excluded.updated_at`)
-          .bind(id,reviewNo,year,revenueBusinessId||null,contractId||null,agency,clean(payload.announcementNo,100)||null,title,clean(payload.bidMethod,50)||'competitive',dateOrNull(payload.bidDate),dateOrNull(payload.openingDate),positiveMoney(payload.estimatedPrice),positiveMoney(payload.plannedBidAmount),positiveMoney(payload.actualContractAmount),dateOrNull(payload.deliveryDueDate),clean(payload.deliveryPlace,300)||null,responsibleUserId||null,responsibleName||null,dateOrNull(payload.contractStart),dateOrNull(payload.contractEnd),flag(payload.businessRegistrationOk)?1:0,flag(payload.biddingRegistrationOk)?1:0,flag(payload.qualificationOk)?1:0,flag(payload.competitionOk)?1:0,flag(payload.sanctionClear)?1:0,flag(payload.charterScopeOk)?1:0,positiveMoney(payload.costMaterial),positiveMoney(payload.costOutsource),positiveMoney(payload.costLabor),positiveMoney(payload.costDelivery),positiveMoney(payload.costGuarantee),positiveMoney(payload.costOther),positiveMoney(payload.costContingency),clean(payload.vatStatus,30)||'review',clean(payload.purposeReserveReview,30)||'review',positiveMoney(payload.expectedLoss),clean(payload.responsePlan,2000)||null,flag(payload.relatedParty)?1:0,flag(payload.borrowingOrGuarantee)?1:0,flag(payload.basicPropertyCollateral)?1:0,flag(payload.materialFinancialRisk)?1:0,positiveMoney(payload.priorYearIncomeOverride),approval.approvalLevel,approval.reasons.join(' / '),decisionNo||null,authorityPermitNo||null,nextBoardReported?1:0,nextBoardReportDate,status,clean(payload.memo,2000)||null,me.name,now,now),
+          .bind(id,reviewNo,year,revenueBusinessId||null,contractId||null,agency,clean(payload.announcementNo,100)||null,title,bidMethod,bidDate,openingDate,positiveMoney(payload.estimatedPrice),positiveMoney(payload.plannedBidAmount),positiveMoney(payload.actualContractAmount),deliveryDueDate,clean(payload.deliveryPlace,300)||null,responsibleUserId||null,responsibleName||null,contractStart,contractEnd,flag(payload.businessRegistrationOk)?1:0,flag(payload.biddingRegistrationOk)?1:0,flag(payload.qualificationOk)?1:0,flag(payload.competitionOk)?1:0,flag(payload.sanctionClear)?1:0,flag(payload.charterScopeOk)?1:0,positiveMoney(payload.costMaterial),positiveMoney(payload.costOutsource),positiveMoney(payload.costLabor),positiveMoney(payload.costDelivery),positiveMoney(payload.costGuarantee),positiveMoney(payload.costOther),positiveMoney(payload.costContingency),vatStatus,purposeReserveReview,positiveMoney(payload.expectedLoss),clean(payload.responsePlan,2000)||null,flag(payload.relatedParty)?1:0,flag(payload.borrowingOrGuarantee)?1:0,flag(payload.basicPropertyCollateral)?1:0,flag(payload.materialFinancialRisk)?1:0,positiveMoney(payload.priorYearIncomeOverride),approval.approvalLevel,approval.reasons.join(' / '),decisionNo||null,authorityPermitNo||null,nextBoardReported?1:0,nextBoardReportDate,status,clean(payload.memo,2000)||null,me.name,now,now),
         operationAudit(db, 'save', 'procurement-review', id, me, { reviewNo, title, agency, responsibleUserId, responsibleName, status, approval }, now),
       ]);
       return json({ ok: true, id, reviewNo, approval, message: '입찰참가 검토자료를 저장했습니다.' });
@@ -148,11 +175,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const existing = await db.prepare(`SELECT guarantee_no FROM accounting_procurement_guarantees WHERE id=?`).bind(id).first<any>();
       const guaranteeNo = existing?.guarantee_no || await nextComplianceNumber(db, 'guarantee', Number(parent.fiscal_year));
       const provider = clean(payload.provider, 160), type = clean(payload.guaranteeType, 40);
-      if (!provider || !type) return json({ ok: false, message: '보증종류와 보증기관을 입력해 주세요.' }, 400);
+      const startDate = dateOrNull(payload.startDate), endDate = dateOrNull(payload.endDate);
+      if (!provider || !['bid','performance','advance','defect'].includes(type)) return json({ ok: false, message: '보증종류와 보증기관을 입력해 주세요.' }, 400);
+      if (startDate && endDate && startDate > endDate) return json({ ok: false, message: '보증 만료일은 개시일보다 빠를 수 없습니다.' }, 400);
       await db.batch([
         db.prepare(`INSERT INTO accounting_procurement_guarantees (id,guarantee_no,procurement_review_id,guarantee_type,provider,policy_no,amount,fee,start_date,end_date,recovered,memo,created_by,created_at,updated_at)
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET guarantee_type=excluded.guarantee_type,provider=excluded.provider,policy_no=excluded.policy_no,amount=excluded.amount,fee=excluded.fee,start_date=excluded.start_date,end_date=excluded.end_date,recovered=excluded.recovered,memo=excluded.memo,updated_at=excluded.updated_at`)
-          .bind(id,guaranteeNo,procurementReviewId,type,provider,clean(payload.policyNo,120)||null,positiveMoney(payload.amount),positiveMoney(payload.fee),dateOrNull(payload.startDate),dateOrNull(payload.endDate),flag(payload.recovered)?1:0,clean(payload.memo,1000)||null,me.name,now,now),
+          .bind(id,guaranteeNo,procurementReviewId,type,provider,clean(payload.policyNo,120)||null,positiveMoney(payload.amount),positiveMoney(payload.fee),startDate,endDate,flag(payload.recovered)?1:0,clean(payload.memo,1000)||null,me.name,now,now),
         operationAudit(db, 'save', 'procurement-guarantee', id, me, { guaranteeNo, procurementReviewId, type, provider }, now),
       ]);
       return json({ ok: true, id, guaranteeNo, message: '보증·하자보수 자료를 저장했습니다.' });
@@ -164,10 +193,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const reserveNo = existing?.reserve_no || await nextComplianceNumber(db, 'reserve', year);
       const setDate = clean(payload.setDate, 10), amount = positiveMoney(payload.setAmount);
       if (!validComplianceDate(setDate) || !setDate || amount <= 0) return json({ ok: false, message: '설정일과 설정액을 확인해 주세요.' }, 400);
+      const useDeadline = dateOrNull(payload.useDeadline), taxReviewStatus = clean(payload.taxReviewStatus,30)||'review';
+      if (useDeadline && useDeadline < setDate) return json({ ok: false, message: '준비금 사용기한은 설정일보다 빠를 수 없습니다.' }, 400);
+      if (!['review','complete','external_review'].includes(taxReviewStatus)) return json({ ok: false, message: '준비금 세무검토 상태를 확인해 주세요.' }, 400);
+      if (existing) {
+        const net = await db.prepare(`SELECT COALESCE(SUM(CASE WHEN transaction_type='use' THEN amount ELSE -amount END),0) AS amount FROM accounting_purpose_reserve_transactions WHERE reserve_id=?`).bind(id).first<{amount:number}>();
+        if (amount < Number(net?.amount || 0)) return json({ ok: false, message: '설정액은 이미 사용하고 환입하지 않은 준비금 잔액보다 작게 변경할 수 없습니다.' }, 400);
+      }
       await db.batch([
         db.prepare(`INSERT INTO accounting_purpose_reserves (id,reserve_no,fiscal_year,set_date,set_amount,use_deadline,fund_id,tax_review_status,reviewer,memo,created_by,created_at,updated_at)
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET fiscal_year=excluded.fiscal_year,set_date=excluded.set_date,set_amount=excluded.set_amount,use_deadline=excluded.use_deadline,fund_id=excluded.fund_id,tax_review_status=excluded.tax_review_status,reviewer=excluded.reviewer,memo=excluded.memo,updated_at=excluded.updated_at`)
-          .bind(id,reserveNo,year,setDate,amount,dateOrNull(payload.useDeadline),clean(payload.fundId,100)||'FUND-RESERVE',clean(payload.taxReviewStatus,30)||'review',clean(payload.reviewer,100)||null,clean(payload.memo,1200)||null,me.name,now,now),
+          .bind(id,reserveNo,year,setDate,amount,useDeadline,clean(payload.fundId,100)||'FUND-RESERVE',taxReviewStatus,clean(payload.reviewer,100)||null,clean(payload.memo,1200)||null,me.name,now,now),
         operationAudit(db, 'save', 'purpose-reserve', id, me, { reserveNo, amount, setDate }, now),
       ]);
       return json({ ok: true, id, reserveNo, message: '고유목적사업준비금 설정자료를 저장했습니다.' });
@@ -176,10 +212,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (action === 'add-reserve-transaction') {
       const reserveId = clean(payload.reserveId, 100), type = clean(payload.transactionType, 20), amount = positiveMoney(payload.amount), purpose = clean(payload.purpose, 500), date = clean(payload.transactionDate, 10);
       if (!['use','reversal'].includes(type) || !validComplianceDate(date) || !date || amount <= 0 || !purpose) return json({ ok: false, message: '준비금 사용·환입 내역을 정확히 입력해 주세요.' }, 400);
-      const reserve = await db.prepare(`SELECT set_amount FROM accounting_purpose_reserves WHERE id=?`).bind(reserveId).first<any>();
+      const reserve = await db.prepare(`SELECT set_amount,set_date,use_deadline FROM accounting_purpose_reserves WHERE id=?`).bind(reserveId).first<any>();
       if (!reserve) return json({ ok: false, message: '준비금 자료를 찾을 수 없습니다.' }, 404);
-      const sum = await db.prepare(`SELECT COALESCE(SUM(amount),0) AS used FROM accounting_purpose_reserve_transactions WHERE reserve_id=?`).bind(reserveId).first<any>();
-      if (Number(sum?.used || 0) + amount > Number(reserve.set_amount || 0)) return json({ ok: false, message: '사용·환입 누계가 준비금 설정액을 초과할 수 없습니다.' }, 400);
+      if (date < reserve.set_date || (reserve.use_deadline && date > reserve.use_deadline)) return json({ ok: false, message: '준비금 거래일은 설정일과 사용기한 사이여야 합니다.' }, 400);
+      const sum = await db.prepare(`SELECT COALESCE(SUM(CASE WHEN transaction_type='use' THEN amount ELSE -amount END),0) AS used FROM accounting_purpose_reserve_transactions WHERE reserve_id=?`).bind(reserveId).first<any>();
+      const netUsed = Number(sum?.used || 0);
+      if (type === 'use' && netUsed + amount > Number(reserve.set_amount || 0)) return json({ ok: false, message: '준비금 순사용액은 설정액을 초과할 수 없습니다.' }, 400);
+      if (type === 'reversal' && amount > netUsed) return json({ ok: false, message: '환입액은 현재까지의 준비금 순사용액을 초과할 수 없습니다.' }, 400);
       const id = `RSVT-${randomHex(20)}`;
       await db.batch([
         db.prepare(`INSERT INTO accounting_purpose_reserve_transactions (id,reserve_id,transaction_date,transaction_type,amount,purpose,resolution_id,memo,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)`)
@@ -190,13 +229,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     if (action === 'save-check') {
-      const periodType = clean(payload.periodType, 20) === 'quarter' ? 'quarter' : 'month';
-      const periodKey = clean(payload.periodKey, 10) || (periodType === 'quarter' ? 'Q1' : '01');
+      const periodType = clean(payload.periodType, 20);
+      const periodKey = clean(payload.periodKey, 10);
+      if (!(periodType === 'month' && /^(0[1-9]|1[0-2])$/.test(periodKey))
+        && !(periodType === 'quarter' && /^Q[1-4]$/.test(periodKey))) {
+        return json({ ok: false, message: '월은 01~12, 분기는 Q1~Q4 형식으로 입력해 주세요.' }, 400);
+      }
       const snapshot = await buildComplianceSnapshot(db, year, periodType, periodKey);
       const id = clean(payload.id, 100) || `CHK-${randomHex(20)}`;
       const existing = await db.prepare(`SELECT check_no FROM accounting_compliance_checks WHERE id=?`).bind(id).first<any>();
       const checkNo = existing?.check_no || await nextComplianceNumber(db, 'check', year);
       const status = clean(payload.status, 20) || 'open';
+      if (!['open','completed'].includes(status)) return json({ ok: false, message: '회계점검 상태를 확인해 주세요.' }, 400);
       await db.batch([
         db.prepare(`INSERT INTO accounting_compliance_checks (id,check_no,fiscal_year,period_type,period_key,snapshot_json,findings,corrective_action,status,reported_chairman,reported_auditor,completed_by,completed_at,created_by,created_at,updated_at)
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET fiscal_year=excluded.fiscal_year,period_type=excluded.period_type,period_key=excluded.period_key,snapshot_json=excluded.snapshot_json,findings=excluded.findings,corrective_action=excluded.corrective_action,status=excluded.status,reported_chairman=excluded.reported_chairman,reported_auditor=excluded.reported_auditor,completed_by=excluded.completed_by,completed_at=excluded.completed_at,updated_at=excluded.updated_at`)
@@ -214,6 +258,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const category = clean(payload.category, 80), title = clean(payload.title, 240), detail = clean(payload.detail, 4000);
       if (!category || !title || !detail) return json({ ok: false, message: '즉시보고 유형, 제목, 상세내용을 입력해 주세요.' }, 400);
       const status = clean(payload.status, 20) || 'open';
+      if (!validDateTime(occurredAt) || Number(occurredAt.slice(0, 4)) !== year) return json({ ok: false, message: '발견일시는 선택한 회계연도의 YYYY-MM-DD HH:MM 형식으로 입력해 주세요.' }, 400);
+      if (!['open','resolved'].includes(status)) return json({ ok: false, message: '즉시보고 상태를 확인해 주세요.' }, 400);
       await db.batch([
         db.prepare(`INSERT INTO accounting_finance_incidents (id,report_no,fiscal_year,occurred_at,category,title,detail,immediate_action,chairman_notified,auditor_notified,status,resolved_at,created_by,created_at,updated_at)
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET fiscal_year=excluded.fiscal_year,occurred_at=excluded.occurred_at,category=excluded.category,title=excluded.title,detail=excluded.detail,immediate_action=excluded.immediate_action,chairman_notified=excluded.chairman_notified,auditor_notified=excluded.auditor_notified,status=excluded.status,resolved_at=excluded.resolved_at,updated_at=excluded.updated_at`)
@@ -230,6 +276,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const managementType = clean(payload.managementType, 20), modelName = clean(payload.modelName, 160), purpose = clean(payload.purpose, 1200);
       if (!['owned','lease','rental'].includes(managementType) || !modelName || !purpose) return json({ ok: false, message: '차량 관리유형, 차종·차량명, 업무용도를 입력해 주세요.' }, 400);
       const contractStart = dateOrNull(payload.contractStart), contractEnd = dateOrNull(payload.contractEnd);
+      if ((contractStart && !contractEnd) || (!contractStart && contractEnd) || (contractStart && contractEnd && contractStart > contractEnd)) {
+        return json({ ok: false, message: '차량 계약 시작일과 종료일을 함께 입력하고 선후관계를 확인해 주세요.' }, 400);
+      }
+      if (['lease','rental'].includes(managementType) && (!contractStart || !contractEnd)) return json({ ok: false, message: '리스·렌트 차량은 계약 시작일과 종료일이 필요합니다.' }, 400);
+      const insuranceEnd = dateOrNull(payload.insuranceEnd);
+      if (insuranceEnd && contractStart && insuranceEnd < contractStart) return json({ ok: false, message: '보험 만료일은 차량 계약 시작일보다 빠를 수 없습니다.' }, 400);
       const renewalFlag = flag(payload.renewalFlag);
       let requiredApproval = 'chairman';
       let contractDays = 0;
@@ -255,7 +307,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       await db.batch([
         db.prepare(`INSERT INTO accounting_vehicle_records (id,vehicle_no,management_type,asset_id,contract_id,plate_no,model_name,primary_user,purpose,contract_start,contract_end,monthly_cost,insurer,insurance_end,approval_level,decision_no,renewal_flag,status,succession_candidate,succession_price,succession_price_basis,succession_counterparty_consent,succession_no_loss,succession_decision_no,memo,created_by,created_at,updated_at)
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET management_type=excluded.management_type,asset_id=excluded.asset_id,contract_id=excluded.contract_id,plate_no=excluded.plate_no,model_name=excluded.model_name,primary_user=excluded.primary_user,purpose=excluded.purpose,contract_start=excluded.contract_start,contract_end=excluded.contract_end,monthly_cost=excluded.monthly_cost,insurer=excluded.insurer,insurance_end=excluded.insurance_end,approval_level=excluded.approval_level,decision_no=excluded.decision_no,renewal_flag=excluded.renewal_flag,status=excluded.status,succession_candidate=excluded.succession_candidate,succession_price=excluded.succession_price,succession_price_basis=excluded.succession_price_basis,succession_counterparty_consent=excluded.succession_counterparty_consent,succession_no_loss=excluded.succession_no_loss,succession_decision_no=excluded.succession_decision_no,memo=excluded.memo,updated_at=excluded.updated_at`)
-          .bind(id,vehicleNo,managementType,clean(payload.assetId,100)||null,clean(payload.contractId,100)||null,clean(payload.plateNo,40)||null,modelName,clean(payload.primaryUser,100)||null,purpose,contractStart,contractEnd,positiveMoney(payload.monthlyCost),clean(payload.insurer,160)||null,dateOrNull(payload.insuranceEnd),approvalLevel,decisionNo||null,renewalFlag?1:0,status,successionCandidate||null,successionPrice,successionPriceBasis||null,successionCounterpartyConsent?1:0,successionNoLoss?1:0,successionDecisionNo||null,clean(payload.memo,1800)||null,me.name,now,now),
+          .bind(id,vehicleNo,managementType,clean(payload.assetId,100)||null,clean(payload.contractId,100)||null,clean(payload.plateNo,40)||null,modelName,clean(payload.primaryUser,100)||null,purpose,contractStart,contractEnd,positiveMoney(payload.monthlyCost),clean(payload.insurer,160)||null,insuranceEnd,approvalLevel,decisionNo||null,renewalFlag?1:0,status,successionCandidate||null,successionPrice,successionPriceBasis||null,successionCounterpartyConsent?1:0,successionNoLoss?1:0,successionDecisionNo||null,clean(payload.memo,1800)||null,me.name,now,now),
         operationAudit(db, 'save', 'vehicle', id, me, { vehicleNo, managementType, modelName, approvalLevel, requiredApproval, renewalFlag, status }, now),
       ]);
       return json({ ok: true, id, vehicleNo, approvalLevel, message: '업무용 차량 관리자료를 저장했습니다.' });

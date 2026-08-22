@@ -661,7 +661,8 @@ const DATASETS: Dataset[] = [
   {
     key: 'withholding', fileName: '18_원천징수.csv', contentType: 'text/csv; charset=utf-8',
     columns: columns(['지급번호','payment_no'],['지급일','payment_date'],['지급대상자번호','payee_no'],['유형','payee_type'],['성명','payee_name'],
-      ['식별번호(마스킹)','identifier_masked','mask'],['사업자번호','business_no'],['거주구분','resident_status'],['소득구분','income_type'],
+      ['식별번호(마스킹)','identifier_masked','mask'],['사업자번호','business_no'],['거주구분','resident_status'],['소득구분','display_income_type'],
+      ['세무처리','tax_treatment'],
       ['종교인소득처리','religious_income_method'],['결의번호','resolution_no'],['회계구분','book_type_name'],['회계조직','entity_name'],
       ['재원','fund_name'],['총지급액','gross_amount'],['비과세액','tax_exempt_amount'],['필요경비','necessary_expense'],
       ['과세대상액','taxable_amount'],['소득세','income_tax'],['지방소득세','local_income_tax'],['기타공제','other_deduction'],
@@ -670,7 +671,9 @@ const DATASETS: Dataset[] = [
       ['정정대상','supersedes_id'],['버전','version_no'],['연결확인메모','source_verification_note'],['취소사유','cancellation_reason'],
       ['신고일','filed_at'],['납부일','paid_at']),
     query: (c) => { const d=dimensionFilter('w',c); return {
-      sql: `SELECT w.id AS row_key,w.*,p.payee_no,p.payee_type,p.name AS payee_name,p.identifier_masked,p.business_no,p.resident_status,
+      sql: `SELECT w.id AS row_key,w.*,
+        CASE WHEN w.tax_treatment='reimbursement' THEN 'reimbursement' ELSE w.income_type END AS display_income_type,
+        p.payee_no,p.payee_type,p.name AS payee_name,p.identifier_masked,p.business_no,p.resident_status,
         COALESCE(e.name,w.entity_id) AS entity_name,COALESCE(f.name,w.fund_id) AS fund_name,
         COALESCE(b.name,w.book_type_code) AS book_type_name,r.resolution_no
         FROM accounting_withholding_records w JOIN accounting_tax_payees p ON p.id=w.payee_id
@@ -750,52 +753,53 @@ const countSnapshotMasterMutations = async (db: D1Database, snapshotAt: string) 
     'accounting_resolution_dimensions','accounting_donors','accounting_cards','accounting_bank_accounts',
     'accounting_contract_payments','accounting_tax_payees',
   ];
-  const sql = tables.map((table) => `SELECT COUNT(*) AS count FROM ${table} WHERE created_at<=? AND updated_at>?`).join(' UNION ALL ');
-  const values = tables.flatMap(() => [snapshotAt,snapshotAt]);
-  const row = await db.prepare(`SELECT COALESCE(SUM(count),0) AS count FROM (${sql})`)
-    .bind(...values).first<{ count: number }>();
-  return Number(row?.count || 0);
+  // D1/workerd's SQLite build enforces a very low SQLITE_LIMIT_COMPOUND_SELECT (observed: 5
+  // terms, vs. vanilla SQLite's default of 500) — a single UNION ALL across all 10 tables
+  // throws "too many terms in compound SELECT: SQLITE_ERROR". Run one COUNT per table as a
+  // separate statement via db.batch() and sum the results in JS instead of relying on a
+  // single compound query.
+  const results = await db.batch(tables.map((table) =>
+    db.prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE created_at<=? AND updated_at>?`).bind(snapshotAt,snapshotAt)));
+  return results.reduce((sum,result) => sum + Number((result.results?.[0] as any)?.count || 0),0);
 };
 
+// Both helpers below return a fully-materialized `bytes` buffer rather than a
+// ReadableStream: R2Bucket.put() requires a body of known length (see the comment on
+// zipFiles), so nothing in this export pipeline can hand it an indefinite-length stream.
+// streamQueryCsv still pages through D1 in PAGE_SIZE batches to keep any single query
+// bounded, it just accumulates the encoded chunks in memory before returning them.
 const streamStatic = (text: string) => {
   const bytes = strToU8(text);
-  return { stream: new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(bytes); controller.close(); } }), bytes };
+  return { bytes };
 };
 
-const streamQueryCsv = (db: D1Database, dataset: Dataset, context: ExportContext) => {
+const streamQueryCsv = async (db: D1Database, dataset: Dataset, context: ExportContext) => {
   const query = dataset.query!(context);
   const csvColumns = dataset.columns || [];
   let lastKey = '';
-  let headerSent = false;
-  let closed = false;
   let rowCount = 0;
   const sha = new IncrementalSha256();
   let crc32 = 0, sizeBytes = 0;
-  const record = (bytes: Uint8Array) => { sha.update(bytes); crc32=updateCrc32(crc32,bytes);sizeBytes+=bytes.byteLength;return bytes; };
-  const stream = new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      if (closed) return;
-      if (!headerSent) {
-        headerSent = true;
-        controller.enqueue(record(encoder.encode(`\uFEFF${csvColumns.map((column) => csvCell(column.header)).join(',')}`)));
-        return;
-      }
-      try {
-        const page = await db.prepare(`SELECT * FROM (${query.sql}) export_rows
-          WHERE CAST(row_key AS TEXT)>? ORDER BY CAST(row_key AS TEXT) LIMIT ?`)
-          .bind(...query.values,lastKey,PAGE_SIZE).all<Record<string,unknown>>();
-        const rows = page.results || [];
-        if (!rows.length) { closed=true;controller.close();return; }
-        const text = rows.map((row) => csvColumns.map((column) => csvCell(column.maskIdentifier
-          ? safePersonalIdentifier(row[column.key]) : row[column.key])).join(',')).join('\r\n');
-        lastKey = String(rows[rows.length-1].row_key || '');
-        rowCount += rows.length;
-        controller.enqueue(record(encoder.encode(`\r\n${text}`)));
-        if (rows.length < PAGE_SIZE) { closed=true;controller.close(); }
-      } catch (error) { closed=true;controller.error(error); }
-    },
-  });
-  return { stream, stats: () => ({ rowCount,sizeBytes,crc32,sha256:sha.digestHex() }) };
+  const chunks: Uint8Array[] = [];
+  const record = (bytes: Uint8Array) => { sha.update(bytes); crc32=updateCrc32(crc32,bytes);sizeBytes+=bytes.byteLength;chunks.push(bytes); };
+  record(encoder.encode(`\uFEFF${csvColumns.map((column) => csvCell(column.header)).join(',')}`));
+  for (;;) {
+    const page = await db.prepare(`SELECT * FROM (${query.sql}) export_rows
+      WHERE CAST(row_key AS TEXT)>? ORDER BY CAST(row_key AS TEXT) LIMIT ?`)
+      .bind(...query.values,lastKey,PAGE_SIZE).all<Record<string,unknown>>();
+    const rows = page.results || [];
+    if (!rows.length) break;
+    const text = rows.map((row) => csvColumns.map((column) => csvCell(column.maskIdentifier
+      ? safePersonalIdentifier(row[column.key]) : row[column.key])).join(',')).join('\r\n');
+    lastKey = String(rows[rows.length-1].row_key || '');
+    rowCount += rows.length;
+    record(encoder.encode(`\r\n${text}`));
+    if (rows.length < PAGE_SIZE) break;
+  }
+  const bytes = new Uint8Array(sizeBytes);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk,offset);offset+=chunk.byteLength; }
+  return { bytes, stats: () => ({ rowCount,sizeBytes,crc32,sha256:sha.digestHex() }) };
 };
 
 const sha256Bytes = async (bytes: Uint8Array) => {
@@ -899,13 +903,13 @@ const processDataset = async (db: D1Database,bucket:R2Bucket,batch:any,file:any)
   let rowCount=0,sizeBytes=0,crc32=0,sha256='';
   try {
     if (dataset.staticText) {
-      const {stream,bytes}=streamStatic(dataset.staticText(context));
-      const object=await bucket.put(file.object_key,stream,{httpMetadata:{contentType:dataset.contentType}});
+      const {bytes}=streamStatic(dataset.staticText(context));
+      const object=await bucket.put(file.object_key,bytes,{httpMetadata:{contentType:dataset.contentType}});
       rowCount=Number(dataset.staticRowCount?.(context)||0);sizeBytes=bytes.byteLength;crc32=updateCrc32(0,bytes);sha256=await sha256Bytes(bytes);
       file.etag=object?.etag || object?.httpEtag || '';
     } else {
-      const generated=streamQueryCsv(db,dataset,context);
-      const object=await bucket.put(file.object_key,generated.stream,{httpMetadata:{contentType:dataset.contentType}});
+      const generated=await streamQueryCsv(db,dataset,context);
+      const object=await bucket.put(file.object_key,generated.bytes,{httpMetadata:{contentType:dataset.contentType}});
       const stats=generated.stats();rowCount=stats.rowCount;sizeBytes=stats.sizeBytes;crc32=stats.crc32;sha256=stats.sha256;
       file.etag=object?.etag || object?.httpEtag || '';
     }
@@ -926,31 +930,40 @@ const processDataset = async (db: D1Database,bucket:R2Bucket,batch:any,file:any)
   }
 };
 
-const zipFiles = (bucket:R2Bucket,files:any[]) => {
-  const sha=new IncrementalSha256();let sizeBytes=0;
-  const stream=new ReadableStream<Uint8Array>({
-    start(controller) {
-      const zip=new Zip((error,data,final) => {
-        if (error) { controller.error(error);return; }
-        if (data?.byteLength) { sha.update(data);sizeBytes+=data.byteLength;controller.enqueue(data); }
-        if (final) controller.close();
-      });
-      void (async()=>{
-        for (const file of files) {
-          const objectKey=assertR2KeyWithinPrefixes(file.object_key,[TAX_EXPORT_R2_PREFIX],'세무 패키지 구성파일 읽기');
-          const object=await bucket.get(objectKey);
-          if (!object) throw new Error(`패키지 구성파일이 R2에서 누락되었습니다: ${file.file_name}`);
-          const entry=new ZipPassThrough(file.file_name);
-          zip.add(entry);
-          const reader=object.body.getReader();
-          while (true) { const part=await reader.read();if(part.done)break;if(part.value)entry.push(part.value,false); }
-          entry.push(new Uint8Array(0),true);
-        }
-        zip.end();
-      })().catch((error)=>controller.error(error));
-    },
+// R2Bucket.put() requires a body of known length (a plain buffer, or a stream whose
+// length can be determined) — it cannot accept an indefinite-length ReadableStream such
+// as the incremental output of a streaming zip compressor. Building the archive here first
+// buffers the complete zip in memory as a single Uint8Array, which put() can then upload
+// directly with a well-defined Content-Length, exactly like the plain-bytes attachment
+// uploads elsewhere in this codebase (see upload-attachment.ts).
+const zipFiles = async (bucket:R2Bucket,files:any[]) => {
+  const sha=new IncrementalSha256();
+  const chunks:Uint8Array[]=[];
+  let sizeBytes=0;
+  await new Promise<void>((resolve,reject) => {
+    const zip=new Zip((error,data,final) => {
+      if (error) { reject(error instanceof Error?error:new Error(String(error)));return; }
+      if (data?.byteLength) { sha.update(data);sizeBytes+=data.byteLength;chunks.push(data); }
+      if (final) resolve();
+    });
+    void (async()=>{
+      for (const file of files) {
+        const objectKey=assertR2KeyWithinPrefixes(file.object_key,[TAX_EXPORT_R2_PREFIX],'세무 패키지 구성파일 읽기');
+        const object=await bucket.get(objectKey);
+        if (!object) throw new Error(`패키지 구성파일이 R2에서 누락되었습니다: ${file.file_name}`);
+        const entry=new ZipPassThrough(file.file_name);
+        zip.add(entry);
+        const reader=object.body.getReader();
+        while (true) { const part=await reader.read();if(part.done)break;if(part.value)entry.push(part.value,false); }
+        entry.push(new Uint8Array(0),true);
+      }
+      zip.end();
+    })().catch((error)=>reject(error instanceof Error?error:new Error(String(error))));
   });
-  return {stream,stats:()=>({sizeBytes,sha256:sha.digestHex()})};
+  const bytes=new Uint8Array(sizeBytes);
+  let offset=0;
+  for (const chunk of chunks) { bytes.set(chunk,offset);offset+=chunk.byteLength; }
+  return {bytes,stats:()=>({sizeBytes,sha256:sha.digestHex()})};
 };
 
 const finalizeBatch = async (db:D1Database,bucket:R2Bucket,batch:any) => {
@@ -1000,8 +1013,8 @@ const finalizeBatch = async (db:D1Database,bucket:R2Bucket,batch:any) => {
       manifestFile.content_type,0,0,manifestFile.size_bytes,manifestFile.crc32,manifestFile.sha256,manifestFile.etag,completedAt,completedAt,completedAt).run();
   const allFiles=[...files,manifestFile];
   const packageKey=`${EXPORT_PREFIX}/${context.year}/${batch.id}/${context.exportNo}.zip`;
-  const zipped=zipFiles(bucket,allFiles);
-  const packageObject=await bucket.put(packageKey,zipped.stream,{httpMetadata:{contentType:'application/zip',
+  const zipped=await zipFiles(bucket,allFiles);
+  const packageObject=await bucket.put(packageKey,zipped.bytes,{httpMetadata:{contentType:'application/zip',
     contentDisposition:`attachment; filename="tax-package-${context.year}.zip"`},customMetadata:{exportNo:context.exportNo,snapshotAt:context.snapshotAt}});
   const packageStats=zipped.stats();
   const readyAt=new Date().toISOString();

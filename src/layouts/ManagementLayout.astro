@@ -3,8 +3,9 @@ import GovLayout from './GovLayout.astro';
 export interface Props {
   title: string;
   active: 'registers' | 'vehicle' | 'employment' | 'ordination';
+  showCurrentUser?: boolean;
 }
-const { title, active } = Astro.props;
+const { title, active, showCurrentUser = true } = Astro.props;
 ---
 <GovLayout title={`${title} | 대한불교밀교종 종단관리시스템`}>
   <div class="app-shell management-shell" data-management-shell>
@@ -34,12 +35,14 @@ const { title, active } = Astro.props;
 
     <div class="app-body">
       <aside class="app-sidebar">
-        <section class="sidebar-profile" aria-label="로그인 계정 정보">
-          <div class="sidebar-profile__row"><span>이름</span><strong data-me-name>-</strong></div>
-          <div class="sidebar-profile__row"><span>직책</span><strong data-me-position>-</strong></div>
-          <div class="sidebar-profile__row"><span>1차 부서</span><strong data-me-department-primary>-</strong></div>
-          <div class="sidebar-profile__row" data-me-department-secondary-row hidden><span>2차 부서</span><strong data-me-department-secondary>-</strong></div>
-        </section>
+        {showCurrentUser && (
+          <section class="sidebar-profile" aria-label="로그인 계정 정보">
+            <div class="sidebar-profile__row"><span>이름</span><strong data-me-name>-</strong></div>
+            <div class="sidebar-profile__row"><span>직책</span><strong data-me-position>-</strong></div>
+            <div class="sidebar-profile__row"><span>1차 부서</span><strong data-me-department-primary>-</strong></div>
+            <div class="sidebar-profile__row" data-me-department-secondary-row hidden><span>2차 부서</span><strong data-me-department-secondary>-</strong></div>
+          </section>
+        )}
         <a class="btn btn-primary btn-block sidebar-compose" href="/?compose=1">+ 문서작성</a>
 
         <div class="sidebar-group" data-accounting-access-section hidden>
@@ -97,15 +100,10 @@ const { title, active } = Astro.props;
       set('[data-me-department-primary]',department.primary);
       set('[data-me-department-secondary]',department.secondary||'-');
       const secondaryRow=document.querySelector('[data-me-department-secondary-row]');if(secondaryRow)secondaryRow.hidden=!department.secondary;
-      const managedDateSyncers=new WeakMap();
-      const managedWeekdayLabel=(value)=>{const match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value||''));if(!match)return '';const year=Number(match[1]),month=Number(match[2]),day=Number(match[3]);const date=new Date(Date.UTC(year,month-1,day));if(date.getUTCFullYear()!==year||date.getUTCMonth()!==month-1||date.getUTCDate()!==day)return '';return `(${['일','월','화','수','목','금','토'][date.getUTCDay()]})`;};
-      const setupManagedDate=(input)=>{if(!(input instanceof HTMLInputElement)||input.type!=='date'||input.hasAttribute('data-no-weekday'))return;input.lang='en-CA';let wrapper=input.closest('.managed-date-with-weekday');if(!wrapper){wrapper=document.createElement('div');wrapper.className='managed-date-with-weekday';input.before(wrapper);wrapper.append(input);}let shell=input.closest('.managed-date-input-shell');if(!shell){shell=document.createElement('div');shell.className='managed-date-input-shell';input.before(shell);shell.append(input);}let display=shell.querySelector('.managed-date-display');if(!display){display=document.createElement('span');display.className='managed-date-display';display.setAttribute('aria-hidden','true');shell.append(display);}let weekday=wrapper.querySelector('.managed-date-weekday');if(!weekday){weekday=document.createElement('span');weekday.className='managed-date-weekday';weekday.setAttribute('aria-live','polite');wrapper.append(weekday);}const sync=()=>{const value=String(input.value||'');display.textContent=value||'연도-월-일';display.classList.toggle('is-placeholder',!value);const label=managedWeekdayLabel(value);weekday.textContent=label;weekday.hidden=!label;};managedDateSyncers.set(input,sync);if(!input.dataset.managedDateBound){input.dataset.managedDateBound='1';input.addEventListener('input',sync);input.addEventListener('change',sync);}sync();};
-      const syncManagedDates=(root=document)=>{root.querySelectorAll('input[type="date"]').forEach((input)=>{setupManagedDate(input);managedDateSyncers.get(input)?.();});};
+      const syncManagedDates=(root=document)=>window.__MILGYO_SYNC_DATE_INPUTS__?.(root);
       window.__MILGYO_SYNC_MANAGED_DATES__=syncManagedDates;
+      window.addEventListener('milgyo:date-inputs-ready',()=>syncManagedDates(document));
       syncManagedDates(document);
-      window.dispatchEvent(new CustomEvent('milgyo:managed-dates-ready'));
-      const managedDateObserver=new MutationObserver((mutations)=>{for(const mutation of mutations){for(const node of mutation.addedNodes){if(!(node instanceof Element))continue;if(node.matches?.('input[type="date"]'))setupManagedDate(node);syncManagedDates(node);}}});
-      managedDateObserver.observe(document.body,{childList:true,subtree:true});
       const accounting= user.role==='admin'||!!user.canAccounting||Number(user.can_accounting||0)===1;
       document.querySelectorAll('[data-accounting-access-link],[data-accounting-access-section]').forEach((el)=>el.hidden=!accounting);
       document.querySelectorAll('[data-admin-link]').forEach((el)=>el.hidden=user.role!=='admin');

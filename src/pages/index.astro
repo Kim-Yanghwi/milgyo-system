@@ -1870,7 +1870,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       $('[data-logout]').addEventListener('click',async()=>{const token=getToken();clearSession();showLogin();if(token)callApi('/api/auth/logout',{token});});
       const vehicleTemplatePrefill = async (templateId, vehicleId) => {
         if (!vehicleId || !['TPL-FIN-VEHICLE-REVIEW','TPL-FIN-VEHICLE-SUCCESSION'].includes(templateId)) return {};
-        const data = await callApi('/api/accounting-compliance/query', { token:getToken(), action:'vehicle-detail', id:vehicleId });
+        const data = await callApi('/api/accounting-domains/governance/query', { token:getToken(), _legacyApi:'compliance', action:'vehicle-detail', id:vehicleId });
         if (!data.ok || !data.row) return {};
         const row=data.row;
         const subject=[row.model_name,row.plate_no?`(${row.plate_no})`:''].filter(Boolean).join(' ');

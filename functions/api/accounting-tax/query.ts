@@ -1,6 +1,6 @@
 import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
 import { canViewAllAccounting, ensureAccountingTables, hasAccountingAccess, isAccountingManager } from '../../_shared/accounting';
-import { getDimensionMaster } from '../../_shared/accounting-special';
+import { getDimensionMaster } from '../../_shared/accounting-dimensions';
 import { ensureAccountingTaxTables, getTaxValidation, validTaxYear } from '../../_shared/accounting-tax';
 
 interface Env { DB: D1Database; ACCOUNTING_DB: D1Database; }
@@ -100,7 +100,8 @@ const withholdingRows = async (db: D1Database, payload: Payload, year: number, a
   if (entityId) { conditions.push('w.entity_id=?'); values.push(entityId); }
   if (status) { conditions.push('w.filing_status=?'); values.push(status); }
   if (filingMonth) { conditions.push('w.filing_month=?'); values.push(filingMonth); }
-  if (incomeType) { conditions.push('w.income_type=?'); values.push(incomeType); }
+  if (incomeType === 'reimbursement') conditions.push("w.tax_treatment='reimbursement'");
+  else if (incomeType) { conditions.push("w.income_type=? AND w.tax_treatment='standard'"); values.push(incomeType); }
   if (query) { conditions.push('(p.name LIKE ? OR p.payee_no LIKE ? OR w.payment_no LIKE ?)'); values.push(`%${query}%`, `%${query}%`, `%${query}%`); }
   const where = conditions.join(' AND '), limit = requestedLimit(payload.limit);
   const summary = await db.prepare(`SELECT COUNT(*) AS total_count,COALESCE(SUM(w.gross_amount),0) AS gross_amount,
@@ -202,12 +203,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         COALESCE(d.book_type_code,'general') AS book_type_code,
         COALESCE(d.entity_id,'ENTITY-HQ') AS entity_id,COALESCE(d.fund_id,'') AS fund_id
         FROM accounting_resolutions r LEFT JOIN accounting_resolution_dimensions d ON d.resolution_id=r.id
-        WHERE r.fiscal_year=? ${requestedEntity ? `AND COALESCE(NULLIF(d.entity_id,''),'ENTITY-HQ')=?` : ''}
+        WHERE r.fiscal_year=? AND r.status IN ('approved','posted') ${requestedEntity ? `AND COALESCE(NULLIF(d.entity_id,''),'ENTITY-HQ')=?` : ''}
         ${clean(payload.direction, 20) === 'purchase' ? `AND r.resolution_type='expense'` : clean(payload.direction, 20) === 'sale' ? `AND r.resolution_type='income'` : ''}
         ORDER BY r.resolution_date DESC,r.created_at DESC LIMIT 500`).bind(year, ...(requestedEntity ? [requestedEntity] : [])).all();
       else if (type === 'card_transaction') rows = await db.prepare(`SELECT t.id,t.transaction_no AS source_no,t.transaction_date AS source_date,
-        t.merchant AS description,t.merchant AS counterparty,t.amount,t.tax_amount,'purchase' AS direction,t.book_type_code,t.entity_id,t.fund_id
-        FROM accounting_card_transactions t WHERE t.transaction_date>=? AND t.transaction_date<?
+        t.merchant AS description,t.merchant AS counterparty,t.amount,t.supply_amount,t.tax_amount,t.tax_type,t.tax_mode,'purchase' AS direction,t.book_type_code,t.entity_id,t.fund_id
+        FROM accounting_card_transactions t WHERE t.transaction_date>=? AND t.transaction_date<? AND t.status IN ('unmatched','posted')
         ${requestedEntity ? 'AND t.entity_id=?' : ''}
         ORDER BY t.transaction_date DESC,t.created_at DESC LIMIT 500`).bind(start, end, ...(requestedEntity ? [requestedEntity] : [])).all();
       else if (type === 'import_transaction') rows = await db.prepare(`SELECT t.id,COALESCE(t.approval_no,t.id) AS source_no,t.transaction_date AS source_date,
@@ -218,20 +219,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         FROM accounting_import_transactions t JOIN accounting_import_batches ib ON ib.id=t.batch_id
         LEFT JOIN accounting_bank_accounts ba ON t.source_type='bank' AND ba.id=ib.source_account_id
         LEFT JOIN accounting_cards c ON t.source_type='card' AND c.id=ib.source_account_id
-        WHERE t.transaction_date>=? AND t.transaction_date<?
+        WHERE t.transaction_date>=? AND t.transaction_date<? AND t.status<>'ignored'
         ${requestedEntity ? `AND COALESCE(NULLIF(ba.entity_id,''),NULLIF(c.entity_id,''),'ENTITY-HQ')=?` : ''}
         ORDER BY t.transaction_date DESC,t.created_at DESC LIMIT 500`).bind(start, end, ...(requestedEntity ? [requestedEntity] : [])).all();
       else if (type === 'donation') rows = await db.prepare(`SELECT d.id,d.donation_no AS source_no,d.donation_date AS source_date,
         COALESCE(d.purpose,'기부금') AS description,COALESCE(o.name,'익명') AS counterparty,d.amount,0 AS tax_amount,'sale' AS direction,
         d.book_type_code,d.entity_id,d.fund_id FROM accounting_donations d LEFT JOIN accounting_donors o ON o.id=d.donor_id
-        WHERE d.fiscal_year=? ${requestedEntity ? 'AND d.entity_id=?' : ''}
+        WHERE d.fiscal_year=? AND d.status<>'cancelled' ${requestedEntity ? 'AND d.entity_id=?' : ''}
         ORDER BY d.donation_date DESC,d.created_at DESC LIMIT 500`).bind(year, ...(requestedEntity ? [requestedEntity] : [])).all();
       else if (type === 'journal') rows = await db.prepare(`SELECT j.id,j.journal_no AS source_no,j.journal_date AS source_date,
         j.description,'' AS counterparty,COALESCE(SUM(l.debit),0) AS amount,0 AS tax_amount,'' AS direction,
         COALESCE(MAX(d.book_type_code),'general') AS book_type_code,COALESCE(MAX(d.entity_id),'ENTITY-HQ') AS entity_id,
         COALESCE(MAX(d.fund_id),'') AS fund_id FROM accounting_journals j
         JOIN accounting_journal_lines l ON l.journal_id=j.id LEFT JOIN accounting_journal_line_dimensions d ON d.journal_line_id=l.id
-        WHERE j.fiscal_year=? AND j.status IN ('posted','reversed') ${requestedEntity ? `AND COALESCE(NULLIF(d.entity_id,''),'ENTITY-HQ')=?` : ''}
+        WHERE j.fiscal_year=? AND j.status='posted' AND j.source_type<>'reversal' ${requestedEntity ? `AND COALESCE(NULLIF(d.entity_id,''),'ENTITY-HQ')=?` : ''}
         GROUP BY j.id
         HAVING COUNT(DISTINCT COALESCE(NULLIF(d.book_type_code,''),'general'))=1
           AND COUNT(DISTINCT COALESCE(NULLIF(d.entity_id,''),'ENTITY-HQ'))=1

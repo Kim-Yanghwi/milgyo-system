@@ -22,10 +22,10 @@ import { assertAccountingAttachmentRetentionElapsed } from '../functions/_shared
 import { calculateVatFromSupply, getTaxValidation } from '../functions/_shared/accounting-tax';
 
 const migrationFiles = () => fs.readdirSync('migrations/accounting')
-  .filter((file) => /^00(0[4-9]|1[0-5]).*\.sql$/.test(file)).sort()
+  .filter((file) => /^00(0[4-9]|1[0-6]).*\.sql$/.test(file)).sort()
   .map((file) => `migrations/accounting/${file}`);
 
-const migrate = (through = '0015') => {
+const migrate = (through = '0016') => {
   const db = new DatabaseSync(':memory:');
   db.exec(fs.readFileSync('database/accounting-base-schema.sql', 'utf8'));
   for (const file of migrationFiles()) {
@@ -58,19 +58,31 @@ const insertJournal = (db: DatabaseSync, id: string, sourceType: string, sourceI
     VALUES (?,?,?,?,?,?,?,?,?)`).run(id, `전표-${id}`, 2026, '2026-01-15', sourceType, sourceId, id, status, '2026-01-15T00:00:00.000Z');
 };
 
-test('fresh schema applies through v73 and contains the restored attachment foundation', () => {
+test('fresh schema applies through v81 and contains the restored attachment foundation', () => {
   const v63Migration = fs.readFileSync('migrations/accounting/0011_v63_tax_accounting.sql', 'utf8');
   assert.doesNotMatch(v63Migration, /SELECT\s+CASE\b/i,
     'D1 remote migration compatibility requires trigger guards without SELECT CASE ... END');
+  const v81Migration = fs.readFileSync('migrations/accounting/0016_v81_integrated_stabilization.sql', 'utf8');
+  assert.doesNotMatch(v81Migration, /SELECT\s+CASE\b/i,
+    'v81 D1 remote migration compatibility requires trigger guards without SELECT CASE ... END');
   const db = migrate();
   const version = db.prepare(`SELECT meta_value FROM accounting_meta WHERE meta_key='schema_version'`).get() as any;
-  assert.equal(version.meta_value, '2026-08-16.1');
+  assert.equal(version.meta_value, '2026-08-21.1');
   assert.ok(db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='accounting_attachments'`).get());
   const journalColumns = db.prepare(`PRAGMA table_info(accounting_journals)`).all() as any[];
   assert.ok(journalColumns.some((column) => column.name === 'updated_at'));
   const procurementColumns = db.prepare(`PRAGMA table_info(accounting_procurement_reviews)`).all() as any[];
   assert.ok(procurementColumns.some((column) => column.name === 'responsible_user_id'));
   assert.ok(procurementColumns.some((column) => column.name === 'responsible_name'));
+  const cardColumns = db.prepare(`PRAGMA table_info(accounting_card_transactions)`).all() as any[];
+  for (const column of ['supply_amount','tax_type','tax_mode','tax_note']) {
+    assert.ok(cardColumns.some((row) => row.name === column), `missing card tax column ${column}`);
+  }
+  const withholdingColumns = db.prepare(`PRAGMA table_info(accounting_withholding_records)`).all() as any[];
+  assert.ok(withholdingColumns.some((column) => column.name === 'tax_treatment'));
+  for (const trigger of ['trg_withholding_tax_treatment_insert','trg_withholding_source_limit_insert']) {
+    assert.ok(db.prepare(`SELECT name FROM sqlite_master WHERE type='trigger' AND name=?`).get(trigger), `missing trigger ${trigger}`);
+  }
 });
 
 test('production verification SQL executes against the complete accounting schema', () => {
@@ -133,13 +145,16 @@ test('site-wide date inputs accept eight typed digits without breaking native se
   assert.match(helper, /if \(input\.dataset\.nativeDateEdit === '1'\) return/);
 });
 
-test('tax date controls keep inline weekday boxes and only mask native date text during an eight-digit draft', () => {
+test('tax qualification dates use explicit eight-digit inputs with calendar and weekday feedback', () => {
   const source = fs.readFileSync('src/pages/accounting-tax.astro', 'utf8');
   const helper = fs.readFileSync('public/milgyo-date-input.js', 'utf8');
-  assert.match(source, /className='date-weekday'/);
+  assert.match(source, /name="qualifiedFrom" type="text"[^>]*data-date8-input/);
+  assert.match(source, /name="qualifiedTo" type="text"[^>]*data-date8-input/);
+  assert.match(source, /class="date8-native-picker"/);
+  assert.match(source, /class="date8-weekday"/);
+  assert.match(source, /showPicker/);
   assert.match(source, /grid-template-columns:minmax\(0,1fr\) auto/);
   assert.match(source, /background:#eaf2fb/);
-  assert.match(source, /data-numeric-date-drafting="1"/);
   assert.match(helper, /className = 'date-input-shell'/);
   assert.match(helper, /className = 'date-display-value'/);
 });
@@ -192,10 +207,13 @@ test('tax UI keeps navigation, profile notes, payee search, tables and package g
   assert.match(source, /\.nav\{[^}]*font-family:inherit[^}]*font-size:\.9rem/);
 });
 
-test('accounting navigation removes reload-like entries and keeps long labels on one line', () => {
+test('accounting navigation uses the canonical business-domain header and keeps linked core tools on one line', () => {
   const source = fs.readFileSync('src/pages/accounting.astro', 'utf8');
+  const header = fs.readFileSync('src/components/AccountingHeader.astro', 'utf8');
   assert.doesNotMatch(source, />회계 실무관리<\/a>/);
-  assert.match(source, /<span data-user-label><\/span>\s*<a href="\/" class="btn btn-outline">전자문서<\/a>/);
+  assert.match(header, /data-user-label/);
+  assert.match(header, /href="\/" class="btn btn-outline accounting-topbar__link">전자문서<\/a>/);
+  assert.match(header, /회계·예산·결산/);
   assert.match(source, /\.acc-special-link\{[^}]*white-space:nowrap/);
 });
 
@@ -233,8 +251,8 @@ test('database guards prevent duplicate source journals and immutable card links
     (id,card_code,card_label,settlement_account_code,created_at,updated_at)
     VALUES ('C-1','C-1','card','2110','2026-01-01','2026-01-01')`).run();
   db.prepare(`INSERT INTO accounting_card_transactions
-    (id,transaction_no,card_id,transaction_date,merchant,amount,account_code,status,journal_id,created_at,updated_at)
-    VALUES ('T-1','T-1','C-1','2026-01-15','merchant',1000,'5300','posted','J-1','2026-01-15','2026-01-15')`).run();
+    (id,transaction_no,card_id,transaction_date,merchant,amount,supply_amount,tax_type,tax_mode,account_code,status,journal_id,created_at,updated_at)
+    VALUES ('T-1','T-1','C-1','2026-01-15','merchant',1000,1000,'unclassified','legacy','5300','posted','J-1','2026-01-15','2026-01-15')`).run();
   insertJournal(db,'J-3','manual','MANUAL-3');
   insertJournal(db,'J-4','manual','MANUAL-4');
   insertJournal(db,'J-5','manual','MANUAL-5');
@@ -467,10 +485,20 @@ test('async tax export streams every dataset, persists a ZIP, and supports repea
   const sqlite=migrate();
   const db=new D1Adapter(sqlite) as any;
   const bucket=new MemoryR2() as any;
+
+  // Empty accounting years are intentionally valid. Create one deterministic
+  // validation error so this test verifies that allowValidationErrors cannot
+  // bypass the submission-package safety gate.
+  insertJournal(sqlite,'J-BLOCKED','manual','BLOCKED');
+  sqlite.prepare(`INSERT INTO accounting_journal_lines
+    (id,journal_id,line_no,account_code,debit,credit,counterparty)
+    VALUES ('JL-BLOCKED','J-BLOCKED',1,'5300',100,0,'validation-test')`).run();
   await assert.rejects(
     () => queueTaxExport(db,{year:2026,periodStart:'2026-01-01',periodEnd:'2026-12-31',bookTypeCode:'general',entityId:'ENTITY-HQ',fundId:'',allowValidationErrors:true,requestId:'REQ-BLOCKED'},{id:'U-1',name:'tester'}),
     /자동검증 오류 1개를 모두 해결/,
   );
+  sqlite.prepare(`DELETE FROM accounting_journal_lines WHERE journal_id='J-BLOCKED'`).run();
+  sqlite.prepare(`DELETE FROM accounting_journals WHERE id='J-BLOCKED'`).run();
   sqlite.prepare(`INSERT INTO accounting_entities
     (id,entity_code,name,entity_type,created_at,updated_at) VALUES
     ('ENTITY-A','ENTITY-A','A 조직','temple','2026-01-01','2026-01-01'),

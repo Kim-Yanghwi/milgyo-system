@@ -1,5 +1,5 @@
 import { clean, randomHex, type SessionUser } from './helpers';
-import { nextSpecialSequence } from './accounting-special';
+import { nextSpecialSequence } from './accounting-numbering';
 
 export const OPERATIONS_SCHEMA_VERSION = '2026-08-04.1';
 

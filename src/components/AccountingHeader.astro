@@ -1,0 +1,149 @@
+---
+export type AccountingSection = 'core' | 'cash' | 'giving' | 'governance' | 'tax';
+export interface Props {
+  current: AccountingSection;
+  title?: string;
+  homeHref?: string;
+}
+const { current, title = '회계관리시스템', homeHref = '/accounting/' } = Astro.props;
+const links = [
+  { key: 'core', label: '회계·예산·결산', href: '/accounting/?domain=core' },
+  { key: 'cash', label: '자금·거래관리', href: '/accounting-operations/?domain=cash' },
+  { key: 'giving', label: '기부·자산·기관회계', href: '/accounting-special/?domain=giving' },
+  { key: 'governance', label: '계약·조달·준법', href: '/accounting-compliance/?domain=governance' },
+  { key: 'tax', label: '세무·신고', href: '/accounting-tax/?domain=tax' },
+] as const;
+---
+<header class="accounting-topbar topbar acc-topbar" data-accounting-header>
+  <a href={homeHref} class="accounting-brand brand acc-brand" aria-label={`${title} 홈`}>
+    <img class="accounting-brand__logo acc-brand__logo" src="/brand-logo-transparent.png" alt="대한불교밀교종 로고" />
+    <span class="accounting-brand__title brand-title acc-brand__title">
+      <img class="accounting-brand__wordmark acc-brand__wordmark" src="/brand-wordmark-symbol.svg" alt="대한불교밀교종" />
+      <span class="accounting-brand__system-name brand-system-name acc-brand__system-name">{title}</span>
+    </span>
+  </a>
+  <div class="accounting-topbar__actions top-actions acc-topbar__right">
+    <span class="accounting-user-label" data-user-label></span>
+    <a href="/" class="btn btn-outline accounting-topbar__link">전자문서</a>
+    {links.map((link) => (
+      <a
+        href={link.href}
+        data-accounting-domain={link.key}
+        class:list={['btn', 'btn-outline', 'accounting-topbar__link', { 'is-current': current === link.key }]}
+        aria-current={current === link.key ? 'page' : undefined}
+      >{link.label}</a>
+    ))}
+    <a
+      href="/accounting-files/?domain=governance"
+      data-accounting-utility="attachments"
+      class="btn btn-outline accounting-topbar__link attachment-ops-only"
+      title="첨부파일 정책·D1/R2 무결성·오류 재처리"
+      hidden
+    >점검·정책</a>
+    <button type="button" class="btn btn-outline accounting-topbar__logout" data-logout>로그아웃</button>
+  </div>
+</header>
+
+<style is:global>
+  .accounting-topbar{
+    min-height:64px!important;height:auto!important;box-sizing:border-box!important;
+    display:flex!important;align-items:center!important;justify-content:space-between!important;gap:14px!important;
+    padding:9px 16px!important;background:linear-gradient(180deg,#315f9f,#244d7c)!important;
+    border-bottom:1px solid #1f446e!important;box-shadow:0 2px 8px rgba(23,51,84,.16)!important;
+    color:#fff!important;position:relative!important;top:auto!important;z-index:30!important;
+  }
+  .accounting-topbar .accounting-brand{display:flex!important;align-items:center!important;gap:8px!important;min-width:245px!important;color:#fff!important;text-decoration:none!important;white-space:nowrap!important}
+  .accounting-topbar .accounting-brand__logo{width:30px!important;height:30px!important;flex:0 0 30px!important;object-fit:contain!important}
+  .accounting-topbar .accounting-brand__title{display:inline-flex!important;align-items:center!important;gap:9px!important;min-width:0!important;color:#fff!important}
+  .accounting-topbar .accounting-brand__wordmark{display:block!important;width:146px!important;height:auto!important;max-height:25px!important;object-fit:contain!important;filter:brightness(0) invert(1)!important}
+  .accounting-topbar .accounting-brand__system-name{padding-left:9px!important;border-left:1px solid rgba(255,255,255,.35)!important;color:#fff!important;font-family:"Noto Serif KR","Nanum Myeongjo",Batang,serif!important;font-size:14px!important;font-weight:700!important;letter-spacing:.01em!important}
+  .accounting-topbar .accounting-topbar__actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:6px!important;flex-wrap:wrap!important;min-width:0!important}
+  .accounting-topbar .accounting-user-label{margin-right:3px!important;color:#e8f0fa!important;font-size:12px!important;white-space:nowrap!important}
+  .accounting-topbar .accounting-topbar__link,.accounting-topbar .accounting-topbar__logout{
+    display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:34px!important;
+    margin:0!important;padding:7px 10px!important;border:1px solid rgba(255,255,255,.42)!important;border-radius:5px!important;
+    background:rgba(255,255,255,.07)!important;color:#fff!important;text-decoration:none!important;font-family:inherit!important;
+    font-size:12px!important;font-weight:700!important;line-height:1.2!important;white-space:nowrap!important;box-shadow:none!important;cursor:pointer!important;
+  }
+  .accounting-topbar .accounting-topbar__link:hover,.accounting-topbar .accounting-topbar__logout:hover,
+  .accounting-topbar .accounting-topbar__link:focus-visible,.accounting-topbar .accounting-topbar__logout:focus-visible{
+    background:rgba(255,255,255,.16)!important;border-color:rgba(255,255,255,.72)!important;outline:2px solid rgba(255,255,255,.38)!important;outline-offset:1px!important;
+  }
+  .accounting-topbar .accounting-topbar__link.is-current{
+    background:#fff!important;border-color:#fff!important;color:#244d7c!important;box-shadow:0 1px 3px rgba(13,38,68,.16)!important;
+  }
+  .accounting-topbar [data-accounting-utility="attachments"]{border-style:dashed!important}
+  @media(max-width:1180px){
+    .accounting-topbar{align-items:flex-start!important;flex-direction:column!important}
+    .accounting-topbar .accounting-topbar__actions{width:100%!important;justify-content:flex-start!important}
+  }
+  @media(max-width:640px){
+    .accounting-topbar{padding:10px!important}
+    .accounting-topbar .accounting-brand{min-width:0!important}
+    .accounting-topbar .accounting-brand__wordmark{width:128px!important}
+    .accounting-topbar .accounting-brand__system-name{font-size:12px!important}
+    .accounting-topbar .accounting-user-label{width:100%!important}
+    .accounting-topbar .accounting-topbar__link,.accounting-topbar .accounting-topbar__logout{font-size:11px!important;padding:7px 8px!important}
+  }
+</style>
+
+<style is:global>
+  :where(.accounting-app,.ops-app,.special-app,.compliance-app,.tax-app,.file-admin){background:#eef2f7!important;color:#20252c!important}
+  :where(.accounting-app,.ops-app,.special-app,.compliance-app,.tax-app,.file-admin) [hidden]{display:none!important}
+  :where(.ops-app,.special-app,.compliance-app,.tax-app) .shell,
+  .accounting-app .acc-shell{grid-template-columns:230px minmax(0,1fr)!important;min-height:calc(100vh - 64px)!important}
+  :where(.ops-app,.special-app,.compliance-app,.tax-app) .sidebar,
+  .accounting-app .acc-sidebar{background:#fff!important;color:#20252c!important;border-right:1px solid #d4dce7!important;padding:18px 14px!important}
+  .tax-app .scope-box,.ops-app .year-box,.special-app .year-box,.compliance-app .year-box,.accounting-app .acc-year-box{
+    background:#f4f7fb!important;border:1px solid #d7dfeb!important;border-radius:8px!important;color:#465162!important;padding:12px!important;margin-bottom:14px!important;
+  }
+  .tax-app .scope-box label{color:#667085!important}
+  .tax-app .scope-box select{border:1px solid #c8d1df!important;background:#fff!important;color:#20252c!important}
+  :where(.ops-app,.special-app,.compliance-app,.tax-app) .sidebar nav{display:grid!important;gap:4px!important}
+  :where(.ops-app,.special-app,.compliance-app,.tax-app) .nav,
+  .accounting-app .acc-nav{
+    display:flex!important;align-items:center!important;width:100%!important;box-sizing:border-box!important;margin:0!important;
+    padding:.58rem .65rem!important;border:0!important;border-radius:3px!important;background:transparent!important;color:#202733!important;
+    text-align:left!important;text-decoration:none!important;font-family:inherit!important;font-size:.9rem!important;font-weight:400!important;line-height:1.35!important;cursor:pointer!important;
+  }
+  :where(.ops-app,.special-app,.compliance-app,.tax-app) .nav:hover,
+  .accounting-app .acc-nav:hover{background:#f2f4f7!important;color:#202733!important}
+  :where(.ops-app,.special-app,.compliance-app,.tax-app) .nav.active,
+  .accounting-app .acc-nav.active{background:#e8effe!important;color:#315f9f!important;font-weight:700!important}
+  :where(.ops-app,.special-app,.compliance-app,.tax-app) .side-note,
+  .special-app .sidebar-note{margin-top:auto!important;border-top:1px solid #e2e8f0!important;padding:12px 6px 0!important;color:#687386!important;font-size:10px!important;line-height:1.55!important}
+  :where(.ops-app,.special-app,.compliance-app,.tax-app) .main,
+  .accounting-app .acc-main,.file-admin main{padding:22px!important}
+  :where(.accounting-app,.ops-app,.special-app,.compliance-app,.tax-app,.file-admin) .card{
+    border-color:#d6deea!important;border-radius:9px!important;box-shadow:0 1px 2px rgba(0,0,0,.03)!important;
+  }
+  :where(.accounting-app,.ops-app,.special-app,.compliance-app,.tax-app,.file-admin) .table-wrap{
+    border-color:#9caec1!important;border-radius:6px!important;background:#fff!important;
+  }
+  :where(.accounting-app,.ops-app,.special-app,.compliance-app,.tax-app,.file-admin) table th,
+  :where(.accounting-app,.ops-app,.special-app,.compliance-app,.tax-app,.file-admin) table td{
+    border-color:#aebdcd!important;vertical-align:middle!important;
+  }
+  :where(.accounting-app,.ops-app,.special-app,.compliance-app,.tax-app,.file-admin) table th{background:#eaf1f8!important;color:#36465b!important}
+  :where(.accounting-app,.ops-app,.special-app,.compliance-app,.tax-app,.file-admin) input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  :where(.accounting-app,.ops-app,.special-app,.compliance-app,.tax-app,.file-admin) select,
+  :where(.accounting-app,.ops-app,.special-app,.compliance-app,.tax-app,.file-admin) textarea{
+    border-radius:5px!important;border-color:#c8d1df!important;box-shadow:none!important;
+  }
+  :where(.accounting-app,.ops-app,.special-app,.compliance-app,.tax-app,.file-admin) input:focus,
+  :where(.accounting-app,.ops-app,.special-app,.compliance-app,.tax-app,.file-admin) select:focus,
+  :where(.accounting-app,.ops-app,.special-app,.compliance-app,.tax-app,.file-admin) textarea:focus{
+    outline:0!important;border-color:#8fa8c7!important;box-shadow:0 0 0 2px rgba(49,95,159,.08)!important;
+  }
+  .accounting-app .acc-nav-group-label{margin:14px 4px 6px;padding-top:10px;border-top:1px solid #e1e7ef;color:#7b8797;font-size:10px;font-weight:800;letter-spacing:.08em}
+  @media(max-width:850px){
+    :where(.ops-app,.special-app,.compliance-app,.tax-app) .shell,.accounting-app .acc-shell{display:block!important}
+    :where(.ops-app,.special-app,.compliance-app,.tax-app) .sidebar,.accounting-app .acc-sidebar{border-right:0!important;border-bottom:1px solid #d4dce7!important}
+    :where(.ops-app,.special-app,.compliance-app,.tax-app) .sidebar nav{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+    :where(.ops-app,.special-app,.compliance-app,.tax-app) .main,.accounting-app .acc-main,.file-admin main{padding:12px!important}
+  }
+</style>
+<style is:global>
+  .file-admin .heading{display:flex!important;align-items:flex-end!important;justify-content:space-between!important;gap:14px!important}
+  @media(max-width:700px){.file-admin .heading{align-items:flex-start!important;flex-direction:column!important}}
+</style>

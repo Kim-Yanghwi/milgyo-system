@@ -356,6 +356,6 @@ export const assertLinkedTaxJournalsReversed = async (db: D1Database, journalIds
     .bind(...ids).all<{ journal_no: string }>();
   const numbers = (posted.results || []).map((row) => row.journal_no);
   if (numbers.length) {
-    throw new Error(`연결 세무전표(${numbers.join(', ')})를 기본회계에서 먼저 역분개한 뒤 자료를 취소해 주세요.`);
+    throw new Error(`연결 세무전표(${numbers.join(', ')})를 회계·예산·결산의 전표관리에서 먼저 역분개한 뒤 자료를 취소해 주세요.`);
   }
 };

@@ -1,4 +1,4 @@
-import { clean, randomHex, type SessionUser } from './helpers';
+import { clean, randomHex, toHex, type SessionUser } from './helpers';
 import { ACCOUNTING_R2_PREFIX, assertAccountingR2Key } from './r2-scope-guard';
 
 export type AccountingAttachmentPolicy = {
@@ -200,7 +200,7 @@ type R2ListResult = { objects?: R2ListedObject[]; truncated?: boolean; cursor?: 
 const upsertIssue = async (
   db: D1Database,
   issue: {
-    issueType: 'D1_ONLY' | 'R2_ONLY';
+    issueType: 'D1_ONLY' | 'R2_ONLY' | 'SIZE_MISMATCH' | 'CHECKSUM_MISMATCH';
     attachmentId?: number | null;
     objectKey: string;
     referenceType?: string | null;
@@ -239,7 +239,7 @@ export const runAccountingAttachmentIntegrityScan = async (
 ) => {
   const now = new Date().toISOString();
   const attachments = await db.prepare(`
-    SELECT id,reference_type,reference_id,object_key,original_filename,size_bytes,deleted_at
+    SELECT id,reference_type,reference_id,object_key,original_filename,size_bytes,checksum_sha256,deleted_at
     FROM accounting_attachments
     ORDER BY id
   `).all<any>();
@@ -247,10 +247,16 @@ export const runAccountingAttachmentIntegrityScan = async (
   const seen = new Set<string>();
   let d1Only = 0;
   let r2Only = 0;
+  let sizeMismatch = 0;
+  let checksumMismatch = 0;
 
   for (const row of rows) {
     if (row.deleted_at) continue;
-    const object = await bucket.head(String(row.object_key || ''));
+    // 'full' mode downloads the object body so the checksum check below can re-hash the actual
+    // bytes; 'd1' (quick) mode only HEADs the object to stay cheap for a routine scan.
+    const object: any = mode === 'full'
+      ? await bucket.get(String(row.object_key || ''))
+      : await bucket.head(String(row.object_key || ''));
     await db.prepare(`UPDATE accounting_attachments SET last_checked_at=? WHERE id=?`).bind(now, row.id).run();
     if (!object) {
       d1Only += 1;
@@ -258,6 +264,34 @@ export const runAccountingAttachmentIntegrityScan = async (
         issueType: 'D1_ONLY', attachmentId: Number(row.id), objectKey: String(row.object_key || ''),
         referenceType: row.reference_type, referenceId: row.reference_id,
         details: { originalFilename: row.original_filename, sizeBytes: row.size_bytes },
+      }, now));
+      continue;
+    }
+    if (Number(object.size || 0) !== Number(row.size_bytes || 0)) {
+      sizeMismatch += 1;
+      seen.add(await upsertIssue(db, {
+        issueType: 'SIZE_MISMATCH', attachmentId: Number(row.id), objectKey: String(row.object_key || ''),
+        referenceType: row.reference_type, referenceId: row.reference_id,
+        details: { originalFilename: row.original_filename, expectedSize: Number(row.size_bytes || 0), actualSize: Number(object.size || 0) },
+      }, now));
+    }
+    const storedChecksum = String(row.checksum_sha256 || '').toLowerCase();
+    // In 'full' mode, re-hash the actual downloaded object bytes rather than trusting the
+    // customMetadata checksum captured at upload time: that metadata travels alongside the
+    // object and would not change if the underlying bytes were tampered with or replaced
+    // out-of-band, so comparing D1's stored checksum against R2 metadata only ever proved
+    // metadata-vs-metadata consistency — never that the bytes actually on disk still match
+    // what was originally uploaded. 'd1' (quick) mode keeps the cheap metadata-only comparison
+    // so a routine scan doesn't have to download every attachment's full body.
+    const actualChecksum = mode === 'full'
+      ? toHex(await crypto.subtle.digest('SHA-256', await object.arrayBuffer()))
+      : String(object.customMetadata?.checksumSha256 || '').toLowerCase();
+    if (storedChecksum && actualChecksum && actualChecksum !== storedChecksum) {
+      checksumMismatch += 1;
+      seen.add(await upsertIssue(db, {
+        issueType: 'CHECKSUM_MISMATCH', attachmentId: Number(row.id), objectKey: String(row.object_key || ''),
+        referenceType: row.reference_type, referenceId: row.reference_id,
+        details: { originalFilename: row.original_filename, expectedChecksum: storedChecksum, actualChecksum, verifiedBytes: mode === 'full' },
       }, now));
     }
   }
@@ -288,7 +322,7 @@ export const runAccountingAttachmentIntegrityScan = async (
     } while (cursor);
   }
 
-  const types = mode === 'full' ? ['D1_ONLY', 'R2_ONLY'] : ['D1_ONLY'];
+  const types = mode === 'full' ? ['D1_ONLY', 'R2_ONLY', 'SIZE_MISMATCH', 'CHECKSUM_MISMATCH'] : ['D1_ONLY', 'SIZE_MISMATCH', 'CHECKSUM_MISMATCH'];
   const openIssues = await db.prepare(`
     SELECT id,issue_key FROM accounting_attachment_integrity_issues
     WHERE status='open' AND issue_type IN (${types.map(() => '?').join(',')})
@@ -303,7 +337,7 @@ export const runAccountingAttachmentIntegrityScan = async (
     }
   }
 
-  return { mode, scannedAttachments: rows.filter((row) => !row.deleted_at).length, d1Only, r2Only, truncated, checkedAt: now };
+  return { mode, scannedAttachments: rows.filter((row) => !row.deleted_at).length, d1Only, r2Only, sizeMismatch, checksumMismatch, truncated, checkedAt: now };
 };
 
 export const retryAccountingAttachmentOperation = async (

@@ -118,6 +118,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         await env.ACCOUNTING_FILES.delete(assertAccountingR2Key(issue.object_key, '회계 무결성 점검 R2 삭제'));
       } else if (resolution === 'mark-d1-deleted') {
         if (issue.issue_type !== 'D1_ONLY' || !issue.attachment_id) return json({ ok: false, message: 'D1 단독 메타정보에만 사용할 수 있는 처리입니다.' }, 400);
+        const attachment = await env.ACCOUNTING_DB.prepare(`SELECT retention_until FROM accounting_attachments WHERE id=?`)
+          .bind(issue.attachment_id).first<{ retention_until: string | null }>();
+        if (!attachment) return json({ ok: false, message: '삭제 표시할 첨부파일 메타정보를 찾을 수 없습니다.' }, 404);
+        assertAccountingAttachmentRetentionElapsed(attachment.retention_until, now);
         await env.ACCOUNTING_DB.prepare(`
           UPDATE accounting_attachments
           SET deleted_at=COALESCE(deleted_at,?),deleted_by=?,delete_reason='무결성 점검: R2 객체 없음',

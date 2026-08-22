@@ -21,7 +21,7 @@ type R2ObjectBody = {
   httpMetadata?: { contentType?: string; contentDisposition?: string };
   customMetadata?: Record<string, string>;
 };
-type R2Object = { key: string; size?: number; uploaded?: Date; etag?: string; httpEtag?: string };
+type R2Object = { key: string; size?: number; uploaded?: Date; etag?: string; httpEtag?: string; customMetadata?: Record<string, string> };
 type R2Objects = { objects?: R2Object[]; truncated?: boolean; cursor?: string };
 type R2Bucket = {
   put: (key: string, value: ArrayBuffer | ArrayBufferView | string | ReadableStream<Uint8Array>, options?: any) => Promise<R2Object | null>;

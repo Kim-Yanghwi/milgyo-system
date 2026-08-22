@@ -1,30 +1,30 @@
 ---
 import GovLayout from '../layouts/GovLayout.astro';
+import AccountingHeader from '../components/AccountingHeader.astro';
 ---
-<GovLayout title="규정·공공조달·점검 | 대한불교밀교종">
-  <div class="compliance-app" data-app data-compliance-version="2026-08-16-v75-ui-table-date" hidden>
-    <header class="topbar">
-      <a href="/accounting-compliance/" class="brand"><img src="/brand-logo-transparent.png" alt="대한불교밀교종 로고" /><span><img src="/brand-wordmark-symbol.svg" alt="대한불교밀교종" /><b>규정·공공조달·점검</b></span></a>
-      <div class="top-actions"><span data-user-label></span><a href="/" class="btn btn-outline">전자문서</a><a href="/accounting/" class="btn btn-outline">기본 회계</a><a href="/accounting-special/" class="btn btn-outline">특화회계</a><a href="/accounting-operations/" class="btn btn-outline">실무관리</a><a href="/accounting-tax/" class="btn btn-outline">세무·신고자료</a><button class="btn btn-outline" data-logout>로그아웃</button></div>
-    </header>
+<GovLayout title="계약·조달·준법 | 대한불교밀교종">
+  <div class="compliance-app" data-app data-compliance-version="2026-08-21-v81-integrated-stabilization" hidden>
+    <AccountingHeader current="governance" title="회계관리시스템" homeHref="/accounting-compliance/?domain=governance" />
     <div class="shell">
       <aside class="sidebar">
         <div class="year-box"><label for="compliance-year">회계연도</label><select id="compliance-year" data-year></select></div>
         <nav>
-          <button class="nav active" data-tab="overview">규정대응 현황</button>
-          <button class="nav" data-tab="revenue">수익사업 관리</button>
-          <button class="nav" data-tab="procurement">공공조달 관리</button>
-          <button class="nav" data-tab="reserve">고유목적사업준비금</button>
-          <button class="nav" data-tab="check">회계점검·즉시보고</button>
-          <button class="nav" data-tab="vehicle">업무용 차량</button>
+          <button class="nav active" data-tab="overview" data-domain="governance">계약·조달·준법 현황</button>
+          <button class="nav" data-tab="revenue" data-domain="governance">수익사업 관리</button>
+          <button class="nav" data-tab="procurement" data-domain="governance">공공조달 관리</button>
+          <button class="nav" data-tab="reserve" data-domain="governance">고유목적사업준비금</button>
+          <button class="nav" data-tab="check" data-domain="governance">회계점검·즉시보고</button>
+          <button class="nav" data-tab="vehicle" data-domain="governance">업무용 차량</button>
+                  <a class="nav" data-domain="governance" href="/accounting-operations/?domain=governance&tab=contract">거래처·계약·지출</a>
+          <a class="nav attachment-ops-only" data-domain="governance" href="/accounting-files/?domain=governance" hidden>첨부파일·운영점검</a>
         </nav>
-        <p class="side-note">정관·재무회계규정에 따라 승인근거, 의결번호, 증빙과 점검이력을 연결해 관리합니다.</p>
+        <p class="side-note">계약·조달·규정 준수와 첨부파일 무결성 점검까지 하나의 통제 권역으로 관리합니다.</p>
       </aside>
       <main class="main">
         <div class="notice" data-notice hidden></div>
 
-        <section class="panel active" data-panel="overview">
-          <div class="heading"><div><p>REGULATION COMPLIANCE</p><h1>정관·재무회계규정 대응 현황</h1><span>수익사업, 공공조달, 준비금, 정기점검, 즉시보고, 업무용 차량을 기존 회계자료와 연결합니다.</span></div></div>
+        <section class="panel active" data-panel="overview" data-domain="governance">
+          <div class="heading"><div><p>CONTRACT &amp; COMPLIANCE</p><h1>계약·조달·준법 현황</h1><span>거래처·계약, 공공조달, 준비금, 정기점검, 즉시보고와 운영정책을 하나의 통제 흐름으로 연결합니다.</span></div></div>
           <div class="summary-grid">
             <button data-jump="revenue"><span>수익사업 관리</span><strong data-summary-revenue>0건</strong><small>검토·승인·운영 중</small></button>
             <button data-jump="procurement"><span>공공조달 검토</span><strong data-summary-procurement>0건</strong><small>검토·승인·계약 중</small></button>
@@ -42,7 +42,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           <div class="card rule-note"><h2>자동 통제 기준</h2><p>공공조달은 추정가격 5천만원 이상, 1회계연도 초과, 차입·보증, 중대한 재정위험 또는 연간 계약총액이 직전연도 총수입의 50%를 넘으면 이사회 의결 대상으로 안내하며, 기본재산 담보는 총회·주무관청 절차까지 표시합니다.</p><div class="limit-strip"><span>직전연도 총수입 <b data-prior-income>0원</b></span><span>50% 총량한도 <b data-procurement-limit>0원</b></span><span>현재 계약누계 <b data-procurement-total>0원</b></span></div></div>
         </section>
 
-        <section class="panel" data-panel="revenue">
+        <section class="panel" data-panel="revenue" data-domain="governance">
           <div class="heading"><div><p>REVENUE BUSINESS</p><h1>수익사업 시행·변경·중단 관리</h1><span>사업별 정관상 근거, 예상 손익, 등록·허가·세무 검토와 승인근거를 보존합니다.</span></div><a class="btn btn-outline" href="/?compose=1&template=TPL-FIN-REVENUE-BUSINESS">전자문서 검토서 작성</a></div>
           <form class="card manager-only" data-revenue-form>
             <input type="hidden" name="id" />
@@ -68,7 +68,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           <div class="card"><div class="card-head"><h2>수익사업 관리대장</h2><button class="btn btn-outline" data-load-revenue>새로고침</button></div><div class="table-wrap"><table><thead><tr><th>관리번호</th><th>사업명</th><th>구분</th><th>기간</th><th>예상수입</th><th>예상지출</th><th>승인</th><th>상태</th><th>첨부</th></tr></thead><tbody data-revenue-rows></tbody></table></div></div>
         </section>
 
-        <section class="panel" data-panel="procurement">
+        <section class="panel" data-panel="procurement" data-domain="governance">
           <div class="heading"><div><p>PUBLIC PROCUREMENT</p><h1>공공조달 입찰참가·계약 위험관리</h1><span>입찰 전 참가자격, 원가·손익, 보증, 세무, 이해관계, 승인단계와 연간 총량한도를 자동 검토합니다.</span></div><a class="btn btn-outline" href="/?compose=1&template=TPL-FIN-PROCUREMENT-REVIEW">입찰참가 검토서 작성</a></div>
           <form class="card manager-only" data-procurement-form>
             <input type="hidden" name="id" />
@@ -104,7 +104,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           </div>
         </section>
 
-        <section class="panel" data-panel="reserve">
+        <section class="panel" data-panel="reserve" data-domain="governance">
           <div class="heading"><div><p>PURPOSE RESERVE</p><h1>고유목적사업준비금 관리대장</h1><span>설정액, 사용기한, 사용액, 환입액, 잔액과 세무검토 상태를 관리합니다.</span></div></div>
           <div class="two-cols manager-only">
             <form class="card" data-reserve-form><h2>준비금 설정</h2><input type="hidden" name="id" /><div class="form-grid two"><label>설정일<input name="setDate" type="date" required /></label><label>설정액<input name="setAmount" class="money" required /></label><label>사용기한<input name="useDeadline" type="date" /></label><label>재원<select name="fundId" data-fund-select></select></label><label>세무검토<select name="taxReviewStatus"><option value="review">검토필요</option><option value="complete">검토완료</option><option value="external_review">세무사·회계사 검토</option></select></label><label>검토자<input name="reviewer" /></label></div><label>비고<textarea name="memo"></textarea></label><div class="form-actions"><button class="btn btn-primary">설정자료 저장</button></div></form>
@@ -113,7 +113,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           <div class="card"><div class="card-head"><h2>준비금 관리대장</h2><button class="btn btn-outline" data-load-reserves>새로고침</button></div><div class="table-wrap"><table><thead><tr><th>관리번호</th><th>설정일</th><th>설정액</th><th>사용액</th><th>환입액</th><th>잔액</th><th>사용기한</th><th>세무검토</th><th>첨부</th></tr></thead><tbody data-reserve-rows></tbody></table></div></div>
         </section>
 
-        <section class="panel" data-panel="check">
+        <section class="panel" data-panel="check" data-domain="governance">
           <div class="heading"><div><p>ACCOUNTING CHECK</p><h1>월별·분기별 회계점검 및 중요사항 즉시보고</h1><span>기존 회계데이터를 이용해 대사·증빙·예산·첨부무결성·조달위험을 자동 집계하고 시정조치 이력을 남깁니다.</span></div><div class="heading-actions"><a class="btn btn-outline" href="/?compose=1&template=TPL-FIN-MONTHLY-CHECK">점검보고서 작성</a><a class="btn btn-outline" href="/?compose=1&template=TPL-FIN-IMMEDIATE-REPORT">즉시보고서 작성</a></div></div>
           <form class="card manager-only" data-check-form><input type="hidden" name="id" /><div class="form-grid four"><label>기간구분<select name="periodType"><option value="month">월별</option><option value="quarter">분기별</option></select></label><label>기간값<input name="periodKey" value="01" placeholder="01 또는 Q1" /></label><label>상태<select name="status"><option value="open">보완중</option><option value="completed">점검완료</option></select></label><div class="inline-checks"><label><input type="checkbox" name="reportedChairman" /> 이사장 보고</label><label><input type="checkbox" name="reportedAuditor" /> 감사 보고</label></div></div><div class="snapshot-grid" data-check-snapshot><div><span>기간 수입</span><b data-snap-income>0원</b></div><div><span>기간 지출</span><b data-snap-expense>0원</b></div><div><span>후원금·보시금 수입</span><b data-snap-donation>0원</b></div><div><span>수익사업 세무설정</span><b data-snap-taxprofile>정상</b></div><div><span>예금잔액</span><b data-snap-balance>0원</b></div><div><span>미대사</span><b data-snap-unmatched>0건</b></div><div><span>증빙누락</span><b data-snap-evidence>0건</b></div><div><span>예산초과</span><b data-snap-overbudget>0건</b></div><div><span>예산변경대기</span><b data-snap-budget>0건</b></div><div><span>첨부무결성</span><b data-snap-integrity>0건</b></div><div><span>조달위험</span><b data-snap-procurement>0건</b></div><div><span>미종결 즉시보고</span><b data-snap-incident>0건</b></div></div><label>점검결과·이상사항<textarea name="findings"></textarea></label><label>보완·시정조치<textarea name="correctiveAction"></textarea></label><div class="form-actions"><button type="button" class="btn btn-outline" data-preview-check>자동점검</button><button class="btn btn-primary">점검결과 저장</button></div></form>
           <div class="two-cols">
@@ -123,7 +123,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           <div class="card"><h2>즉시보고 이력</h2><div class="table-wrap"><table><thead><tr><th>보고번호</th><th>일시</th><th>유형</th><th>제목</th><th>보고여부</th><th>상태</th><th>첨부</th></tr></thead><tbody data-incident-rows></tbody></table></div></div>
         </section>
 
-        <section class="panel" data-panel="vehicle">
+        <section class="panel" data-panel="vehicle" data-domain="governance">
           <div class="heading"><div><p>BUSINESS VEHICLE</p><h1>업무용 차량 규정관리</h1><span>차량 등록·운행일지·보험·계약·승계 및 종료 처리는 전자문서의 업무용 차량 관리대장에서 일원화합니다.</span></div><div class="heading-actions"><a class="btn btn-primary" href="/vehicle-register/">업무용 차량 관리대장 열기</a></div></div>
           <div class="card vehicle-handoff-grid">
             <a href="/vehicle-register/?mode=new"><b>1. 차량 등록·수정</b><span>임차·렌트·리스·구입 차량의 계약, 보험, 승인근거와 사용상태를 관리합니다.</span></a>
@@ -140,6 +140,9 @@ import GovLayout from '../layouts/GovLayout.astro';
     </div>
   </div>
 
+  <script is:inline src="/accounting-domain-api.js"></script>
+  <script is:inline src="/accounting-api-client.js"></script>
+  <script is:inline src="/accounting-domain-ui.js"></script>
   <script is:inline>
     (()=>{
       'use strict';
@@ -156,7 +159,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       const currentYear=Number(today().slice(0,4));
       let state={year:currentYear,permissions:{},summary:{},books:[],entities:[],funds:[],contracts:[],organizationDepartments:[],organizationUsers:[],revenueBusinesses:[],procurements:[],reserves:[],vehicles:[]};
       let loadedTabs=new Set(['overview']);
-      const api=async(path,body)=>{const res=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,token})});const text=await res.text();let data;try{data=JSON.parse(text)}catch{data={ok:false,message:`서버 응답 오류(HTTP ${res.status})`}}if(!data.ok)throw new Error(data.message||'처리 중 오류가 발생했습니다.');return data};
+      const api=(path,body={})=>window.AccountingApiClient.post(path,body,token);
       const notice=(message,type='ok')=>{const el=$('[data-notice]');el.textContent=message;el.className=`notice ${type}`;el.hidden=false;clearTimeout(notice.timer);notice.timer=setTimeout(()=>el.hidden=true,5200)};
       const body=(form)=>{if(!commitSmartDateTimes(form)){form.reportValidity();throw new Error('날짜·시간 입력 형식을 확인해 주세요.');}const o={};new FormData(form).forEach((v,k)=>o[k]=v);$$('input[type="checkbox"]',form).forEach((el)=>o[el.name]=el.checked);$$('[data-smart-datetime]',form).forEach((el)=>{const parsed=normalizeDateTime(el.value,true);if(parsed.valid)o[el.name]=parsed.value});return o};
       const setMoneyFormatting=(root=document)=>{$$('.money',root).forEach((el)=>{if(el.dataset.moneyBound)return;el.dataset.moneyBound='1';el.addEventListener('input',()=>{const raw=el.value.replace(/[^0-9-]/g,'');if(!raw||raw==='-')return;el.value=Number(raw).toLocaleString('ko-KR')});});};
@@ -165,9 +168,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       const approvalLabel=(v)=>({secretary_general:'사무총장 전결',chairman:'이사장 승인',board:'이사회 의결',general_meeting:'총회·주무관청'}[v]||v||'-');
       const typeLabel=(v)=>({new:'신설',change:'변경',stop:'중단',owned:'구입·보유',lease:'리스',rental:'임차·렌트',bid:'입찰보증',performance:'계약이행',advance:'선금보증',defect:'하자보수',use:'사용',reversal:'환입'}[v]||v||'-');
       const weekdayLabel=(value)=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(value||''));if(!m)return '';const y=Number(m[1]),mo=Number(m[2]),d=Number(m[3]),dt=new Date(Date.UTC(y,mo-1,d));if(dt.getUTCFullYear()!==y||dt.getUTCMonth()!==mo-1||dt.getUTCDate()!==d)return '';return `(${['일','월','화','수','목','금','토'][dt.getUTCDay()]})`};
-      const dateSyncers=new WeakMap();
-      const setupComplianceDate=(input)=>{if(!(input instanceof HTMLInputElement)||input.type!=='date'||input.dataset.complianceDateBound)return;input.dataset.complianceDateBound='1';let wrap=input.closest('.compliance-date-with-weekday');if(!wrap){wrap=document.createElement('div');wrap.className='compliance-date-with-weekday';input.before(wrap);wrap.append(input)}let weekday=wrap.querySelector('.compliance-date-weekday');if(!weekday){weekday=document.createElement('span');weekday.className='compliance-date-weekday';weekday.setAttribute('aria-live','polite');wrap.append(weekday)}const sync=()=>{weekday.textContent=weekdayLabel(input.value);weekday.hidden=!weekday.textContent};dateSyncers.set(input,sync);input.addEventListener('input',sync);input.addEventListener('change',sync);sync()};
-      const syncComplianceDates=(root=document)=>{if(root instanceof HTMLInputElement&&root.type==='date')setupComplianceDate(root);root.querySelectorAll?.('input[type="date"]').forEach((input)=>{setupComplianceDate(input);dateSyncers.get(input)?.()})};
+      const syncComplianceDates=(root=document)=>window.__MILGYO_SYNC_DATE_INPUTS__?.(root);
       const smartDateTimeCommitters=new WeakMap();
       const normalizeDateTime=(raw,strict=false)=>{const value=String(raw||'').trim();if(!value)return{valid:true,value:'',display:''};const digits=value.replace(/\D/g,'');let y,mo,d,h,mi;if(/^\d{12}$/.test(digits)){y=+digits.slice(0,4);mo=+digits.slice(4,6);d=+digits.slice(6,8);h=+digits.slice(8,10);mi=+digits.slice(10,12)}else{const m=/^(\d{4})[-./]?(\d{1,2})[-./]?(\d{1,2})(?:[ T](\d{1,2}):?(\d{1,2}))$/.exec(value);if(!m)return{valid:!strict,value,display:value};y=+m[1];mo=+m[2];d=+m[3];h=+m[4];mi=+m[5]}const dt=new Date(Date.UTC(y,mo-1,d,h,mi));const valid=dt.getUTCFullYear()===y&&dt.getUTCMonth()===mo-1&&dt.getUTCDate()===d&&h>=0&&h<=23&&mi>=0&&mi<=59;if(!valid)return{valid:false,value,display:value};const date=`${String(y).padStart(4,'0')}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`,time=`${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}`;return{valid:true,value:`${date}T${time}`,display:`${date} ${time}`}};
       const setupSmartDateTime=(input)=>{if(!(input instanceof HTMLInputElement)||!input.matches('[data-smart-datetime]')||input.dataset.smartDateTimeBound)return;input.dataset.smartDateTimeBound='1';const initial=normalizeDateTime(input.value,false);if(initial.valid&&initial.display)input.value=initial.display;let wrap=input.closest('.smart-datetime');if(!wrap){wrap=document.createElement('div');wrap.className='smart-datetime';input.before(wrap);wrap.append(input)}const picker=document.createElement('input');picker.type='datetime-local';picker.className='smart-datetime-picker';picker.tabIndex=-1;picker.setAttribute('aria-label','달력과 시간에서 선택');if(initial.valid&&initial.value)picker.value=initial.value;picker.removeAttribute('name');wrap.append(picker);const weekday=document.createElement('span');weekday.className='compliance-date-weekday';weekday.setAttribute('aria-live','polite');wrap.append(weekday);const sync=()=>{const parsed=normalizeDateTime(input.value,false);weekday.textContent=parsed.valid?weekdayLabel(parsed.value):'';weekday.hidden=!weekday.textContent;if(parsed.valid&&parsed.value)picker.value=parsed.value};const commit=()=>{const parsed=normalizeDateTime(input.value,true);if(parsed.valid){input.value=parsed.display;input.setCustomValidity('');if(parsed.value)picker.value=parsed.value;sync();return true}input.setCustomValidity('발견일시는 YYYYMMDDHHMM 또는 YYYY-MM-DD HH:MM 형식으로 입력해 주세요.');weekday.textContent='';weekday.hidden=true;return false};smartDateTimeCommitters.set(input,commit);input.addEventListener('input',()=>{input.setCustomValidity('');sync()});input.addEventListener('change',commit);input.addEventListener('blur',commit);picker.addEventListener('change',()=>{const parsed=normalizeDateTime(picker.value,true);input.value=parsed.display;commit();input.focus()});sync()};
@@ -179,9 +180,9 @@ import GovLayout from '../layouts/GovLayout.astro';
       const validTabs=new Set(['overview','revenue','procurement','reserve','check','vehicle']);
       const tabFromUrl=()=>{const name=new URLSearchParams(location.search).get('tab');return validTabs.has(name)?name:'overview'};
       const setTab=(name,{historyMode='push',scroll=true}={})=>{if(!validTabs.has(name))name='overview';$$('.nav').forEach((b)=>b.classList.toggle('active',b.dataset.tab===name));$$('.panel').forEach((p)=>p.classList.toggle('active',p.dataset.panel===name));const url=new URL(location.href);if(name==='overview')url.searchParams.delete('tab');else url.searchParams.set('tab',name);if(historyMode==='push'&&url.href!==location.href)history.pushState({complianceTab:name},'',url);else if(historyMode==='replace')history.replaceState({complianceTab:name},'',url);loadTab(name).catch((e)=>notice(e.message,'error'));if(scroll)window.scrollTo({top:0,behavior:'auto'});if(name==='vehicle'&&new URLSearchParams(location.search).get('view')==='ledger')setTimeout(()=>document.querySelector('[data-vehicle-rows]')?.closest('.card')?.scrollIntoView({block:'start'}),40)};
-      $$('.nav').forEach((b)=>b.addEventListener('click',()=>setTab(b.dataset.tab)));$$('[data-jump]').forEach((b)=>b.addEventListener('click',()=>setTab(b.dataset.jump)));
+      $$('.nav[data-tab]').forEach((b)=>b.addEventListener('click',()=>setTab(b.dataset.tab)));$$('[data-jump]').forEach((b)=>b.addEventListener('click',()=>setTab(b.dataset.jump)));
       window.addEventListener('popstate',()=>setTab(tabFromUrl(),{historyMode:'none',scroll:false}));
-      $('[data-logout]').addEventListener('click',()=>{localStorage.removeItem(STORAGE_KEY);location.replace('/')});
+      $('[data-logout]').addEventListener('click',async()=>{try{await fetch('/api/auth/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})})}catch{}localStorage.removeItem(STORAGE_KEY);location.replace('/')});
       const updateSummary=()=>{const s=state.summary||{};$('[data-summary-revenue]').textContent=`${Number(s.revenue_businesses||0)}건`;$('[data-summary-procurement]').textContent=`${Number(s.procurements||0)}건`;$('[data-summary-reserve]').textContent=won(s.reserve_balance);$('[data-summary-check]').textContent=`${Number(s.checks||0)+Number(s.incidents||0)}건`;$('[data-summary-vehicle]').textContent=`${Number(s.vehicles||0)}대`;$('[data-summary-guarantee]').textContent=`${Number(s.expiring_guarantees||0)}건`;};
       const renderMasterOptions=()=>{
         $('[data-fund-select]').innerHTML=state.funds.map((x)=>`<option value="${esc(x.id)}" ${x.id==='FUND-RESERVE'?'selected':''}>${esc(x.name)}</option>`).join('');
@@ -194,7 +195,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         window.__MILGYO_RENDER_REVENUE_MANAGERS__=renderRevenueManagers;
         const responsibleSelect=$('[data-procurement-responsible-select]');if(responsibleSelect)responsibleSelect.innerHTML='<option value="">책임자 선택</option>'+state.organizationUsers.map((x)=>`<option value="${esc(x.id)}">${esc(x.name)}${x.position?' · '+esc(x.position):''}${x.departmentLabel?' · '+esc(x.departmentLabel):''}</option>`).join('');
       };
-      const init=async()=>{const data=await api('/api/accounting-compliance/query',{action:'init',year:state.year});state={...state,...data,permissions:data.permissions||{},summary:data.summary||{}};loadedTabs=new Set(['overview']);$('[data-user-label]').textContent=`${me.name}${me.position?' · '+me.position:''}`;document.body.classList.toggle('read-only',!state.permissions.manager);$$('.manager-only').forEach((el)=>el.hidden=!state.permissions.manager);const yearSel=$('[data-year]');yearSel.innerHTML=(data.fiscalYears?.length?data.fiscalYears.map((x)=>x.year):[currentYear-1,currentYear,currentYear+1]).map((y)=>`<option value="${y}" ${Number(y)===state.year?'selected':''}>${y} 회계연도</option>`).join('');$('[data-prior-income]').textContent=won(data.priorYearIncome);$('[data-procurement-limit]').textContent=won(data.annualProcurementLimit);$('[data-procurement-total]').textContent=won(data.annualProcurementTotal);renderMasterOptions();updateSummary();$('[data-app]').hidden=false;setMoneyFormatting();revenueApprovalPreview();};
+      const init=async()=>{const data=await api('/api/accounting-compliance/query',{action:'init',year:state.year});state={...state,...data,permissions:data.permissions||{},summary:data.summary||{}};loadedTabs=new Set(['overview']);$('[data-user-label]').textContent=`${me.name}${me.position?' · '+me.position:''}`;document.body.classList.toggle('read-only',!state.permissions.manager);$$('.manager-only').forEach((el)=>el.hidden=!state.permissions.manager);$$('.attachment-ops-only').forEach((el)=>el.hidden=!(state.permissions.manager||state.permissions.audit));const yearSel=$('[data-year]');yearSel.innerHTML=(data.fiscalYears?.length?data.fiscalYears.map((x)=>x.year):[currentYear-1,currentYear,currentYear+1]).map((y)=>`<option value="${y}" ${Number(y)===state.year?'selected':''}>${y} 회계연도</option>`).join('');$('[data-prior-income]').textContent=won(data.priorYearIncome);$('[data-procurement-limit]').textContent=won(data.annualProcurementLimit);$('[data-procurement-total]').textContent=won(data.annualProcurementTotal);renderMasterOptions();updateSummary();$('[data-app]').hidden=false;setMoneyFormatting();revenueApprovalPreview();};
       $('[data-year]').addEventListener('change',async(e)=>{state.year=Number(e.target.value);await init();setTab($('.nav.active')?.dataset.tab||'overview',{historyMode:'replace',scroll:false})});
       const loadTab=async(name,{force=false}={})=>{const key=`${state.year}:${name}`;if(!force&&loadedTabs.has(key))return;if(name==='revenue')await loadRevenue();if(name==='procurement'){const revenueKey=`${state.year}:revenue`;if(!loadedTabs.has(revenueKey)){await loadRevenue();loadedTabs.add(revenueKey)}await loadProcurement()}if(name==='reserve')await loadReserves();if(name==='check')await Promise.all([loadChecks(),loadIncidents(),previewCheck().catch(()=>{})]);if(name==='vehicle')await loadVehicles();if(name!=='overview')loadedTabs.add(key);};
 
@@ -208,7 +209,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       const openProcurement=async(id)=>{const data=await api('/api/accounting-compliance/query',{action:'procurement-detail',id});fill($('[data-procurement-form]'),data.row);$('[data-guarantee-form]').elements.procurementReviewId.value=id;$('[data-procurement-detail-area]').hidden=false;$('[data-guarantee-rows]').innerHTML=(data.guarantees||[]).length?data.guarantees.map((g)=>`<tr><td>${esc(g.guarantee_no)}</td><td>${esc(typeLabel(g.guarantee_type))}</td><td>${esc(g.provider)}</td><td>${won(g.amount)}</td><td>${esc(g.start_date||'-')} ~ ${esc(g.end_date||'-')}</td><td>${g.recovered?'회수·종료':'관리중'}</td></tr>`).join(''):empty(6);await previewProcurement();window.scrollTo({top:0,behavior:'smooth'});};
       $('[data-guarantee-form]').addEventListener('submit',async(e)=>{e.preventDefault();try{const data=await api('/api/accounting-compliance/action',{action:'save-guarantee',...body(e.currentTarget)});notice(data.message);const id=e.currentTarget.elements.procurementReviewId.value;e.currentTarget.reset();e.currentTarget.elements.procurementReviewId.value=id;await openProcurement(id);await initSummaryOnly()}catch(err){notice(err.message,'error')}});
 
-      const loadReserves=async()=>{const data=await api('/api/accounting-compliance/query',{action:'reserves',year:state.year});state.reserves=data.rows||[];$('[data-reserve-rows]').innerHTML=state.reserves.length?state.reserves.map((r)=>{const used=Number(r.used_amount||0),rev=Number(r.reversed_amount||0),balance=Number(r.set_amount||0)-used-rev;return `<tr><td>${esc(r.reserve_no)}</td><td>${esc(r.set_date)}</td><td>${won(r.set_amount)}</td><td>${won(used)}</td><td>${won(rev)}</td><td>${won(balance)}</td><td>${esc(r.use_deadline||'-')}</td><td>${esc(r.tax_review_status||'-')}</td><td>${attachButton('purpose_reserve',r.id,r.reserve_no,'report')}</td></tr>`}).join(''):empty(9);$('[data-reserve-select]').innerHTML='<option value="">선택</option>'+state.reserves.map((r)=>`<option value="${esc(r.id)}">${esc(r.reserve_no)} · 잔액 ${won(Number(r.set_amount||0)-Number(r.used_amount||0)-Number(r.reversed_amount||0))}</option>`).join('');};
+      const loadReserves=async()=>{const data=await api('/api/accounting-compliance/query',{action:'reserves',year:state.year});state.reserves=data.rows||[];$('[data-reserve-rows]').innerHTML=state.reserves.length?state.reserves.map((r)=>{const used=Number(r.used_amount||0),rev=Number(r.reversed_amount||0),balance=Number(r.set_amount||0)-used+rev;return `<tr><td>${esc(r.reserve_no)}</td><td>${esc(r.set_date)}</td><td>${won(r.set_amount)}</td><td>${won(used)}</td><td>${won(rev)}</td><td>${won(balance)}</td><td>${esc(r.use_deadline||'-')}</td><td>${esc(r.tax_review_status||'-')}</td><td>${attachButton('purpose_reserve',r.id,r.reserve_no,'report')}</td></tr>`}).join(''):empty(9);$('[data-reserve-select]').innerHTML='<option value="">선택</option>'+state.reserves.map((r)=>`<option value="${esc(r.id)}">${esc(r.reserve_no)} · 잔액 ${won(Number(r.set_amount||0)-Number(r.used_amount||0)+Number(r.reversed_amount||0))}</option>`).join('');};
       $('[data-load-reserves]').addEventListener('click',()=>loadReserves().catch((e)=>notice(e.message,'error')));$('[data-reserve-form]').addEventListener('submit',async(e)=>{e.preventDefault();try{const data=await api('/api/accounting-compliance/action',{action:'save-reserve',year:state.year,...body(e.currentTarget)});notice(data.message);e.currentTarget.reset();e.currentTarget.elements.id.value='';e.currentTarget.elements.setDate.value=today();syncComplianceDates(e.currentTarget);await Promise.all([loadReserves(),initSummaryOnly()])}catch(err){notice(err.message,'error')}});$('[data-reserve-tx-form]').addEventListener('submit',async(e)=>{e.preventDefault();try{const data=await api('/api/accounting-compliance/action',{action:'add-reserve-transaction',...body(e.currentTarget)});notice(data.message);const reserve=e.currentTarget.elements.reserveId.value;e.currentTarget.reset();e.currentTarget.elements.reserveId.value=reserve;e.currentTarget.elements.transactionDate.value=today();syncComplianceDates(e.currentTarget);await Promise.all([loadReserves(),initSummaryOnly()])}catch(err){notice(err.message,'error')}});
 
       const showSnapshot=(s)=>{$('[data-snap-income]').textContent=won(s.periodIncome);$('[data-snap-expense]').textContent=won(s.periodExpense);$('[data-snap-donation]').textContent=won(s.donationIncome);$('[data-snap-taxprofile]').textContent=Number(s.revenueBusinessTaxProfileRisk||0)>0?'확인필요':'정상';$('[data-snap-balance]').textContent=won(s.accountBalance);$('[data-snap-unmatched]').textContent=`${s.unmatchedTransactions}건`;$('[data-snap-evidence]').textContent=`${s.missingEvidence}건`;$('[data-snap-overbudget]').textContent=`${s.overBudgetItems}건`;$('[data-snap-budget]').textContent=`${s.pendingBudgetChanges}건`;$('[data-snap-integrity]').textContent=`${s.attachmentIntegrityIssues}건`;$('[data-snap-procurement]').textContent=`${s.procurementRisks}건`;$('[data-snap-incident]').textContent=`${s.openIncidents}건`;};

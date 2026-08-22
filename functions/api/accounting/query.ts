@@ -1,6 +1,6 @@
 import { authenticateSession, clean, ensureTables, json, normalizeDepartmentValue } from '../../_shared/helpers';
 import { canViewAllAccounting, ensureAccountingTables, hasAccountingAccess, isAccountingManager } from '../../_shared/accounting';
-import { getDimensionMaster } from '../../_shared/accounting-special';
+import { getDimensionMaster } from '../../_shared/accounting-dimensions';
 import { getAccountingOutboxSummary } from '../../_shared/accounting-integration';
 
 interface Env { DB: D1Database; ACCOUNTING_DB: D1Database; }

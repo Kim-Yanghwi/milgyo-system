@@ -8,13 +8,10 @@ import {
   parseMoney,
   monthlySummaryStatement,
 } from '../../_shared/accounting';
-import {
-  ensureAccountingSpecialTables,
-  nextAvailableCardNumber,
-  nextSpecialNumber,
-  nextSpecialSequence,
-  validateDimensions,
-} from '../../_shared/accounting-special';
+import { ensureAccountingDomainTables } from '../../_shared/accounting-domain-schema';
+import { validateDimensions } from '../../_shared/accounting-dimensions';
+import { nextSpecialNumber, nextSpecialSequence } from '../../_shared/accounting-numbering';
+import { nextAvailableCardNumber } from '../../_shared/accounting-special';
 import { ensureAccountingTaxTables, nextTaxNumber } from '../../_shared/accounting-tax';
 
 interface Env { DB: D1Database; ACCOUNTING_DB: D1Database; }
@@ -78,55 +75,71 @@ const audit = (
 
 const postDonation = async (db: D1Database, donation: any, approvedBy: string) => {
   if (donation.journal_id) return { journalId: donation.journal_id, journalNo: '', duplicate: true };
+  if (donation.status !== 'registered') throw new Error('donation posting state conflict');
   if (await isPeriodClosed(db, donation.donation_date)) {
     throw new Error('해당 회계기간은 마감되어 기부금 전표를 생성할 수 없습니다.');
   }
-  const journalId = `JRN-${randomHex(24)}`;
-  const journalNo = await nextAccountingNumber(db, 'journal', Number(donation.fiscal_year));
   const now = new Date().toISOString();
-  const amount = Math.abs(Number(donation.amount || 0));
-  const debitLineId = `JL-${randomHex(20)}`;
-  const creditLineId = `JL-${randomHex(20)}`;
-  await db.batch([
-    db.prepare(`INSERT INTO accounting_journals
-      (id,journal_no,fiscal_year,journal_date,source_type,source_id,description,status,created_by,approved_by,created_at)
-      VALUES (?,?,?,?, 'donation',?,?, 'posted',?,?,?)`)
-      .bind(
-        journalId, journalNo, donation.fiscal_year, donation.donation_date, donation.id,
-        `[기부·후원] ${donation.donor_name || '익명'} ${donation.purpose || donation.donation_category}`,
-        donation.created_by || approvedBy, approvedBy, now,
-      ),
-    db.prepare(`INSERT INTO accounting_journal_lines
-      (id,journal_id,line_no,account_code,debit,credit,department,project,counterparty,memo)
-      VALUES (?,?,?,?,?,0,?,?,?,?)`)
-      .bind(
-        debitLineId, journalId, 1, donation.settlement_account_code, amount,
-        donation.department || '', donation.purpose || '', donation.donor_name || '익명', donation.memo || null,
-      ),
-    db.prepare(`INSERT INTO accounting_journal_lines
-      (id,journal_id,line_no,account_code,debit,credit,department,project,counterparty,memo)
-      VALUES (?,?,?,?,0,?,?,?,?,?)`)
-      .bind(
-        creditLineId, journalId, 2, donation.account_code, amount,
-        donation.department || '', donation.purpose || '', donation.donor_name || '익명', donation.memo || null,
-      ),
-    db.prepare(`INSERT INTO accounting_journal_line_dimensions
-      (journal_line_id,book_type_code,entity_id,fund_id,created_at) VALUES (?,?,?,?,?)`)
-      .bind(debitLineId, donation.book_type_code, donation.entity_id, donation.fund_id || '', now),
-    db.prepare(`INSERT INTO accounting_journal_line_dimensions
-      (journal_line_id,book_type_code,entity_id,fund_id,created_at) VALUES (?,?,?,?,?)`)
-      .bind(creditLineId, donation.book_type_code, donation.entity_id, donation.fund_id || '', now),
-    monthlySummaryStatement(db, donation.donation_date, {
-      accountCode: donation.settlement_account_code, debit: amount, credit: 0,
-      department: donation.department || '', project: donation.purpose || '',
-    }, { bookTypeCode: donation.book_type_code, entityId: donation.entity_id, fundId: donation.fund_id || '' }, now),
-    monthlySummaryStatement(db, donation.donation_date, {
-      accountCode: donation.account_code, debit: 0, credit: amount,
-      department: donation.department || '', project: donation.purpose || '',
-    }, { bookTypeCode: donation.book_type_code, entityId: donation.entity_id, fundId: donation.fund_id || '' }, now),
-    db.prepare(`UPDATE accounting_donations SET journal_id=?,status='posted',updated_at=? WHERE id=?`)
-      .bind(journalId, now, donation.id),
-  ]);
+  const claimed = await db.prepare(`UPDATE accounting_donations SET status='posting',updated_at=?
+    WHERE id=? AND status='registered' AND journal_id IS NULL`).bind(now, donation.id).run();
+  if (Number((claimed.meta as any)?.changes || 0) !== 1) {
+    const current = await db.prepare(`SELECT journal_id,status FROM accounting_donations WHERE id=?`).bind(donation.id).first<any>();
+    if (current?.journal_id) return { journalId: current.journal_id, journalNo: '', duplicate: true };
+    throw new Error('donation posting state conflict');
+  }
+  let journalId = '';
+  let journalNo = '';
+  try {
+    journalId = `JRN-${randomHex(24)}`;
+    journalNo = await nextAccountingNumber(db, 'journal', Number(donation.fiscal_year));
+    const amount = Math.abs(Number(donation.amount || 0));
+    const debitLineId = `JL-${randomHex(20)}`;
+    const creditLineId = `JL-${randomHex(20)}`;
+    await db.batch([
+      db.prepare(`INSERT INTO accounting_journals
+        (id,journal_no,fiscal_year,journal_date,source_type,source_id,description,status,created_by,approved_by,created_at)
+        VALUES (?,?,?,?, 'donation',?,?, 'posted',?,?,?)`)
+        .bind(
+          journalId, journalNo, donation.fiscal_year, donation.donation_date, donation.id,
+          `[기부·후원] ${donation.donor_name || '익명'} ${donation.purpose || donation.donation_category}`,
+          donation.created_by || approvedBy, approvedBy, now,
+        ),
+      db.prepare(`INSERT INTO accounting_journal_lines
+        (id,journal_id,line_no,account_code,debit,credit,department,project,counterparty,memo)
+        VALUES (?,?,?,?,?,0,?,?,?,?)`)
+        .bind(
+          debitLineId, journalId, 1, donation.settlement_account_code, amount,
+          donation.department || '', donation.purpose || '', donation.donor_name || '익명', donation.memo || null,
+        ),
+      db.prepare(`INSERT INTO accounting_journal_lines
+        (id,journal_id,line_no,account_code,debit,credit,department,project,counterparty,memo)
+        VALUES (?,?,?,?,0,?,?,?,?,?)`)
+        .bind(
+          creditLineId, journalId, 2, donation.account_code, amount,
+          donation.department || '', donation.purpose || '', donation.donor_name || '익명', donation.memo || null,
+        ),
+      db.prepare(`INSERT INTO accounting_journal_line_dimensions
+        (journal_line_id,book_type_code,entity_id,fund_id,created_at) VALUES (?,?,?,?,?)`)
+        .bind(debitLineId, donation.book_type_code, donation.entity_id, donation.fund_id || '', now),
+      db.prepare(`INSERT INTO accounting_journal_line_dimensions
+        (journal_line_id,book_type_code,entity_id,fund_id,created_at) VALUES (?,?,?,?,?)`)
+        .bind(creditLineId, donation.book_type_code, donation.entity_id, donation.fund_id || '', now),
+      monthlySummaryStatement(db, donation.donation_date, {
+        accountCode: donation.settlement_account_code, debit: amount, credit: 0,
+        department: donation.department || '', project: donation.purpose || '',
+      }, { bookTypeCode: donation.book_type_code, entityId: donation.entity_id, fundId: donation.fund_id || '' }, now),
+      monthlySummaryStatement(db, donation.donation_date, {
+        accountCode: donation.account_code, debit: 0, credit: amount,
+        department: donation.department || '', project: donation.purpose || '',
+      }, { bookTypeCode: donation.book_type_code, entityId: donation.entity_id, fundId: donation.fund_id || '' }, now),
+      db.prepare(`UPDATE accounting_donations SET journal_id=?,status='posted',updated_at=?
+        WHERE id=? AND status='posting' AND journal_id IS NULL`).bind(journalId, now, donation.id),
+    ]);
+  } catch (error) {
+    await db.prepare(`UPDATE accounting_donations SET status='registered',updated_at=?
+      WHERE id=? AND status='posting' AND journal_id IS NULL`).bind(new Date().toISOString(), donation.id).run();
+    throw error;
+  }
   return { journalId, journalNo, duplicate: false };
 };
 
@@ -142,7 +155,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
   if (!hasAccountingAccess(auth.user)) return json({ ok: false, message: '종단 회계관리 접속 권한이 없습니다. 관리자에게 회계권한 부여를 요청해 주세요.' }, 403);
   await ensureAccountingTables(accountingDb);
-  await ensureAccountingSpecialTables(accountingDb);
+  await ensureAccountingDomainTables(accountingDb);
   const me = auth.user;
   const manager = isAccountingManager(me);
   const action = clean(payload.action, 60);
@@ -183,6 +196,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       }
       const parentId = clean(payload.parentId, 80);
       if (parentId === id) return json({ ok: false, message: '자기 자신을 상위조직으로 지정할 수 없습니다.' }, 400);
+      if (parentId) {
+        const parent = await accountingDb.prepare(`SELECT id FROM accounting_entities WHERE id=? AND active=1`).bind(parentId).first();
+        if (!parent) return json({ ok: false, message: '사용 가능한 상위조직을 선택해 주세요.' }, 400);
+        const cycle = await accountingDb.prepare(`WITH RECURSIVE ancestors(id,parent_id) AS (
+          SELECT id,parent_id FROM accounting_entities WHERE id=?
+          UNION ALL SELECT e.id,e.parent_id FROM accounting_entities e JOIN ancestors a ON e.id=a.parent_id
+        ) SELECT 1 AS yes FROM ancestors WHERE id=? LIMIT 1`).bind(parentId, id).first();
+        if (cycle) return json({ ok: false, message: '회계조직 상하위 관계에 순환이 생길 수 없습니다.' }, 400);
+      }
       await accountingDb.batch([
         accountingDb.prepare(`INSERT INTO accounting_entities
           (id,entity_code,name,entity_type,parent_id,department_path,registration_no,representative,address,
@@ -318,19 +340,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           if (!donor) return json({ ok: false, message: '후원자를 확인해 주세요.' }, 400);
         } else {
           if (!donorName) return json({ ok: false, message: '후원자명을 입력하거나 익명 기부를 선택해 주세요.' }, 400);
-          const existingDonor = await accountingDb.prepare(`SELECT id FROM accounting_donors WHERE active=1 AND TRIM(name)=TRIM(?) ORDER BY created_at LIMIT 1`)
-            .bind(donorName).first<{ id: string }>();
-          if (existingDonor?.id) {
-            donorId = existingDonor.id;
-          } else {
-            donorId = `DONOR-${randomHex(20)}`;
-            const donorNo = await nextSpecialNumber(accountingDb, 'donor');
-            donorInsert = accountingDb.prepare(`INSERT INTO accounting_donors
-              (id,donor_no,donor_type,name,identifier_masked,phone,email,address,receipt_consent,memo,
-               active,created_by,created_at,updated_at)
-              VALUES (?,?,'individual',?,NULL,NULL,NULL,NULL,0,'기부금 등록 화면에서 자동 생성',1,?,?,?)`)
-              .bind(donorId, donorNo, donorName, me.name, now, now);
-          }
+          // 이름만으로 기존 후원자와 자동 결합하지 않습니다. 동명이인은 별개의 인물일 수 있습니다.
+          donorId = `DONOR-${randomHex(20)}`;
+          const donorNo = await nextSpecialNumber(accountingDb, 'donor');
+          donorInsert = accountingDb.prepare(`INSERT INTO accounting_donors
+            (id,donor_no,donor_type,name,identifier_masked,phone,email,address,receipt_consent,memo,
+             active,created_by,created_at,updated_at)
+            VALUES (?,?,'individual',?,NULL,NULL,NULL,NULL,0,'기부금 등록 화면에서 개별 생성',1,?,?,?)`)
+            .bind(donorId, donorNo, donorName, me.name, now, now);
         }
       }
       const category = clean(payload.donationCategory, 40) || 'general';
@@ -428,34 +445,46 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (!donation) return json({ ok: false, message: '기부금 내역을 찾을 수 없습니다.' }, 404);
       if (!donation.donor_id) return json({ ok: false, message: '익명 기부에는 영수증을 발급할 수 없습니다.' }, 400);
       if (action === 'issue-receipt') {
-        const receiptNo = donation.receipt_no || await nextSpecialNumber(accountingDb, 'receipt', Number(donation.fiscal_year));
-        await accountingDb.batch([
-          accountingDb.prepare(`UPDATE accounting_donations
-            SET receipt_requested=1,receipt_status='issued',receipt_no=?,receipt_issued_at=?,receipt_cancelled_at=NULL,updated_at=?
-            WHERE id=?`).bind(receiptNo, now, now, id),
-          audit(accountingDb, 'issue', 'donation-receipt', id, me.id, me.name, { receiptNo }, now),
-        ]);
+        if (donation.receipt_status === 'issued') return json({ ok: false, message: '이미 발급된 기부금영수증입니다.' }, 409);
+        if (donation.receipt_status === 'cancelled') return json({ ok: false, message: '취소된 영수증은 같은 발급번호로 다시 발급할 수 없습니다. 원자료를 확인한 뒤 정정 절차를 이용해 주세요.' }, 409);
+        if (!['not_requested', 'requested'].includes(String(donation.receipt_status || ''))) return json({ ok: false, message: '현재 상태에서는 기부금영수증을 발급할 수 없습니다.' }, 409);
+        const receiptNo = await nextSpecialNumber(accountingDb, 'receipt', Number(donation.fiscal_year));
+        const updated = await accountingDb.prepare(`UPDATE accounting_donations
+          SET receipt_requested=1,receipt_status='issued',receipt_no=?,receipt_issued_at=?,receipt_cancelled_at=NULL,updated_at=?
+          WHERE id=? AND receipt_status IN ('not_requested','requested')`).bind(receiptNo, now, now, id).run();
+        if (Number((updated.meta as any)?.changes || 0) !== 1) return json({ ok: false, message: '다른 요청이 영수증 상태를 먼저 변경했습니다. 새로고침 후 확인해 주세요.' }, 409);
+        await audit(accountingDb, 'issue', 'donation-receipt', id, me.id, me.name, { receiptNo }, now).run();
         return json({ ok: true, receiptNo, message: '기부금영수증 발급내역을 등록했습니다.' });
       }
-      await accountingDb.batch([
-        accountingDb.prepare(`UPDATE accounting_donations SET receipt_status='cancelled',receipt_cancelled_at=?,updated_at=? WHERE id=?`)
-          .bind(now, now, id),
-        audit(accountingDb, 'cancel', 'donation-receipt', id, me.id, me.name, { receiptNo: donation.receipt_no }, now),
-      ]);
+      if (donation.receipt_status !== 'issued') return json({ ok: false, message: '발급 완료된 기부금영수증만 취소할 수 있습니다.' }, 409);
+      const cancellationReason = clean(payload.cancellationReason, 500);
+      if (!cancellationReason) return json({ ok: false, message: '기부금영수증 취소 사유를 입력해 주세요.' }, 400);
+      const updated = await accountingDb.prepare(`UPDATE accounting_donations SET receipt_status='cancelled',receipt_cancelled_at=?,updated_at=? WHERE id=? AND receipt_status='issued'`)
+        .bind(now, now, id).run();
+      if (Number((updated.meta as any)?.changes || 0) !== 1) return json({ ok: false, message: '다른 요청이 영수증 상태를 먼저 변경했습니다. 새로고침 후 확인해 주세요.' }, 409);
+      await audit(accountingDb, 'cancel', 'donation-receipt', id, me.id, me.name, { receiptNo: donation.receipt_no, cancellationReason }, now).run();
       return json({ ok: true, message: '기부금영수증 발급을 취소했습니다.' });
     }
 
     if (action === 'save-asset') {
       if (!manager) return json({ ok: false, message: '자산·비품 관리 권한이 없습니다.' }, 403);
       const id = clean(payload.id, 80) || `AST-${randomHex(20)}`;
-      const existing = await accountingDb.prepare(`SELECT asset_no FROM accounting_assets WHERE id=?`)
-        .bind(id).first<{ asset_no: string }>();
+      const existing = await accountingDb.prepare(`SELECT asset_no,status,acquisition_date FROM accounting_assets WHERE id=?`)
+        .bind(id).first<{ asset_no: string; status: string; acquisition_date: string }>();
+      if (existing?.status === 'disposed') return json({ ok: false, message: '처분 완료된 자산은 수정할 수 없습니다.' }, 409);
       const date = clean(payload.acquisitionDate, 10);
       const name = clean(payload.name, 120);
       const cost = parseMoney(payload.acquisitionCost);
       if (!isValidIsoDate(date) || !name || cost < 0) return json({ ok: false, message: '자산명·취득일자·취득가액을 확인해 주세요.' }, 400);
+      const residualValue = parseMoney(payload.residualValue);
+      if (residualValue < 0 || residualValue > cost) return json({ ok: false, message: '잔존가액은 0원 이상이며 취득가액을 초과할 수 없습니다.' }, 400);
+      const depreciationMethod = clean(payload.depreciationMethod, 30) || 'straight_line';
+      if (!['straight_line', 'declining_balance', 'none'].includes(depreciationMethod)) return json({ ok: false, message: '감가상각 방법을 확인해 주세요.' }, 400);
       const dimensions = await validateDimensions(accountingDb, payload);
       const assetNo = existing?.asset_no || await nextSpecialNumber(accountingDb, 'asset', Number(date.slice(0, 4)));
+      const assetAccountCode = clean(payload.assetAccountCode, 20) || '1500';
+      const assetAccount = await accountingDb.prepare(`SELECT code FROM accounting_accounts WHERE code=? AND account_type='asset' AND normal_side='debit' AND active=1`).bind(assetAccountCode).first();
+      if (!assetAccount) return json({ ok: false, message: '사용 가능한 자산·차변 계정과목을 선택해 주세요.' }, 400);
       await accountingDb.batch([
         accountingDb.prepare(`INSERT INTO accounting_assets
           (id,asset_no,name,category,acquisition_date,acquisition_cost,useful_life_months,depreciation_method,residual_value,
@@ -470,10 +499,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           .bind(
             id, assetNo, name, clean(payload.category, 60) || '비품', date, cost,
             Math.max(0, Math.min(1200, Number(payload.usefulLifeMonths) || 0)),
-            clean(payload.depreciationMethod, 30) || 'straight_line', Math.max(0, parseMoney(payload.residualValue)),
+            depreciationMethod, residualValue,
             dimensions.bookTypeCode, dimensions.entityId, dimensions.fundId, normalizeDepartmentValue(payload.department, me.position || ''),
             clean(payload.location, 150) || null, clean(payload.custodian, 80) || null,
-            clean(payload.assetAccountCode, 20) || '1500', clean(payload.memo, 1000) || null,
+            assetAccountCode, clean(payload.memo, 1000) || null,
             me.name, now, now,
           ),
         audit(accountingDb, 'save', 'asset', id, me.id, me.name, { assetNo, name, cost }, now),
@@ -486,12 +515,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const id = clean(payload.id, 80);
       const date = clean(payload.disposalDate, 10);
       if (!isValidIsoDate(date)) return json({ ok: false, message: '처분일자를 확인해 주세요.' }, 400);
-      await accountingDb.batch([
-        accountingDb.prepare(`UPDATE accounting_assets
-          SET status='disposed',disposal_date=?,disposal_amount=?,memo=COALESCE(?,memo),updated_at=? WHERE id=?`)
-          .bind(date, parseMoney(payload.disposalAmount), clean(payload.memo, 1000) || null, now, id),
-        audit(accountingDb, 'dispose', 'asset', id, me.id, me.name, payload, now),
-      ]);
+      const asset = await accountingDb.prepare(`SELECT id,asset_no,status,acquisition_date FROM accounting_assets WHERE id=?`).bind(id).first<any>();
+      if (!asset) return json({ ok: false, message: '처분할 자산을 찾을 수 없습니다.' }, 404);
+      if (asset.status === 'disposed') return json({ ok: false, message: '이미 처분 완료된 자산입니다.' }, 409);
+      if (date < String(asset.acquisition_date || '')) return json({ ok: false, message: '처분일은 취득일보다 빠를 수 없습니다.' }, 400);
+      const disposalAmount = parseMoney(payload.disposalAmount);
+      if (disposalAmount < 0) return json({ ok: false, message: '처분금액은 0원 이상이어야 합니다.' }, 400);
+      const updated = await accountingDb.prepare(`UPDATE accounting_assets
+        SET status='disposed',disposal_date=?,disposal_amount=?,memo=COALESCE(?,memo),updated_at=? WHERE id=? AND status<>'disposed'`)
+        .bind(date, disposalAmount, clean(payload.memo, 1000) || null, now, id).run();
+      if (Number((updated.meta as any)?.changes || 0) !== 1) return json({ ok: false, message: '다른 요청이 자산 상태를 먼저 변경했습니다. 새로고침 후 확인해 주세요.' }, 409);
+      await audit(accountingDb, 'dispose', 'asset', id, me.id, me.name, { assetNo: asset.asset_no, date, disposalAmount }, now).run();
       return json({ ok: true, message: '자산을 처분 처리했습니다.' });
     }
 
@@ -645,11 +679,34 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const date = clean(payload.transactionDate, 10);
       const merchant = clean(payload.merchant, 120);
       const amount = parseMoney(payload.amount);
-      const taxMode = clean(payload.taxMode, 20) || 'taxable';
+      const rawTaxMode = clean(payload.taxMode, 20) || 'taxable';
       if (!isValidIsoDate(date) || !merchant || amount <= 0) return json({ ok: false, message: '사용일자·가맹점·금액을 확인해 주세요.' }, 400);
-      if (!['taxable', 'exempt', 'manual'].includes(taxMode)) return json({ ok: false, message: '세액 처리방식을 확인해 주세요.' }, 400);
-      const taxAmount = taxMode === 'taxable' ? Math.round(amount / 11) : taxMode === 'exempt' ? 0 : Math.max(0, parseMoney(payload.taxAmount));
-      if (taxAmount > amount) return json({ ok: false, message: '세액은 결제금액보다 클 수 없습니다.' }, 400);
+      const taxMode = rawTaxMode === 'taxable' ? 'vat_included' : rawTaxMode === 'exempt' ? 'none' : rawTaxMode;
+      const taxType = clean(payload.taxType, 20) || (rawTaxMode === 'exempt' ? 'exempt' : 'taxable');
+      if (!['vat_included', 'supply_plus_tax', 'manual', 'none'].includes(taxMode)
+        || !['taxable', 'zero_rated', 'exempt', 'non_taxable'].includes(taxType)) {
+        return json({ ok: false, message: '과세유형과 세액 계산방식을 확인해 주세요.' }, 400);
+      }
+      if (taxType !== 'taxable' && !['none', 'manual'].includes(taxMode)) return json({ ok: false, message: '영세율·면세·비과세 거래에는 부가가치세 자동계산을 사용할 수 없습니다.' }, 400);
+      if (taxType === 'taxable' && taxMode === 'none') return json({ ok: false, message: '과세 거래는 총액 자동계산 또는 증빙 기준 직접입력을 선택해 주세요.' }, 400);
+      let supplyAmount = parseMoney(payload.supplyAmount);
+      let taxAmount = parseMoney(payload.taxAmount);
+      if (taxMode === 'vat_included') {
+        taxAmount = Math.round(amount / 11);
+        supplyAmount = amount - taxAmount;
+      } else if (taxMode === 'supply_plus_tax') {
+        if (supplyAmount <= 0) return json({ ok: false, message: '공급가액 기준 계산에는 공급가액을 입력해 주세요.' }, 400);
+        taxAmount = Math.round(supplyAmount / 10);
+      } else if (taxMode === 'none') {
+        supplyAmount = amount;
+        taxAmount = 0;
+      } else if (!supplyAmount) {
+        supplyAmount = amount - taxAmount;
+      }
+      if (supplyAmount < 0 || taxAmount < 0 || supplyAmount + taxAmount !== amount) return json({ ok: false, message: '결제총액은 공급가액과 세액의 합계와 정확히 일치해야 합니다.' }, 400);
+      if (taxType !== 'taxable' && taxAmount !== 0) return json({ ok: false, message: '영세율·면세·비과세 거래의 세액은 0원이어야 합니다.' }, 400);
+      const taxNote = clean(payload.taxNote, 500);
+      if (taxMode === 'manual' && !taxNote) return json({ ok: false, message: '세액 직접입력 시 증빙 기준 또는 계산 사유를 입력해 주세요.' }, 400);
       const dimensions = await validateDimensions(accountingDb, {
         bookTypeCode: payload.bookTypeCode || card.book_type_code,
         entityId: payload.entityId || card.entity_id,
@@ -669,16 +726,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const txNo = await nextSpecialNumber(accountingDb, 'card-tx', Number(date.slice(0, 4)));
       await accountingDb.batch([
         accountingDb.prepare(`INSERT INTO accounting_card_transactions
-          (id,transaction_no,card_id,transaction_date,merchant,amount,tax_amount,account_code,
+          (id,transaction_no,card_id,transaction_date,merchant,amount,supply_amount,tax_amount,tax_type,tax_mode,tax_note,account_code,
            book_type_code,entity_id,fund_id,department,project,memo,status,created_by,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'unmatched',?,?,?)`)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'unmatched',?,?,?)`)
           .bind(
-            id, txNo, cardId, date, merchant, amount, taxAmount,
+            id, txNo, cardId, date, merchant, amount, supplyAmount, taxAmount, taxType, taxMode, taxNote || null,
             expenseAccountCode || null, dimensions.bookTypeCode, dimensions.entityId, dimensions.fundId,
             normalizeDepartmentValue(payload.department, me.position || '') || normalizeDepartmentValue(card.department, me.position || '') || '', clean(payload.project, 100),
             clean(payload.memo, 1000) || null, me.name, now, now,
           ),
-        audit(accountingDb, 'create', 'card-transaction', id, me.id, me.name, { txNo, amount, merchant }, now),
+        audit(accountingDb, 'create', 'card-transaction', id, me.id, me.name, { txNo, amount, supplyAmount, taxAmount, taxType, taxMode, merchant }, now),
       ]);
       return json({ ok: true, id, transactionNo: txNo, message: '법인카드 사용내역을 등록했습니다.' });
     }
@@ -690,6 +747,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         JOIN accounting_cards c ON c.id=t.card_id WHERE t.id=?`).bind(id).first<any>();
       if (!tx) return json({ ok: false, message: '카드 사용내역을 찾을 수 없습니다.' }, 404);
       if (tx.journal_id) return json({ ok: true, message: '이미 전표처리된 카드 사용내역입니다.' });
+      if (tx.status !== 'unmatched') return json({ ok: false, message: '취소·역분개 또는 처리중인 카드 사용내역은 전표처리할 수 없습니다.' }, 409);
       if (!tx.account_code) return json({ ok: false, message: '지출 계정과목을 먼저 지정해 주세요.' }, 400);
       if (await isPeriodClosed(accountingDb, tx.transaction_date)) {
         return json({ ok: false, message: '마감된 기간의 카드 사용내역은 전표처리할 수 없습니다.' }, 400);
@@ -702,11 +760,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (!expenseAccount.results?.length || !payableAccount.results?.length) {
         return json({ ok: false, message: '카드 사용의 지출계정 또는 미지급계정 성격이 올바르지 않습니다.' }, 400);
       }
-      const journalId = `JRN-${randomHex(24)}`;
-      const journalNo = await nextAccountingNumber(accountingDb, 'journal', year);
-      const debitId = `JL-${randomHex(20)}`;
-      const creditId = `JL-${randomHex(20)}`;
-      await accountingDb.batch([
+      const claimed = await accountingDb.prepare(`UPDATE accounting_card_transactions SET status='processing',updated_at=?
+        WHERE id=? AND status='unmatched' AND journal_id IS NULL`).bind(now, id).run();
+      if (Number((claimed.meta as any)?.changes || 0) !== 1) {
+        const current = await accountingDb.prepare(`SELECT journal_id,status FROM accounting_card_transactions WHERE id=?`).bind(id).first<any>();
+        if (current?.journal_id) return json({ ok: true, message: '이미 전표처리된 카드 사용내역입니다.' });
+        return json({ ok: false, message: '다른 요청이 카드 전표를 먼저 처리 중입니다. 잠시 후 새로고침해 주세요.' }, 409);
+      }
+      let journalNo = '';
+      try {
+        const journalId = `JRN-${randomHex(24)}`;
+        journalNo = await nextAccountingNumber(accountingDb, 'journal', year);
+        const debitId = `JL-${randomHex(20)}`;
+        const creditId = `JL-${randomHex(20)}`;
+        await accountingDb.batch([
         accountingDb.prepare(`INSERT INTO accounting_journals
           (id,journal_no,fiscal_year,journal_date,source_type,source_id,description,status,created_by,approved_by,created_at)
           VALUES (?,?,?,?, 'card',?,?, 'posted',?,?,?)`)
@@ -734,10 +801,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           department: tx.department || '', project: tx.project || '',
         }, { bookTypeCode: tx.book_type_code, entityId: tx.entity_id, fundId: tx.fund_id || '' }, now),
         accountingDb.prepare(`UPDATE accounting_card_transactions SET journal_id=?,status='posted',updated_at=?
-          WHERE id=? AND journal_id IS NULL AND status='unmatched'`)
+          WHERE id=? AND journal_id IS NULL AND status='processing'`)
           .bind(journalId, now, id),
         audit(accountingDb, 'post', 'card-transaction', id, me.id, me.name, { journalNo }, now),
-      ]);
+        ]);
+      } catch (error) {
+        await accountingDb.prepare(`UPDATE accounting_card_transactions SET status='unmatched',updated_at=?
+          WHERE id=? AND status='processing' AND journal_id IS NULL`).bind(new Date().toISOString(), id).run();
+        throw error;
+      }
       return json({ ok: true, journalNo, message: '법인카드 사용내역을 전표처리했습니다.' });
     }
 
@@ -746,29 +818,44 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const periodType = clean(payload.periodType, 20);
       const periodKey = clean(payload.periodKey, 20);
       const dimensions = await validateDimensions(accountingDb, payload);
-      if (!year || !['month', 'quarter', 'annual'].includes(periodType) || !periodKey) {
+      const validPeriod = periodType === 'month' ? /^(0[1-9]|1[0-2])$/.test(periodKey)
+        : periodType === 'quarter' ? /^Q[1-4]$/.test(periodKey)
+          : periodType === 'annual' ? periodKey === String(year) : false;
+      if (!year || !validPeriod) {
         return json({ ok: false, message: '보고기간을 확인해 주세요.' }, 400);
       }
-      const id = clean(payload.id, 80) || `BRP-${randomHex(20)}`;
+      const current = await accountingDb.prepare(`SELECT id,status,submitted_by,submitted_by_user_id FROM accounting_branch_reports
+        WHERE fiscal_year=? AND period_type=? AND period_key=? AND entity_id=? AND book_type_code=?`)
+        .bind(year, periodType, periodKey, dimensions.entityId, dimensions.bookTypeCode).first<any>();
+      if (current && current.status !== 'draft') return json({ ok: false, message: '제출·확정·반려된 취합자료는 일반 저장으로 덮어쓸 수 없습니다.' }, 409);
+      const id = current?.id || clean(payload.id, 80) || `BRP-${randomHex(20)}`;
       const status = payload.submit === true ? 'submitted' : 'draft';
+      const totals = {
+        income: parseMoney(payload.incomeTotal), expense: parseMoney(payload.expenseTotal), asset: parseMoney(payload.assetTotal),
+        liability: parseMoney(payload.liabilityTotal), cash: parseMoney(payload.cashBalance), donation: parseMoney(payload.donationTotal),
+      };
+      if ([totals.income, totals.expense, totals.asset, totals.liability, totals.donation].some((amount) => amount < 0)) {
+        return json({ ok: false, message: '수입·지출·자산·부채·기부금 합계는 0원 이상이어야 합니다.' }, 400);
+      }
       await accountingDb.batch([
         accountingDb.prepare(`INSERT INTO accounting_branch_reports
           (id,fiscal_year,period_type,period_key,entity_id,book_type_code,income_total,expense_total,
            asset_total,liability_total,cash_balance,donation_total,status,detail_json,memo,
-           submitted_by,submitted_at,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+           submitted_by,submitted_by_user_id,submitted_at,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
           ON CONFLICT(fiscal_year,period_type,period_key,entity_id,book_type_code) DO UPDATE SET
           income_total=excluded.income_total,expense_total=excluded.expense_total,
           asset_total=excluded.asset_total,liability_total=excluded.liability_total,
           cash_balance=excluded.cash_balance,donation_total=excluded.donation_total,
           status=excluded.status,detail_json=excluded.detail_json,memo=excluded.memo,
-          submitted_by=excluded.submitted_by,submitted_at=excluded.submitted_at,updated_at=excluded.updated_at`)
+          submitted_by=excluded.submitted_by,submitted_by_user_id=excluded.submitted_by_user_id,
+          submitted_at=excluded.submitted_at,updated_at=excluded.updated_at`)
           .bind(
             id, year, periodType, periodKey, dimensions.entityId, dimensions.bookTypeCode,
-            parseMoney(payload.incomeTotal), parseMoney(payload.expenseTotal), parseMoney(payload.assetTotal),
-            parseMoney(payload.liabilityTotal), parseMoney(payload.cashBalance), parseMoney(payload.donationTotal),
+            totals.income, totals.expense, totals.asset, totals.liability, totals.cash, totals.donation,
             status, JSON.stringify(payload.detail || {}), clean(payload.memo, 1000) || null,
-            status === 'submitted' ? me.name : null, status === 'submitted' ? now : null, now, now,
+            status === 'submitted' ? me.name : null, status === 'submitted' ? me.id : null,
+            status === 'submitted' ? now : null, now, now,
           ),
         audit(accountingDb, status === 'submitted' ? 'submit' : 'save', 'branch-report', id, me.id, me.name,
           { year, periodType, periodKey, ...dimensions }, now),
@@ -781,24 +868,35 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const id = clean(payload.id, 80);
       const decision = clean(payload.decision, 20);
       if (!['confirmed', 'rejected'].includes(decision)) return json({ ok: false, message: '검토 결과를 선택해 주세요.' }, 400);
-      await accountingDb.batch([
-        accountingDb.prepare(`UPDATE accounting_branch_reports
-          SET status=?,reviewed_by=?,reviewed_at=?,memo=COALESCE(?,memo),updated_at=? WHERE id=?`)
-          .bind(decision, me.name, now, clean(payload.memo, 1000) || null, now, id),
-        audit(accountingDb, decision, 'branch-report', id, me.id, me.name, { memo: clean(payload.memo, 1000) }, now),
-      ]);
+      const memo = clean(payload.memo, 1000);
+      if (decision === 'rejected' && !memo) return json({ ok: false, message: '반려 사유를 입력해 주세요.' }, 400);
+      const report = await accountingDb.prepare(`SELECT id,status,submitted_by,submitted_by_user_id FROM accounting_branch_reports WHERE id=?`).bind(id).first<any>();
+      if (!report) return json({ ok: false, message: '검토할 취합자료를 찾을 수 없습니다.' }, 404);
+      if (report.status !== 'submitted') return json({ ok: false, message: '제출 상태인 취합자료만 확정 또는 반려할 수 있습니다.' }, 409);
+      if ((report.submitted_by_user_id && String(report.submitted_by_user_id) === String(me.id))
+        || (!report.submitted_by_user_id && report.submitted_by === me.name)) {
+        return json({ ok: false, message: '제출자 본인은 취합자료를 확정할 수 없습니다.' }, 403);
+      }
+      const updated = await accountingDb.prepare(`UPDATE accounting_branch_reports
+        SET status=?,reviewed_by=?,reviewed_by_user_id=?,reviewed_at=?,memo=COALESCE(?,memo),updated_at=? WHERE id=? AND status='submitted'`)
+        .bind(decision, me.name, me.id, now, memo || null, now, id).run();
+      if (Number((updated.meta as any)?.changes || 0) !== 1) return json({ ok: false, message: '다른 검토자가 먼저 처리했습니다. 새로고침 후 확인해 주세요.' }, 409);
+      await audit(accountingDb, decision, 'branch-report', id, me.id, me.name, { memo }, now).run();
       return json({ ok: true, message: decision === 'confirmed' ? '취합자료를 확정했습니다.' : '취합자료를 반려했습니다.' });
     }
 
-    return json({ ok: false, message: '지원하지 않는 종단 특화회계 처리입니다.' }, 400);
+    return json({ ok: false, message: '지원하지 않는 회계 업무 처리입니다.' }, 400);
   } catch (error) {
     console.error('accounting-special action failed', action, error);
-    const message = error instanceof Error ? error.message : '종단 특화회계 처리 중 오류가 발생했습니다.';
+    const message = error instanceof Error ? error.message : '회계 업무 처리 중 오류가 발생했습니다.';
     if (message.includes('card payment exceeds outstanding amount')) {
       return json({ ok: false, message: '다른 결제가 먼저 반영되어 현재 미지급잔액이 부족합니다. 카드 현황을 새로고침한 뒤 다시 확인해 주세요.' }, 409);
     }
     if (message.includes('duplicate posted journal source')) {
       return json({ ok: false, message: '동일한 원자료의 전표가 이미 처리되었습니다. 화면을 새로고침해 기존 전표를 확인해 주세요.' }, 409);
+    }
+    if (message.includes('donation posting state conflict')) {
+      return json({ ok: false, message: '취소되었거나 다른 요청이 처리 중인 기부금은 전표처리할 수 없습니다. 화면을 새로고침해 주세요.' }, 409);
     }
     if (message.includes('UNIQUE constraint failed: accounting_card_payments.request_id')) {
       return json({ ok: false, message: '동일한 카드 결제 요청이 이미 처리 중이거나 완료되었습니다. 화면을 새로고침해 주세요.' }, 409);

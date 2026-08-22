@@ -388,7 +388,7 @@ export const resetAllTestData = async (env: ResetEnv, user: SessionUser) => {
     remainingRecords,
     verification,
     message: verified
-      ? '전자문서·재직증명서·수계증서·회계·실무관리·세무신고·규정대응·공공조달·준비금·차량 테스트자료와 관련 로그·감사이력·번호 카운트·R2 파일을 모두 초기화하고 잔여 0건을 확인했습니다.'
+      ? '전자문서·재직증명서·수계증서와 회계·예산·결산, 자금·거래관리, 기부·자산·기관회계, 계약·조달·준법, 세무·신고 테스트자료 및 관련 로그·감사이력·번호 카운트·R2 파일을 모두 초기화하고 잔여 0건을 확인했습니다.'
       : `초기화는 실행했으나 삭제 대상 ${remainingRecords.toLocaleString('ko-KR')}건이 남아 있습니다. 미리보기를 다시 실행해 잔여 항목을 확인해 주세요.`,
   };
 };

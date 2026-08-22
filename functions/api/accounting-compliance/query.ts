@@ -1,6 +1,6 @@
 import { authenticateSession, clean, ensureTables, formatDepartmentDisplay, json, normalizeDepartmentValue } from '../../_shared/helpers';
 import { canViewAllAccounting, ensureAccountingTables, hasAccountingAccess, isAccountingManager } from '../../_shared/accounting';
-import { getDimensionMaster } from '../../_shared/accounting-special';
+import { getDimensionMaster } from '../../_shared/accounting-dimensions';
 import { ensureAccountingOperationsTables } from '../../_shared/accounting-operations';
 import {
   buildComplianceSnapshot,
@@ -67,7 +67,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           (SELECT COUNT(*) FROM accounting_compliance_checks WHERE fiscal_year=? AND status='open') AS checks,
           (SELECT COUNT(*) FROM accounting_vehicle_records WHERE status='active') AS vehicles,
           (SELECT COUNT(*) FROM accounting_procurement_guarantees WHERE recovered=0 AND end_date<>'' AND end_date<=date('now','+45 days')) AS expiring_guarantees,
-          (SELECT COALESCE(SUM(r.set_amount),0)-COALESCE((SELECT SUM(t.amount) FROM accounting_purpose_reserve_transactions t JOIN accounting_purpose_reserves rr ON rr.id=t.reserve_id WHERE rr.fiscal_year=?),0) FROM accounting_purpose_reserves r WHERE r.fiscal_year=?) AS reserve_balance
+          (SELECT COALESCE(SUM(r.set_amount),0)-COALESCE((SELECT SUM(CASE WHEN t.transaction_type='use' THEN t.amount ELSE -t.amount END) FROM accounting_purpose_reserve_transactions t JOIN accounting_purpose_reserves rr ON rr.id=t.reserve_id WHERE rr.fiscal_year=?),0) FROM accounting_purpose_reserves r WHERE r.fiscal_year=?) AS reserve_balance
         `).bind(year, year, year, year, year, year).first<any>(),
         getPriorYearIncome(db, year),
         getProcurementAnnualContractTotal(db, year),

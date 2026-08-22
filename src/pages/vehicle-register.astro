@@ -77,6 +77,8 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
     </section>
   </div>
 
+  <script is:inline src="/accounting-domain-api.js"></script>
+  <script is:inline src="/accounting-api-client.js"></script>
   <script is:inline>
     (()=>{
       'use strict';
@@ -94,7 +96,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       const typeLabel=(v)=>({owned:'구입·보유',lease:'리스',rental:'임차·렌트'}[v]||v||'-');
       const approvalLabel=(v)=>({secretary_general:'사무총장 전결',chairman:'이사장 승인',board:'이사회 의결'}[v]||v||'-');
       let state={permissions:{manager:false},vehicles:[],assets:[],contracts:[],selectedId:'',selected:null};
-      const api=async(path,body)=>{const res=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,token})});const text=await res.text();let data;try{data=JSON.parse(text)}catch{data={ok:false,message:`서버 응답 오류(HTTP ${res.status})`}}if(!data.ok)throw new Error(data.message||'처리 중 오류가 발생했습니다.');return data};
+      const api=(path,body={})=>window.AccountingApiClient.post(path,body,token);
       const setStatus=(message,type='')=>{const el=$('[data-status]');el.textContent=message||'';el.className=`status-message ${type}`};
       const moneyValue=(v)=>{const n=Number(String(v??'').replace(/[^0-9.-]/g,''));return Number.isFinite(n)?Math.round(n):0};
       const setMoneyFormatting=(root=document)=>{$$('.money',root).forEach((el)=>{if(el.dataset.moneyBound)return;el.dataset.moneyBound='1';el.addEventListener('input',()=>{const raw=el.value.replace(/[^0-9-]/g,'');if(!raw||raw==='-')return;el.value=Number(raw).toLocaleString('ko-KR')})})};

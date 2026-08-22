@@ -1,5 +1,5 @@
 import { clean, randomHex, type SessionUser } from './helpers';
-import { nextSpecialSequence } from './accounting-special';
+import { nextSpecialSequence } from './accounting-numbering';
 
 export const TAX_SCHEMA_VERSION = '2026-08-08.2';
 
@@ -33,7 +33,7 @@ export const ensureAccountingTaxTables = async (db: D1Database) => {
       ]);
       const installedVersion = String((version.results?.[0] as any)?.meta_value || '');
       // accounting_meta.schema_version은 회계 DB 전체의 최신 버전을 나타냅니다.
-      // v64 이후의 직제/규정대응 마이그레이션이 적용되면 값이 더 커지는 것이 정상입니다.
+      // v64 이후의 직제/계약·조달·준법 마이그레이션이 적용되면 값이 더 커지는 것이 정상입니다.
       // 따라서 v64 전용 테이블의 실제 존재 여부를 기준으로 준비 상태를 판정하고,
       // 전체 스키마 버전이 정확히 2026-08-08.2인지 비교하지 않습니다.
       if (Number((tables.results?.[0] as any)?.count || 0) !== REQUIRED_TAX_TABLES.length) {
@@ -385,7 +385,7 @@ export const getTaxValidation = async (db: D1Database, year: number, entityId = 
   if (countAt(17)) add({ code: 'WITHHOLDING_PAYMENT_MISMATCH', severity: 'error', title: '원천세 납부전표 불일치', detail: '납부완료 자료와 소득세·지방소득세 예수금 납부 전표가 없거나 금액이 다릅니다.', count: countAt(17) });
   if (countAt(18)) add({ code: 'VAT_SOURCE_OVERALLOCATED', severity: 'error', title: '부가가치세 원자료 초과분할', detail: '활성 부가가치세 분할합계가 연결 원자료 금액을 초과합니다.', count: countAt(18) });
   if (countAt(19)) add({ code: 'WITHHOLDING_SOURCE_OVERALLOCATED', severity: 'error', title: '원천징수 결의금액 초과연결', detail: '활성 원천징수 총지급액 합계가 연결 지출결의금액을 초과합니다.', count: countAt(19) });
-  if (countAt(20) || countAt(21)) add({ code: 'CANCELLED_TAX_JOURNAL_POSTED', severity: 'error', title: '취소 세무자료 전표 잔존', detail: '취소된 세무 보조장부에 아직 게시 상태인 조정·납부 전표가 연결되어 있습니다. 기본회계에서 역분개해 주세요.', count: countAt(20) + countAt(21) });
+  if (countAt(20) || countAt(21)) add({ code: 'CANCELLED_TAX_JOURNAL_POSTED', severity: 'error', title: '취소 세무자료 전표 잔존', detail: '취소된 세무 보조장부에 아직 게시 상태인 조정·납부 전표가 연결되어 있습니다. 회계·예산·결산의 전표관리에서 역분개해 주세요.', count: countAt(20) + countAt(21) });
   if (countAt(22)) add({ code: 'VAT_CORRECTION_LINEAGE_INVALID', severity: 'error', title: '부가가치세 정정계보 오류', detail: '정정본이 취소된 직전본의 원자료 행·회계범위·버전 번호를 올바르게 승계하지 않았습니다.', count: countAt(22) });
   if (countAt(23)) add({ code: 'WITHHOLDING_CORRECTION_LINEAGE_INVALID', severity: 'error', title: '원천징수 정정계보 오류', detail: '정정본이 취소된 직전본의 원자료·회계범위·버전 번호를 올바르게 승계하지 않았습니다.', count: countAt(23) });
   if (!items.length) add({ code: 'VALIDATION_OK', severity: 'info', title: '사전검증 완료', detail: '현재 자동검증 항목에서 오류나 경고가 발견되지 않았습니다.', count: 0 });

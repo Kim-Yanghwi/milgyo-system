@@ -1,6 +1,6 @@
 import { authenticateSession, clean, ensureTables, json, randomHex } from '../../_shared/helpers';
 import { ensureAccountingTables, hasAccountingAccess, isAccountingManager, parseMoney } from '../../_shared/accounting';
-import { validateDimensions } from '../../_shared/accounting-special';
+import { validateDimensions } from '../../_shared/accounting-dimensions';
 import {
   calculateVatFromSupply,
   calculateVatFromTotal,
@@ -36,6 +36,10 @@ type VatSource = {
   book_type_code: string;
   entity_id: string;
   fund_id: string;
+  supply_amount?: number;
+  tax_amount?: number;
+  tax_type?: string;
+  tax_mode?: string;
 };
 
 const loadVatSource = async (db: D1Database, sourceType: string, sourceId: string): Promise<VatSource | null> => {
@@ -46,11 +50,11 @@ const loadVatSource = async (db: D1Database, sourceType: string, sourceId: strin
       CASE WHEN r.resolution_type='income' THEN 'sale' ELSE 'purchase' END AS direction,r.amount,
       COALESCE(NULLIF(d.book_type_code,''),'general') AS book_type_code,
       COALESCE(NULLIF(d.entity_id,''),'ENTITY-HQ') AS entity_id,COALESCE(d.fund_id,'') AS fund_id
-      FROM accounting_resolutions r LEFT JOIN accounting_resolution_dimensions d ON d.resolution_id=r.id WHERE r.id=?`,
-    card_transaction: `SELECT transaction_date AS source_date,'purchase' AS direction,amount,
+      FROM accounting_resolutions r LEFT JOIN accounting_resolution_dimensions d ON d.resolution_id=r.id WHERE r.id=? AND r.status IN ('approved','posted')`,
+    card_transaction: `SELECT transaction_date AS source_date,'purchase' AS direction,amount,supply_amount,tax_amount,tax_type,tax_mode,
       COALESCE(NULLIF(book_type_code,''),'general') AS book_type_code,
       COALESCE(NULLIF(entity_id,''),'ENTITY-HQ') AS entity_id,COALESCE(fund_id,'') AS fund_id
-      FROM accounting_card_transactions WHERE id=?`,
+      FROM accounting_card_transactions WHERE id=? AND status IN ('unmatched','posted')`,
     import_transaction: `SELECT t.transaction_date AS source_date,
       CASE WHEN t.direction='in' THEN 'sale' ELSE 'purchase' END AS direction,t.amount,
       COALESCE(NULLIF(ba.book_type_code,''),NULLIF(c.book_type_code,''),'general') AS book_type_code,
@@ -62,13 +66,13 @@ const loadVatSource = async (db: D1Database, sourceType: string, sourceId: strin
     donation: `SELECT donation_date AS source_date,'sale' AS direction,amount,
       COALESCE(NULLIF(book_type_code,''),'general') AS book_type_code,
       COALESCE(NULLIF(entity_id,''),'ENTITY-HQ') AS entity_id,COALESCE(fund_id,'') AS fund_id
-      FROM accounting_donations WHERE id=?`,
+      FROM accounting_donations WHERE id=? AND status<>'cancelled'`,
     journal: `SELECT j.journal_date AS source_date,'' AS direction,COALESCE(SUM(l.debit),0) AS amount,
       COALESCE(MAX(NULLIF(d.book_type_code,'')),'general') AS book_type_code,
       COALESCE(MAX(NULLIF(d.entity_id,'')),'ENTITY-HQ') AS entity_id,COALESCE(MAX(d.fund_id),'') AS fund_id
       FROM accounting_journals j JOIN accounting_journal_lines l ON l.journal_id=j.id
       LEFT JOIN accounting_journal_line_dimensions d ON d.journal_line_id=l.id
-      WHERE j.id=? AND j.status IN ('posted','reversed') GROUP BY j.id
+      WHERE j.id=? AND j.status='posted' AND j.source_type<>'reversal' GROUP BY j.id
       HAVING COUNT(DISTINCT COALESCE(NULLIF(d.book_type_code,''),'general'))=1
         AND COUNT(DISTINCT COALESCE(NULLIF(d.entity_id,''),'ENTITY-HQ'))=1
         AND COUNT(DISTINCT COALESCE(d.fund_id,''))=1`,
@@ -239,6 +243,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           || source.fund_id !== dimensions.fundId) {
           return json({ ok: false, message: '연결 원자료의 일자·매입매출 구분·회계 차원이 같아야 하며, 분할금액은 원자료 금액을 초과할 수 없습니다.' }, 400);
         }
+        if (sourceType === 'card_transaction') {
+          const sourceSupply = Number(source.supply_amount ?? (Number(source.amount || 0) - Number(source.tax_amount || 0)));
+          const sourceTax = Number(source.tax_amount || 0);
+          if (totalAmount !== Number(source.amount || 0) || supplyAmount !== sourceSupply || vatAmount !== sourceTax) {
+            return json({ ok: false, message: '법인카드 VAT 원장은 카드 원자료의 결제총액·공급가액·저장세액과 정확히 일치해야 합니다.' }, 400);
+          }
+          if (source.tax_type && source.tax_type !== 'unclassified' && source.tax_type !== taxType) {
+            return json({ ok: false, message: '법인카드 원자료의 과세유형과 VAT 원장의 과세유형이 일치해야 합니다.' }, 400);
+          }
+          if (source.tax_type === 'unclassified' && !clean(payload.memo, 1200)) {
+            return json({ ok: false, message: '기존 미분류 카드자료는 증빙을 확인한 과세유형 판단 근거를 비고에 입력해 주세요.' }, 400);
+          }
+        }
       }
       const profile = await db.prepare(`SELECT vat_reporting_cycle FROM accounting_tax_profiles WHERE fiscal_year=? AND entity_id=? ORDER BY updated_at DESC LIMIT 1`).bind(year, dimensions.entityId).first<any>();
       const reportingCycle = clean(profile?.vat_reporting_cycle, 20);
@@ -355,8 +372,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const id = clean(payload.id, 80) || `WHT-${randomHex(20)}`;
       const date = clean(payload.paymentDate, 10), year = validTaxYear(date.slice(0, 4));
       const selectedYear = validTaxYear(payload.year);
-      const payeeId = clean(payload.payeeId, 80), incomeType = enumValue(payload.incomeType,
+      const payeeId = clean(payload.payeeId, 80), requestedIncomeType = enumValue(payload.incomeType,
         ['earned', 'religious', 'business', 'other', 'retirement', 'nonresident', 'other_income', 'reimbursement']);
+      const taxTreatment = requestedIncomeType === 'reimbursement' ? 'reimbursement' : 'standard';
+      const incomeType = requestedIncomeType === 'reimbursement' ? 'other' : requestedIncomeType;
       let religiousMethod = enumValue(payload.religiousIncomeMethod, ['not_applicable', 'religious_income', 'earned_income'], 'not_applicable');
       if (incomeType !== 'religious') religiousMethod = 'not_applicable';
       if (!validTaxDate(date) || !year || !payeeId || !incomeType || (incomeType === 'religious' && religiousMethod === 'not_applicable')) return json({ ok: false, message: '지급일·지급대상자·소득구분을 확인해 주세요.' }, 400);
@@ -372,6 +391,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const net = gross - incomeTax - localTax - otherDeduction;
       if (gross <= 0 || taxExempt < 0 || necessaryExpense < 0 || taxable < 0 || incomeTax < 0 || localTax < 0 || otherDeduction < 0
         || taxExempt + necessaryExpense > gross || taxable > gross || net < 0) return json({ ok: false, message: '총지급액·비과세액·필요경비·세액·공제액을 0원 이상으로 확인해 주세요.' }, 400);
+      if (taxTreatment === 'reimbursement' && (taxExempt !== gross || necessaryExpense !== 0 || taxable !== 0
+        || incomeTax !== 0 || localTax !== 0 || otherDeduction !== 0)) {
+        return json({ ok: false, message: '실비변상·비과세는 총지급액 전액을 비과세로 처리하고 과세대상·필요경비·세액·기타공제를 0원으로 입력해야 합니다.' }, 400);
+      }
       if (payload.netAmount !== '' && payload.netAmount != null && parseMoney(payload.netAmount) !== net) return json({ ok: false, message: '실지급액은 총지급액에서 소득세·지방소득세·기타공제를 뺀 금액과 일치해야 합니다.' }, 400);
       const filingMonth = clean(payload.filingMonth, 7) || date.slice(0, 7);
       if (!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(filingMonth)) return json({ ok: false, message: '귀속·신고월을 YYYY-MM 형식으로 입력해 주세요.' }, 400);
@@ -386,7 +409,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           COALESCE(NULLIF(d.entity_id,''),'ENTITY-HQ') AS entity_id,COALESCE(d.fund_id,'') AS fund_id
           FROM accounting_resolutions r LEFT JOIN accounting_resolution_dimensions d ON d.resolution_id=r.id WHERE r.id=?`)
           .bind(sourceResolutionId).first<any>();
-        if (!resolution || resolution.resolution_type !== 'expense' || Number(resolution.fiscal_year) !== year
+        if (!resolution || resolution.resolution_type !== 'expense' || !['approved', 'posted'].includes(String(resolution.status || ''))
+          || Number(resolution.fiscal_year) !== year
           || resolution.book_type_code !== dimensions.bookTypeCode || resolution.entity_id !== dimensions.entityId
           || resolution.fund_id !== dimensions.fundId) {
           return json({ ok: false, message: '연결할 지출결의서와 원천징수 내역의 회계연도·회계 차원이 일치해야 합니다.' }, 400);
@@ -425,14 +449,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const requestedStatus = 'unfiled';
       await db.batch([
         db.prepare(`INSERT INTO accounting_withholding_records
-          (id,payment_no,fiscal_year,payment_date,payee_id,income_type,religious_income_method,source_resolution_id,
+          (id,payment_no,fiscal_year,payment_date,payee_id,income_type,tax_treatment,religious_income_method,source_resolution_id,
            book_type_code,entity_id,fund_id,gross_amount,tax_exempt_amount,necessary_expense,taxable_amount,
            income_tax,local_income_tax,other_deduction,net_amount,filing_month,filing_due_date,filing_status,
            filed_at,paid_at,memo,created_by,created_at,updated_by,updated_at,
            supersedes_id,source_verification_note,version_no)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
           ON CONFLICT(id) DO UPDATE SET payment_date=excluded.payment_date,payee_id=excluded.payee_id,
-          income_type=excluded.income_type,religious_income_method=excluded.religious_income_method,
+          income_type=excluded.income_type,tax_treatment=excluded.tax_treatment,religious_income_method=excluded.religious_income_method,
           source_resolution_id=excluded.source_resolution_id,book_type_code=excluded.book_type_code,
           entity_id=excluded.entity_id,fund_id=excluded.fund_id,gross_amount=excluded.gross_amount,
           tax_exempt_amount=excluded.tax_exempt_amount,necessary_expense=excluded.necessary_expense,
@@ -440,14 +464,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           other_deduction=excluded.other_deduction,net_amount=excluded.net_amount,filing_month=excluded.filing_month,
           filing_due_date=excluded.filing_due_date,memo=excluded.memo,updated_by=excluded.updated_by,
           updated_at=excluded.updated_at,source_verification_note=excluded.source_verification_note`)
-          .bind(id, paymentNo, year, date, payeeId, incomeType, religiousMethod, sourceResolutionId || null,
+          .bind(id, paymentNo, year, date, payeeId, incomeType, taxTreatment, religiousMethod, sourceResolutionId || null,
             dimensions.bookTypeCode, dimensions.entityId, dimensions.fundId, gross, taxExempt, necessaryExpense,
             taxable, incomeTax, localTax, otherDeduction, net, filingMonth, filingDueDate || null, requestedStatus,
             null, null, clean(payload.memo, 1200) || null,
             existing?.created_by || me.name, existing?.created_at || now, me.name, now,
             supersedesId || null, sourceVerificationNote || null, versionNo),
         taxAudit(db, 'save', 'withholding-record', id, me,
-          { paymentNo, date, incomeType, gross, taxable, incomeTax, localTax, net, requestedStatus,
+          { paymentNo, date, incomeType: requestedIncomeType, taxTreatment, gross, taxable, incomeTax, localTax, net, requestedStatus,
             supersedesId, versionNo, sourceResolutionId, sourceVerificationNote }, now),
       ]);
       return json({ ok: true, id, paymentNo, netAmount: net, versionNo,

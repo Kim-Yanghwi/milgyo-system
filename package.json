@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "ASTRO_TELEMETRY_DISABLED=1 astro build",
+    "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
     "typecheck": "tsc -p tsconfig.check.json",
@@ -22,7 +22,7 @@
     "typescript": "5.9.3"
   },
   "overrides": {
-    "nanoid": "3.3.17",
+    "nanoid": "3.3.18",
     "uuid": "11.1.1",
     "sharp": "0.35.0"
   }
