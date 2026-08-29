@@ -178,9 +178,11 @@ import GovLayout from '../layouts/GovLayout.astro';
               <select data-doc-type-filter><option value="">전체 문서구분</option><option value="기안">기안</option><option value="발송">발송</option></select>
               <select data-category-filter><option value="">전체 분류</option></select>
               <select data-department-filter aria-label="담당부서별 문서 조회"><option value="">전체 부서</option></select>
-              <input type="date" data-date-from aria-label="시작일" />
-              <span class="filter-separator">~</span>
-              <input type="date" data-date-to aria-label="종료일" />
+              <div class="filter-date-range" role="group" aria-label="문서 등록일 기간">
+                <input type="date" data-date-from aria-label="시작일" />
+                <span class="filter-separator" aria-hidden="true">~</span>
+                <input type="date" data-date-to aria-label="종료일" />
+              </div>
               <input type="search" data-query placeholder="문서번호, 제목, 기안자, 부서 검색" />
               <select data-sort><option value="newest">최신순</option><option value="oldest">과거순</option><option value="updated">최근처리순</option><option value="title">제목순</option></select>
               <select data-page-size><option value="10">10개</option><option value="20" selected>20개</option><option value="50">50개</option><option value="100">100개</option></select>
@@ -207,9 +209,11 @@ import GovLayout from '../layouts/GovLayout.astro';
             <h2>접수·발송대장</h2>
             <div class="panel-header__tools panel-filter-grid">
               <select data-received-filter><option value="전체">전체</option><option value="접수">접수</option><option value="외부발송">외부발송</option></select>
-              <input type="date" data-received-date-from aria-label="시작일" />
-              <span class="filter-separator">~</span>
-              <input type="date" data-received-date-to aria-label="종료일" />
+              <div class="filter-date-range" role="group" aria-label="접수·발송 등록일 기간">
+                <input type="date" data-received-date-from aria-label="시작일" />
+                <span class="filter-separator" aria-hidden="true">~</span>
+                <input type="date" data-received-date-to aria-label="종료일" />
+              </div>
               <input type="search" data-received-query placeholder="번호, 제목, 상대기관, 경로 검색" />
               <select data-received-sort><option value="newest">최신순</option><option value="oldest">과거순</option><option value="title">제목순</option></select>
               <select data-received-page-size><option value="10">10개</option><option value="20" selected>20개</option><option value="50">50개</option><option value="100">100개</option></select>
@@ -1068,7 +1072,9 @@ import GovLayout from '../layouts/GovLayout.astro';
         renderDocumentRows(data.rows || []);
         renderPagination($('[data-doc-pagination]'), data.page, data.pages, (page) => { docPage = page; refreshDocuments(); });
         const countEl=$(`[data-count="${requestView}"]`);if(countEl)countEl.textContent=String(data.total||0);
-        await refreshSidebarCounts(forceDashboard).catch((error)=>console.error('대시보드 수량 갱신 실패',error));
+        if(forceDashboard||!dashboardLoadedAt){
+          await refreshSidebarCounts(forceDashboard).catch((error)=>console.error('대시보드 수량 갱신 실패',error));
+        }
       };
       const applyDashboardCounts = (counts = {}) => {
         const sidebarMap = { 임시저장: 'draft', 진행: 'progress', 결재대기: 'pending', 발송대기: 'send' };
@@ -1116,7 +1122,9 @@ import GovLayout from '../layouts/GovLayout.astro';
       const activateReceivedView = () => {
         panelHome.hidden = true; panelDocuments.hidden = true; panelReceived.hidden = false;
         $$('[data-view]').forEach((b) => b.classList.remove('active'));
-        setTopNav('received'); receivedPage = 1; renderReceivedRows([]); return refreshReceived();
+        setTopNav('received'); receivedPage = 1; renderReceivedRows([]);
+        if(!dashboardLoadedAt) refreshDashboard().catch((error)=>console.error('대시보드 수량 갱신 실패',error));
+        return refreshReceived();
       };
       $$('[data-view]').forEach((button) => button.addEventListener('click', () => activateDocumentsView(button.dataset.view)));
       $('[data-received-view]').addEventListener('click', activateReceivedView);
@@ -1140,7 +1148,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       selectAll.addEventListener('change', () => { $$('[data-row-select]:not(:disabled)', docTable).forEach((box) => { box.checked = selectAll.checked; box.checked ? selectedIds.add(box.value) : selectedIds.delete(box.value); }); updateSelection(); });
 
       const downloadCsv = (filename, headers, rows) => {
-        const quote = (v) => { const raw = String(v ?? ''); const safe = /^[=+\-@]/.test(raw) ? `'${raw}` : raw; return `"${safe.replace(/"/g, '""')}"`; };
+        const quote = (v) => { const raw = String(v ?? ''); const safe = /^[\t\r\n ]*[=+\-@]/.test(raw) ? `'${raw}` : raw; return `"${safe.replace(/"/g, '""')}"`; };
         const text = '\ufeff' + [headers.map(quote).join(','), ...rows.map((row) => row.map(quote).join(','))].join('\r\n');
         const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
         const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -1660,7 +1668,8 @@ import GovLayout from '../layouts/GovLayout.astro';
         receivedTable.innerHTML=`<table class="doc-table__frame doc-table__frame--registry"><colgroup><col class="col-number" /><col class="col-type" /><col class="col-date" /><col class="col-title" /><col class="col-counterparty" /><col class="col-route" /><col class="col-external" /><col class="col-department" /><col class="col-person" /></colgroup><thead><tr><th>등록번호</th><th>구분</th><th>일자</th><th>제목</th><th>상대기관</th><th>경로</th><th>상대문서번호</th><th>담당부서</th><th>등록자</th></tr></thead><tbody>${rows.map((r)=>`<tr data-received-id="${esc(r.id)}"><td class="mono">${esc(r.id)}</td><td>${esc(r.direction)}</td><td>${esc(r.received_at)}</td><td class="doc-table__title">${esc(r.title)}</td><td>${esc(r.counterparty)}</td><td>${esc(r.source_system||'-')}</td><td>${esc(r.external_doc_number||'-')}</td><td>${esc(formatDepartmentLabel(r.department))}</td><td>${esc(r.handled_by)}</td></tr>`).join('')||'<tr class="doc-table__empty-row"><td colspan="9" class="empty"><strong>등록된 접수·발송 기록이 없습니다.</strong><span>문서24·이메일·우편 등으로 들어오거나 나간 문서를 수동 등록할 수 있습니다.</span></td></tr>'}</tbody></table>`;
         $$('[data-received-id]',receivedTable).forEach((tr)=>tr.addEventListener('click',()=>openReceivedDetail(tr.dataset.receivedId)));
       };
-      const refreshReceived=async()=>{receivedStatus.textContent='조회 중입니다...';const data=await callApi('/api/received/list',{token:getToken(),direction:$('[data-received-filter]').value,query:$('[data-received-query]').value.trim(),dateFrom:$('[data-received-date-from]').value,dateTo:$('[data-received-date-to]').value,sort:$('[data-received-sort]').value,page:receivedPage,pageSize:Number($('[data-received-page-size]').value)});if(!data.ok){receivedStatus.textContent=data.message;return;}receivedStatus.textContent=`총 ${formatNumber(data.total)}건 · ${data.page}/${data.pages}쪽`;renderReceivedRows(data.rows||[]);renderPagination($('[data-received-pagination]'),data.page,data.pages,(page)=>{receivedPage=page;refreshReceived();});};
+      let receivedRequestSerial=0;
+      const refreshReceived=async()=>{const requestSerial=++receivedRequestSerial;receivedStatus.textContent='조회 중입니다...';const data=await callApi('/api/received/list',{token:getToken(),direction:$('[data-received-filter]').value,query:$('[data-received-query]').value.trim(),dateFrom:$('[data-received-date-from]').value,dateTo:$('[data-received-date-to]').value,sort:$('[data-received-sort]').value,page:receivedPage,pageSize:Number($('[data-received-page-size]').value)});if(requestSerial!==receivedRequestSerial)return;if(!data.ok){receivedStatus.textContent=data.message;return;}receivedStatus.textContent=`총 ${formatNumber(data.total)}건 · ${data.page}/${data.pages}쪽`;renderReceivedRows(data.rows||[]);renderPagination($('[data-received-pagination]'),data.page,data.pages,(page)=>{receivedPage=page;refreshReceived();});};
       $('[data-received-refresh]').addEventListener('click',()=>{receivedPage=1;refreshReceived();});$$('[data-received-filter],[data-received-date-from],[data-received-date-to],[data-received-sort],[data-received-page-size]').forEach((el)=>el.addEventListener('change',()=>{receivedPage=1;refreshReceived();}));$('[data-received-query]').addEventListener('keydown',(e)=>{if(e.key==='Enter'){receivedPage=1;refreshReceived();}});
       $('[data-export-received]').addEventListener('click',async()=>{
         receivedStatus.textContent='전체 검색결과를 CSV로 준비 중입니다...';
@@ -2323,7 +2332,8 @@ import GovLayout from '../layouts/GovLayout.astro';
       background: #fff;
       min-height: 40px;
     }
-    .panel-header__tools input { min-width: 280px; }
+    .panel-header__tools input[type="search"] { min-width: 220px; flex: 1 1 240px; }
+    .panel-header__tools .filter-date-range input[type="date"] { min-width: 0; }
     .panel-status { color: var(--gov-muted); font-size: 0.86rem; margin-bottom: 0.75rem; }
 
     .mono { font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.82rem; color: var(--gov-muted); }
@@ -2702,8 +2712,14 @@ import GovLayout from '../layouts/GovLayout.astro';
     .badge--협조대기 { background: #ece8ff; color: #5a43a5; }
     .badge--전결대기 { background: #e7f4ee; color: #176b4b; }
     .badge--임시저장 { background: #eceff3; color: #505968; }
-    .panel-filter-grid { justify-content: flex-end; }
-    .panel-filter-grid input[type="date"] { min-width: 145px; }
+    .panel-filter-grid { justify-content: flex-end; width: 100%; flex-wrap: nowrap; min-width: 0; overflow-x: auto; overflow-y: hidden; padding-bottom: 2px; scrollbar-width: thin; }
+    .panel-filter-grid > select { flex: 0 1 auto; max-width: 140px; min-width: 76px; }
+    .panel-filter-grid > [data-category-filter],
+    .panel-filter-grid > [data-department-filter] { max-width: 155px; }
+    .panel-filter-grid > [data-sort] { max-width: 105px; }
+    .panel-filter-grid > [data-page-size],
+    .panel-filter-grid > [data-received-page-size] { max-width: 88px; }
+    .panel-filter-grid > input[type=search] { min-width: 170px; flex: 1 1 210px; }
     .filter-separator { color: var(--gov-muted); font-size: 0.9rem; }
     .pagination { display: flex; justify-content: center; gap: 0.35rem; margin-top: 1rem; flex-wrap: wrap; }
     .pagination button { min-width: 34px; height: 34px; border: 1px solid var(--gov-border); background: #fff; border-radius: 6px; }
@@ -2832,6 +2848,9 @@ import GovLayout from '../layouts/GovLayout.astro';
       .content-section { padding: 1rem; }
       .panel-header__tools input { min-width: 0; width: 100%; }
       .panel-header__tools { width: 100%; }
+      .panel-filter-grid { flex-wrap: wrap; overflow: visible; padding-bottom: 0; }
+      .panel-header__tools .filter-date-range { width: 100%; }
+      .panel-header__tools .filter-date-range > :is(.date-with-weekday,.managed-date-with-weekday) { flex: 1 1 0; width: auto !important; min-width: 0 !important; }
       .modal--wide { width: calc(100vw - 1rem); max-width: calc(100vw - 1rem); }
       .compose-fieldset,
       .compose-fieldset > [data-reviewer-approver-fields],

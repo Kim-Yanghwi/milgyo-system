@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json, normalizeDepartmentValue } from '../../_shared/helpers';
+import { authenticateSession, clean, ensureTables, isValidIsoDate, json, normalizeDepartmentValue } from '../../_shared/helpers';
 
 interface Env { DB: D1Database; }
 type ListPayload = {
@@ -14,11 +14,11 @@ const SORTS: Record<string, string> = {
   updated: 'updated_at DESC',
 };
 const ACTIVE_STATUSES = "'검토대기','협조대기','결재대기','전결대기'";
-const nextDay = (dateText: string) => {
-  const date = new Date(`${dateText}T00:00:00Z`);
+const kstDayBoundaryUtc = (dateText: string, dayOffset = 0) => {
+  const date = new Date(`${dateText}T00:00:00+09:00`);
   if (Number.isNaN(date.getTime())) return '';
-  date.setUTCDate(date.getUTCDate() + 1);
-  return date.toISOString().slice(0, 10);
+  if (dayOffset) date.setUTCDate(date.getUTCDate() + dayOffset);
+  return date.toISOString();
 };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -37,6 +37,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const pageSize = Math.max(10, Math.min(100, Number(payload.pageSize) || 20));
   const dateFrom = clean(payload.dateFrom, 10);
   const dateTo = clean(payload.dateTo, 10);
+  if (dateFrom && !isValidIsoDate(dateFrom)) return json({ ok: false, message: '조회 시작일이 올바르지 않습니다.' }, 400);
+  if (dateTo && !isValidIsoDate(dateTo)) return json({ ok: false, message: '조회 종료일이 올바르지 않습니다.' }, 400);
+  if (dateFrom && dateTo && dateFrom > dateTo) return json({ ok: false, message: '조회 시작일은 종료일보다 늦을 수 없습니다.' }, 400);
   const docType = clean(payload.docType, 10);
   const category = clean(payload.category, 100);
   const department = normalizeDepartmentValue(payload.department);
@@ -96,11 +99,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       OR EXISTS (SELECT 1 FROM document_approval_lines search_line WHERE search_line.document_id = documents.id AND search_line.user_name LIKE ?))`);
     const keyword = `%${query}%`; bindings.push(keyword, keyword, keyword, keyword, keyword, keyword, keyword);
   }
-  // created_at은 ISO-8601 문자열이므로 substr() 없이 직접 범위 비교하여 인덱스를 활용합니다.
-  if (dateFrom) { filters.push(`created_at >= ?`); bindings.push(`${dateFrom}T00:00:00.000Z`); }
+  // created_at은 UTC ISO-8601 문자열입니다. 사용자가 선택한 날짜는 한국시간(KST) 기준 하루로 해석해
+  // 00:00~24:00 KST를 UTC 경계값으로 바꾼 뒤 직접 범위 비교하여 인덱스를 활용합니다.
+  if (dateFrom) {
+    const startUtc = kstDayBoundaryUtc(dateFrom);
+    if (startUtc) { filters.push(`created_at >= ?`); bindings.push(startUtc); }
+  }
   if (dateTo) {
-    const exclusiveEnd = nextDay(dateTo);
-    if (exclusiveEnd) { filters.push(`created_at < ?`); bindings.push(`${exclusiveEnd}T00:00:00.000Z`); }
+    const exclusiveEndUtc = kstDayBoundaryUtc(dateTo, 1);
+    if (exclusiveEndUtc) { filters.push(`created_at < ?`); bindings.push(exclusiveEndUtc); }
   }
   if (docType && ['기안', '발송'].includes(docType)) { filters.push(`doc_type = ?`); bindings.push(docType); }
   if (category) { filters.push(`category = ?`); bindings.push(category); }

@@ -2,7 +2,7 @@
 import ManagementLayout from '../layouts/ManagementLayout.astro';
 ---
 <ManagementLayout title="대장관리기능" active="registers">
-  <div data-register-management-version="2026-08-01-v57" hidden></div>
+  <div data-register-management-version="2026-08-29-v83-filter-layout" hidden></div>
   <div class="page-heading">
     <div><p class="page-heading__kicker">REGISTER MANAGEMENT</p><h1>대장관리기능</h1><p>공고대장, 관인날인 기록부, 인영관리 기록부를 신청·조회·처리합니다.</p></div>
     <button type="button" class="btn btn-primary" data-open-request>+ 신청</button>
@@ -21,9 +21,11 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       </div>
       <div class="toolbar register-filters">
         <select data-status-filter aria-label="처리상태"><option value="">전체 상태</option><option>신청</option><option>검토중</option><option>완료</option><option>반려</option><option>취소</option></select>
-        <input type="date" data-date-from aria-label="시작일" />
-        <span>~</span>
-        <input type="date" data-date-to aria-label="종료일" />
+        <div class="filter-date-range" role="group" aria-label="신청일 기간">
+          <input type="date" data-date-from aria-label="시작일" />
+          <span class="range-separator" aria-hidden="true">~</span>
+          <input type="date" data-date-to aria-label="종료일" />
+        </div>
         <input type="search" data-query placeholder="신청번호·건명·신청자 검색" />
         <select data-page-size aria-label="페이지당 건수"><option value="10">10개</option><option value="20" selected>20개</option><option value="50">50개</option></select>
         <button type="button" class="btn btn-outline" data-search>조회</button>
@@ -735,7 +737,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       });
 
       const csv = (filename, rows) => {
-        const quote = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+        const quote = (value) => { const raw=String(value??''); const safe=/^[\t\r\n ]*[=+\-@]/.test(raw)?`'${raw}`:raw; return `"${safe.replace(/"/g,'""')}"`; };
         const text = '\ufeff' + rows.map((row) => row.map(quote).join(',')).join('\r\n');
         const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
         const link = document.createElement('a');
@@ -794,9 +796,11 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
     .scope-tab{border:0;border-bottom:3px solid transparent;background:transparent;padding:.55rem .9rem;font-weight:700}
     .scope-tab.active{color:var(--gov-accent);border-bottom-color:var(--gov-accent)}
     .register-list-toolbar{margin-bottom:.8rem;gap:1rem}
-    .register-filters input[type=search]{min-width:240px}
-    .register-filters .managed-date-with-weekday{min-width:190px}
+    .register-filters{justify-content:flex-end}
+    .register-filters input[type=search]{min-width:220px}
+    .register-filters .filter-date-range :is(.date-with-weekday,.managed-date-with-weekday){width:174px!important;min-width:174px!important}
     .register-fieldset .managed-date-with-weekday{width:100%}
+    .range-separator{display:inline-flex;align-items:center;color:var(--gov-muted)}
 
     .register-table{width:100%;table-layout:fixed}
     .register-table th,.register-table td{text-align:center!important;vertical-align:middle;white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
@@ -848,6 +852,10 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
     .pledge-field input{min-height:auto;margin-top:.2rem}
     .danger{color:#a12626;border-color:#dfb4b4}
 
+    @media(max-width:1180px){
+      .register-list-toolbar{align-items:flex-start;flex-direction:column}
+      .register-filters{justify-content:flex-start;width:100%}
+    }
     @media(max-width:850px){
       .register-type-tabs{grid-template-columns:1fr}
       .register-detail-modal{width:calc(100vw - 1rem);max-height:calc(100vh - 1rem)}

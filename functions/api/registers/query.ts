@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
+import { authenticateSession, clean, ensureTables, isValidIsoDate, json } from '../../_shared/helpers';
 import { isRegisterType, REGISTER_TYPES } from '../../_shared/management';
 
 interface Env { DB: D1Database; }
@@ -55,6 +55,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
   const dateFrom = clean(payload.dateFrom, 10);
   const dateTo = clean(payload.dateTo, 10);
+  if (dateFrom && !isValidIsoDate(dateFrom)) return json({ ok: false, message: '조회 시작일이 올바르지 않습니다.' }, 400);
+  if (dateTo && !isValidIsoDate(dateTo)) return json({ ok: false, message: '조회 종료일이 올바르지 않습니다.' }, 400);
+  if (dateFrom && dateTo && dateFrom > dateTo) return json({ ok: false, message: '조회 시작일은 종료일보다 늦을 수 없습니다.' }, 400);
   if (dateFrom) { filters.push('request_date>=?'); bindings.push(dateFrom); }
   if (dateTo) { filters.push('request_date<=?'); bindings.push(dateTo); }
   const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
