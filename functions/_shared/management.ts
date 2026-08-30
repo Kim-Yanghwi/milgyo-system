@@ -6,6 +6,7 @@ export const REGISTER_STATUSES = ['신청', '검토중', '완료', '반려', '�
 
 const KST_OFFSET = 9 * 60 * 60 * 1000;
 export const kstDate = (date = new Date()) => new Date(date.getTime() + KST_OFFSET).toISOString().slice(0, 10);
+const currentKstYear=()=>Number(kstDate().slice(0,4));
 
 export const isRegisterType = (value: string): value is RegisterType => REGISTER_TYPES.includes(value as RegisterType);
 
@@ -40,17 +41,17 @@ export const nextManagedNumber = async (
 };
 
 export const makeRegisterNumber = async (db: D1Database, type: RegisterType, requestDate: string) => {
-  const year = Number(requestDate.slice(0, 4)) || new Date().getUTCFullYear();
+  const year = Number(requestDate.slice(0, 4)) || currentKstYear();
   return nextManagedNumber(db, `REGISTER:${type}:${year}`, REGISTER_PREFIX[type], year, 'management_registers', 'request_no', 4);
 };
 
 export const makeEmploymentCertificateNumber = async (db: D1Database, issueDate: string) => {
-  const year = Number(issueDate.slice(0, 4)) || new Date().getUTCFullYear();
+  const year = Number(issueDate.slice(0, 4)) || currentKstYear();
   return nextManagedNumber(db, `EMPLOYMENT_CERT:${year}`, '재직', year, 'employment_certificates', 'certificate_no', 5);
 };
 
 export const makeOrdinationCertificateNumber = async (db: D1Database, ordinationDate: string) => {
-  const year = Number(ordinationDate.slice(0, 4)) || new Date().getUTCFullYear();
+  const year = Number(ordinationDate.slice(0, 4)) || currentKstYear();
   const seqKey = `ORDINATION_CERT:${year}`;
   const existing = await db.prepare(`
     SELECT MAX(CAST(substr(certificate_no, 6) AS INTEGER)) AS max_seq

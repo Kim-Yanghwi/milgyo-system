@@ -2,7 +2,7 @@
 import GovLayout from './GovLayout.astro';
 export interface Props {
   title: string;
-  active: 'registers' | 'vehicle' | 'employment' | 'ordination';
+  active: 'registers' | 'vehicle' | 'employment' | 'ordination' | 'foreignForms';
   showCurrentUser?: boolean;
 }
 const { title, active, showCurrentUser = true } = Astro.props;
@@ -10,7 +10,7 @@ const { title, active, showCurrentUser = true } = Astro.props;
 <GovLayout title={`${title} | 대한불교밀교종 종단관리시스템`}>
   <div class="app-shell management-shell" data-management-shell>
     <header class="app-topbar">
-      <button type="button" class="app-topbar__menu-toggle" data-toggle-sidebar aria-label="메뉴 접기">☰</button>
+      <button type="button" class="app-topbar__menu-toggle" data-toggle-sidebar aria-controls="management-sidebar" aria-expanded="true" aria-label="메뉴 접기">☰</button>
       <a class="app-topbar__brand" href="/" aria-label="대한불교밀교종 종단관리시스템 홈으로 이동">
         <img class="app-topbar__logo" src="/brand-logo-transparent.png" alt="대한불교밀교종 로고" />
         <span class="app-topbar__brand-title">
@@ -34,7 +34,7 @@ const { title, active, showCurrentUser = true } = Astro.props;
     </header>
 
     <div class="app-body">
-      <aside class="app-sidebar">
+      <aside class="app-sidebar" id="management-sidebar">
         {showCurrentUser && (
           <section class="sidebar-profile" aria-label="로그인 계정 정보">
             <div class="sidebar-profile__row"><span>이름</span><strong data-me-name>-</strong></div>
@@ -69,9 +69,10 @@ const { title, active, showCurrentUser = true } = Astro.props;
           <a class:list={["sidebar-link","sidebar-external-link", active === 'vehicle' && 'active']} href="/vehicle-register" data-accounting-access-link hidden>업무용 차량 관리대장</a>
         </div>
         <div class="sidebar-group">
-          <p class="sidebar-group__title">증명서 발급·대장</p>
+          <p class="sidebar-group__title">증명서·신청서 발급·대장</p>
           <a class:list={["sidebar-link","sidebar-external-link", active === 'employment' && 'active']} href="/employee-certificates">재직증명서 발급·대장</a>
           <a class:list={["sidebar-link","sidebar-external-link", active === 'ordination' && 'active']} href="/ordination-certificates">수계증서 발급·대장</a>
+          <a class:list={["sidebar-link","sidebar-external-link", active === 'foreignForms' && 'active']} href="/foreign-applications">외국인 신청서·신고서 작성·대장</a>
         </div>
         <div class="sidebar-group">
           <p class="sidebar-group__title">접수·외부발송(문서24 등)</p>
@@ -90,32 +91,51 @@ const { title, active, showCurrentUser = true } = Astro.props;
       let session=null;
       try { session=JSON.parse(localStorage.getItem(key)||'null'); } catch {}
       if(!session?.token||!session?.user){ location.replace('/'); return; }
-      const user=session.user;
+      let user=session.user;
       const set=(sel,value)=>{const el=document.querySelector(sel);if(el)el.textContent=value||'-';};
-      set('[data-me-name]',user.name); set('[data-me-position]',user.position||user.grade);
       const officeDepartments=new Set(['재정국','준법윤리국','국제교류국','문화홍보국','사회공헌국']);
+      const topLevelDepartments=new Set(['이사장','이사회','감사','종정','사무처','총무원','교육·포교원','소속기관·교구','위원회·신도단체']);
       const legacyOfficeDepartment=(name,position='')=>{if(name==='재정·회계')return '재정국';if(name==='준법·윤리')return '준법윤리국';if(name==='대외협력·사회공헌')return /사회공헌/.test(position)?'사회공헌국':'국제교류국';if(name==='문화·홍보')return '문화홍보국';return name;};
-      const resolveDepartment=(value,position='')=>{let text=String(value||'').trim();if(!text)return{primary:'-',secondary:''};text=text.replace(/\s*[–—]\s*/g,' - ');const parenthesized=/^(.+?)\s*\(([^()]+)\)\s*$/.exec(text);if(parenthesized)text=`${parenthesized[1].trim()} - ${parenthesized[2].trim()}`;const parts=text.split(/\s+-\s+/).map(v=>v.trim()).filter(Boolean);let primary=parts[0]||'',secondary=parts.slice(1).join(' - ');if(primary==='사무국')primary='사무처';if(secondary)secondary=legacyOfficeDepartment(secondary,position);if(!secondary){const mapped=legacyOfficeDepartment(primary,position);if(mapped!==primary||officeDepartments.has(mapped)){primary='사무처';secondary=mapped;}}return{primary:primary||'-',secondary};};
-      const department=resolveDepartment(user.department,user.position||'');
-      set('[data-me-department-primary]',department.primary);
-      set('[data-me-department-secondary]',department.secondary||'-');
-      const secondaryRow=document.querySelector('[data-me-department-secondary-row]');if(secondaryRow)secondaryRow.hidden=!department.secondary;
+      const resolveDepartment=(value,position='')=>{let text=String(value||'').trim();if(!text&&topLevelDepartments.has(String(position||'').trim()))text=String(position||'').trim();if(!text)return{primary:'-',secondary:''};text=text.replace(/\s*[–—]\s*/g,' - ');const parenthesized=/^(.+?)\s*\(([^()]+)\)\s*$/.exec(text);if(parenthesized)text=`${parenthesized[1].trim()} - ${parenthesized[2].trim()}`;const parts=text.split(/\s+-\s+/).map(v=>v.trim()).filter(Boolean);let primary=parts[0]||'',secondary=parts.slice(1).join(' - ');if(primary==='사무국')primary='사무처';if(secondary)secondary=legacyOfficeDepartment(secondary,position);if(!secondary){const mapped=legacyOfficeDepartment(primary,position);if(mapped!==primary||officeDepartments.has(mapped)){primary='사무처';secondary=mapped;}}return{primary:primary||'-',secondary};};
+      const renderProfile=(nextUser)=>{
+        user=nextUser||user;
+        set('[data-me-name]',user.name); set('[data-me-position]',user.position||user.grade);
+        const department=resolveDepartment(user.department,user.position||'');
+        set('[data-me-department-primary]',department.primary);
+        set('[data-me-department-secondary]',department.secondary||'-');
+        const secondaryRow=document.querySelector('[data-me-department-secondary-row]');if(secondaryRow)secondaryRow.hidden=!department.secondary;
+        const accounting= user.role==='admin'||!!user.canAccounting||Number(user.can_accounting||0)===1;
+        document.querySelectorAll('[data-accounting-access-link],[data-accounting-access-section]').forEach((el)=>el.hidden=!accounting);
+        document.querySelectorAll('[data-admin-link]').forEach((el)=>el.hidden=user.role!=='admin');
+      };
       const syncManagedDates=(root=document)=>window.__MILGYO_SYNC_DATE_INPUTS__?.(root);
       window.__MILGYO_SYNC_MANAGED_DATES__=syncManagedDates;
       window.addEventListener('milgyo:date-inputs-ready',()=>syncManagedDates(document));
       syncManagedDates(document);
-      const accounting= user.role==='admin'||!!user.canAccounting||Number(user.can_accounting||0)===1;
-      document.querySelectorAll('[data-accounting-access-link],[data-accounting-access-section]').forEach((el)=>el.hidden=!accounting);
-      document.querySelectorAll('[data-admin-link]').forEach((el)=>el.hidden=user.role!=='admin');
+      renderProfile(user);
 
-      document.querySelector('[data-toggle-sidebar]')?.addEventListener('click',()=>document.querySelector('[data-management-shell]')?.classList.toggle('sidebar-collapsed'));
+      const managementShell=document.querySelector('[data-management-shell]');
+      const sidebarToggle=document.querySelector('[data-toggle-sidebar]');
+      const setSidebarCollapsed=(collapsed)=>{
+        managementShell?.classList.toggle('sidebar-collapsed',!!collapsed);
+        if(sidebarToggle){sidebarToggle.setAttribute('aria-expanded',String(!collapsed));sidebarToggle.setAttribute('aria-label',collapsed?'메뉴 펼치기':'메뉴 접기');}
+      };
+      sidebarToggle?.addEventListener('click',()=>setSidebarCollapsed(!managementShell?.classList.contains('sidebar-collapsed')));
       document.querySelector('[data-logout]')?.addEventListener('click',async()=>{
         try{await fetch('/api/auth/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:session.token})});}catch{}
         localStorage.removeItem(key);location.replace('/');
       });
       fetch('/api/auth/session',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({token:session.token})})
         .then(async(r)=>({status:r.status,data:await r.json().catch(()=>({ok:false}))}))
-        .then(({status,data})=>{if(status===401||(!data.ok&&/로그인|만료/.test(data.message||''))){localStorage.removeItem(key);location.replace('/');}})
+        .then(({status,data})=>{
+          if(status===401||(!data.ok&&/로그인|만료/.test(data.message||''))){localStorage.removeItem(key);location.replace('/');return;}
+          if(data.ok&&data.user){
+            const fresh={...user,...data.user,canApprove:data.user.canApprove??!!data.user.can_approve,canAccounting:data.user.canAccounting??(data.user.role==='admin'||!!data.user.can_accounting)};
+            session={...session,user:fresh,savedAt:Date.now()};
+            localStorage.setItem(key,JSON.stringify(session));
+            renderProfile(fresh);
+          }
+        })
         .catch(()=>{});
       window.__MILGYO_SESSION__=session;
     })();
@@ -127,7 +147,6 @@ const { title, active, showCurrentUser = true } = Astro.props;
     .app-body{display:flex;min-height:calc(100vh - 58px)}.app-sidebar{width:220px;flex:0 0 220px;background:#fff;border-right:1px solid var(--gov-border);padding:1rem .8rem;display:flex;flex-direction:column;gap:1rem}.sidebar-profile{border:1px solid #cfd8e6;border-radius:8px;overflow:hidden;background:#f7f9fc}.sidebar-profile__row{display:grid;grid-template-columns:70px 1fr;min-height:34px;border-bottom:1px solid #e1e6ee}.sidebar-profile__row:last-child{border-bottom:0}.sidebar-profile__row span,.sidebar-profile__row strong{display:flex;align-items:center;justify-content:center;padding:.38rem .44rem;font-size:.75rem;min-width:0;text-align:center}.sidebar-profile__row span{background:#edf2f8;color:#526174;font-weight:700}.sidebar-profile__row strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sidebar-compose{margin-bottom:.4rem}.sidebar-group__title{font-size:.78rem;color:#fff;background:#557eb1;font-weight:700;margin:0 0 .25rem;padding:.42rem .55rem;border-radius:2px}.sidebar-link{display:flex;align-items:center;justify-content:flex-start;width:100%;padding:.58rem .65rem;border-radius:2px;color:var(--gov-text);text-decoration:none;font-size:.9rem}.sidebar-link:hover{background:#f2f4f7}.sidebar-link.active{background:#e8effe;color:var(--gov-accent);font-weight:700}.app-main{flex:1;min-width:0;padding:1.35rem 1.5rem 1.8rem}.management-shell.sidebar-collapsed .app-sidebar{width:0;flex-basis:0;padding:0;border:0;overflow:hidden}
     .page-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;margin-bottom:1rem}.page-heading__kicker{margin:0 0 .2rem;color:var(--gov-gold);font-size:.72rem;font-weight:800;letter-spacing:.15em}.page-heading h1{margin:0;font-size:1.45rem}.page-heading p{margin:.28rem 0 0;color:var(--gov-muted);font-size:.87rem}.surface{background:#fff;border:1px solid var(--gov-border);border-radius:10px;padding:1rem;box-shadow:0 2px 8px rgba(20,36,60,.04)}
     input,select,textarea{border:1px solid var(--gov-border);border-radius:5px;padding:.58rem .7rem;font-size:.9rem;background:#fff;min-height:38px}textarea{resize:vertical;min-height:78px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem 1rem}.form-field{display:flex;flex-direction:column;gap:.35rem}.form-field--full{grid-column:1/-1}.form-field label,.field-label{font-size:.82rem;font-weight:700}.hint{margin:.2rem 0;color:var(--gov-muted);font-size:.76rem}.toolbar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}.toolbar--between{justify-content:space-between}.status-message{min-height:1.4rem;color:var(--gov-muted);font-size:.84rem}.status-message.error{color:#a12626}.status-message.ok{color:#1e6f2b}.data-wrap{overflow:auto;border:1px solid var(--gov-border)}.data-table{width:100%;min-width:980px;border-collapse:collapse;table-layout:fixed;font-size:.84rem}.data-table th,.data-table td{border:1px solid var(--gov-border);padding:.58rem .55rem;text-align:center;vertical-align:middle}.data-table th{background:#e9f0f8;font-weight:700}.data-table td.text-left{text-align:left}.badge{display:inline-flex;padding:.18rem .55rem;border-radius:999px;font-size:.75rem;background:#edf0f4}.badge--신청{background:#fff3d6;color:#835800}.badge--검토중{background:#e3ecff;color:#2a4fb0}.badge--완료,.badge--발급{background:#e3f4e3;color:#1e6f2b}.badge--반려,.badge--취소{background:#fbe4e4;color:#a12626}.pagination{display:flex;justify-content:center;gap:.3rem;margin-top:.8rem}.pagination button{min-width:34px;height:34px;border:1px solid var(--gov-border);background:#fff}.pagination button.active{background:var(--gov-accent);color:#fff}.modal-overlay{position:fixed;inset:0;background:rgba(15,28,48,.48);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:100}.modal{width:min(920px,calc(100vw - 2rem));max-height:92vh;background:#fff;border-radius:10px;overflow:auto;box-shadow:0 22px 70px rgba(0,0,0,.3)}.modal__header{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:.9rem 1rem;border-bottom:1px solid var(--gov-border);background:#fff}.modal__header h2{margin:0;font-size:1.15rem}.modal__close{border:0;background:transparent;font-size:1.5rem}.modal__body{padding:1rem}.modal__actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--gov-border)}
-    .filter-date-range{display:inline-flex;align-items:center;gap:.38rem;flex:0 0 auto;min-width:0;white-space:nowrap}.filter-date-range>:is(.date-with-weekday,.managed-date-with-weekday){width:174px!important;min-width:174px!important}.filter-date-range .range-separator,.filter-date-range .filter-separator{flex:0 0 auto}
     .managed-date-with-weekday{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.48rem;width:100%;min-width:0}.toolbar>.managed-date-with-weekday{width:auto;min-width:205px}.form-field>.managed-date-with-weekday{width:100%}.managed-date-input-shell{position:relative;min-width:0;width:100%}.managed-date-input-shell input[type="date"]{position:relative;z-index:1;width:100%;color:transparent!important;-webkit-text-fill-color:transparent!important;padding-right:42px}.managed-date-input-shell input[type="date"]::-webkit-datetime-edit,.managed-date-input-shell input[type="date"]::-webkit-datetime-edit-fields-wrapper,.managed-date-input-shell input[type="date"]::-webkit-datetime-edit-year-field,.managed-date-input-shell input[type="date"]::-webkit-datetime-edit-month-field,.managed-date-input-shell input[type="date"]::-webkit-datetime-edit-day-field,.managed-date-input-shell input[type="date"]::-webkit-datetime-edit-text{color:transparent!important;-webkit-text-fill-color:transparent!important}.managed-date-input-shell input[type="date"]::-webkit-calendar-picker-indicator{position:relative;z-index:3;opacity:1;cursor:pointer}.managed-date-display{position:absolute;z-index:2;left:.72rem;right:42px;top:0;bottom:0;display:flex;align-items:center;pointer-events:none;color:var(--gov-text);font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.managed-date-display.is-placeholder{color:#7a8798}.managed-date-weekday{display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:38px;padding:0 .58rem;border:1px solid var(--gov-border);border-radius:5px;background:#f3f6fa;color:#304b70;font-size:.78rem;font-weight:800;white-space:nowrap}.managed-date-weekday[hidden]{display:none!important}
     @media(max-width:1050px){.app-topbar{flex-wrap:wrap}.app-topbar__menu,.app-topbar__right{width:100%;flex-wrap:wrap}.app-body{flex-direction:column}.app-sidebar{width:100%;flex-basis:auto;border-right:0;border-bottom:1px solid var(--gov-border)}.form-grid{grid-template-columns:1fr}.form-field--full{grid-column:auto}}@media(max-width:640px){.app-main{padding:1rem}.app-topbar__wordmark{width:130px}.page-heading{align-items:flex-start;flex-direction:column}}
   </style>

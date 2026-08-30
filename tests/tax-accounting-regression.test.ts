@@ -136,7 +136,7 @@ test('runtime tax validation avoids D1 compound selects and executes on the comp
 test('site-wide date inputs accept eight typed digits without breaking native segment editing', () => {
   const helper = fs.readFileSync('public/milgyo-date-input.js', 'utf8');
   const layout = fs.readFileSync('src/layouts/GovLayout.astro', 'utf8');
-  assert.match(layout, /src="\/milgyo-date-input\.js"/);
+  assert.match(layout, /src="\/milgyo-date-input\.js\?v=90"/);
   assert.match(helper, /input\.value = value/);
   assert.match(helper, /\^\\d\{8\}\$/);
   assert.match(helper, /clipboardData/);

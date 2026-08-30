@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json, randomHex } from '../../_shared/helpers';
+import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
 import {
   accountingEventStatement,
   ensureAccountingIntegrationSchema,
@@ -28,7 +28,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   try{
     const placeholders=ids.map(()=>'?').join(',');
-    const [documents,lines,linkedRows]=await env.DB.batch([
+    const [documents,lines,linkedRows,allLineDocs]=await env.DB.batch([
       env.DB.prepare(`SELECT id,status,CAST(reviewer_user_id AS TEXT) AS reviewer_user_id,
         CAST(approver_user_id AS TEXT) AS approver_user_id,approval_track,approval_mode
         FROM documents WHERE id IN (${placeholders})`).bind(...ids),
@@ -37,10 +37,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         ORDER BY document_id,line_order`).bind(...ids),
       env.DB.prepare(`SELECT DISTINCT document_id FROM accounting_outbox
         WHERE event_type='resolution.create' AND document_id IN (${placeholders})`).bind(...ids),
+      env.DB.prepare(`SELECT DISTINCT document_id FROM document_approval_lines WHERE document_id IN (${placeholders})`).bind(...ids),
     ]);
     const lineMap=new Map<string,LineRow[]>();
     for(const line of (lines.results||[]) as LineRow[]){const list=lineMap.get(line.document_id)||[];list.push(line);lineMap.set(line.document_id,list)}
     const linked=new Set((linkedRows.results||[]).map((r:any)=>String(r.document_id)));
+    const hasLines=new Set((allLineDocs.results||[]).map((r:any)=>String(r.document_id)));
     const now=new Date().toISOString(),statements:D1PreparedStatement[]=[],processed:string[]=[],skipped:string[]=[],integrationIds:string[]=[];
 
     for(const row of (documents.results||[]) as any[]){
@@ -48,17 +50,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       let finalStatus='',recordedAction=action,role=me.position||'처리자';
       if(currentLine){
         if(me.role!=='admin'&&currentLine.user_id!==me.id){skipped.push(row.id);continue}
+        const expectedStatus=statusForLineType(currentLine.line_type);
+        if(row.status!==expectedStatus){skipped.push(row.id);continue}
         role=`${currentLine.line_type}자`;
         if(action==='반려'){
           finalStatus='반려';recordedAction='반려';
-          statements.push(env.DB.prepare(`UPDATE document_approval_lines SET status='반려',acted_at=?,memo=? WHERE id=?`).bind(now,memo||null,currentLine.id));
+          statements.push(env.DB.prepare(`UPDATE document_approval_lines SET status='반려',acted_at=?,memo=? WHERE id=? AND status IN ('대기','예정')`).bind(now,memo||null,currentLine.id));
         }else{
           const nextLine=docLines.find(line=>line.status==='예정'&&line.line_order>currentLine.line_order);
           finalStatus=nextLine?statusForLineType(nextLine.line_type):'승인';
           recordedAction=completedActionForLine(currentLine.line_type);
-          statements.push(env.DB.prepare(`UPDATE document_approval_lines SET status='완료',acted_at=?,memo=? WHERE id=?`).bind(now,memo||null,currentLine.id));
-          if(nextLine)statements.push(env.DB.prepare(`UPDATE document_approval_lines SET status='대기' WHERE id=?`).bind(nextLine.id));
+          statements.push(env.DB.prepare(`UPDATE document_approval_lines SET status='완료',acted_at=?,memo=? WHERE id=? AND status IN ('대기','예정')`).bind(now,memo||null,currentLine.id));
+          if(nextLine)statements.push(env.DB.prepare(`UPDATE document_approval_lines SET status='대기' WHERE id=? AND status='예정'`).bind(nextLine.id));
         }
+      }else if(hasLines.has(String(row.id))){skipped.push(row.id);continue
       }else if(row.status==='검토대기'&&(me.role==='admin'||row.reviewer_user_id===me.id)){
         recordedAction=action==='승인'?'검토완료':'반려';finalStatus=recordedAction==='검토완료'?'결재대기':'반려';
       }else if(['결재대기','전결대기'].includes(row.status)&&(me.role==='admin'||row.approver_user_id===me.id)){
@@ -67,10 +72,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       }else{skipped.push(row.id);continue}
 
       processed.push(row.id);
-      statements.push(env.DB.prepare(`UPDATE documents SET status=?,completed_at=CASE WHEN ? IN ('승인','반려') THEN ? ELSE NULL END,updated_at=? WHERE id=?`)
-        .bind(finalStatus,finalStatus,now,now,row.id));
+      statements.push(env.DB.prepare(`UPDATE documents SET status=?,completed_at=CASE WHEN ? IN ('승인','반려') THEN ? ELSE NULL END,updated_at=? WHERE id=? AND status=?`)
+        .bind(finalStatus,finalStatus,now,now,row.id,row.status));
+      const auditId=currentLine?`AP-DEC-${currentLine.id}`:`AP-LEGACY-${row.id}-${row.status}`;
       statements.push(env.DB.prepare(`INSERT INTO document_approvals (id,document_id,action,approver_name,approver_role,memo,created_at)
-        VALUES (?,?,?,?,?,?,?)`).bind(`AP-${randomHex(20)}`,row.id,recordedAction,me.name,role,memo||null,now));
+        VALUES (?,?,?,?,?,?,?)`).bind(auditId,row.id,recordedAction,me.name,role,memo||null,now));
       if(linked.has(String(row.id))&&['승인','반려'].includes(finalStatus)){
         const eventType=finalStatus==='승인'?'resolution.approve':'resolution.reject';
         const eventKey=`${eventType}:${row.id}`;
@@ -91,6 +97,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
     return json({ok:true,processed:processed.length,skipped,integrationPending,
       message:`${processed.length}건을 처리했습니다.${skipped.length?` 제외 ${skipped.length}건`:''}${integrationPending?' 회계 반영 일부는 재처리 대기 중입니다.':''}`});
-  }catch(error){console.error('batch decide failed',error);return json({ok:false,message:'일괄 처리 중 오류가 발생했습니다.'},500)}
+  }catch(error){const message=error instanceof Error?error.message:String(error);if(/UNIQUE constraint failed:\s*document_approvals\.id|accounting_outbox\.event_key/i.test(message))return json({ok:false,message:'일부 문서가 다른 요청에서 먼저 처리되었습니다. 새로고침 후 다시 선택해 주세요.'},409);console.error('batch decide failed',error);return json({ok:false,message:'일괄 처리 중 오류가 발생했습니다.'},500)}
 };
 export const onRequestGet: PagesFunction = async () => json({ok:false,message:'POST 방식으로 요청해 주세요.'},405);

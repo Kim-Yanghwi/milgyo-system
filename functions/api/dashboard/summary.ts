@@ -52,6 +52,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       values: [...visibilityBindings],
     },
     {
+      key: 'rejected',
+      sql: `SELECT COUNT(*) AS count FROM documents WHERE status='반려' AND ${visibilitySql}`,
+      values: [...visibilityBindings],
+    },
+    {
       key: 'complete',
       sql: `SELECT COUNT(*) AS count FROM documents WHERE status IN ('승인','발송완료') AND NOT (status='승인' AND doc_type='발송') AND ${visibilitySql}`,
       values: [...visibilityBindings],

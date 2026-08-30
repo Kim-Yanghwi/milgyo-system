@@ -13,7 +13,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   await ensureTables(env.DB);
   const auth = await authenticateSession(env.DB, clean(payload.token, 200));
   if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
-  return json({ ok: true });
+  return json({
+    ok: true,
+    user: {
+      ...auth.user,
+      canApprove: !!auth.user.can_approve,
+      canAccounting: auth.user.role === 'admin' || !!auth.user.can_accounting,
+    },
+  });
 };
 
 export const onRequestGet: PagesFunction = async () =>

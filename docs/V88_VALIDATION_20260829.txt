@@ -1,0 +1,27 @@
+Milgyo System V88 Preview Runtime Validation - 2026-08-29
+
+Scope
+- Immediate electronic-document status/count refresh
+- Compact/visible date-range controls
+- Bundled official seal fallback restoration
+
+Checks performed
+1. src/pages/index.astro inline JavaScript: node --check PASS
+2. public/milgyo-date-input.js: node --check PASS
+3. management-ui-stability + V86 + V87 + V88 regression tests: 15/15 PASS
+4. preopen-performance + V85 deep-hardening static regression tests: 15/15 PASS
+5. Total targeted/static regression tests executed in this workspace: 30/30 PASS
+6. git diff whitespace validation: PASS with existing CRLF treated as valid EOL
+7. organization-seal.png exists and is used as default preview/detail/branding/print seal fallback
+8. V88 introduces NO D1 migration files
+
+Environment limitation
+- A clean npm ci in this build container could not finish because the external npm registry connection timed out.
+- Therefore the full npm run verify / Astro production build must be rerun on the deployment workstation before Preview redeploy.
+- The deployment workstation had already successfully built V87; V88 should still be verified there because runtime source changed.
+
+Recommended deployment gate
+npm.cmd run verify
+npx.cmd wrangler d1 migrations list DB --remote --env preview
+# Expected: No migrations to apply!
+npx.cmd wrangler pages deploy dist --project-name=milgyo-system --branch=v85-preopen

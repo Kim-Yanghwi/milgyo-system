@@ -491,6 +491,5 @@ VALUES
 ('FUND-GRANT','FUND-GRANT','보조금·지원금','grant','국가·지자체·기관의 보조금 및 지원금',1,1,'system',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
 ('FUND-RESERVE','FUND-RESERVE','적립금·준비금','reserve','장래 사업과 시설을 위한 적립 재원',1,1,'system',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP);
 
-INSERT INTO accounting_meta (meta_key, meta_value, updated_at)
-VALUES ('schema_version', '2026-07-26.4', CURRENT_TIMESTAMP)
-ON CONFLICT(meta_key) DO UPDATE SET meta_value=excluded.meta_value, updated_at=excluded.updated_at;
+INSERT OR IGNORE INTO accounting_meta (meta_key, meta_value, updated_at)
+VALUES ('schema_version', '2026-07-26.4', CURRENT_TIMESTAMP);

@@ -1,12 +1,28 @@
 import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
 interface Env { DB: D1Database; FILES?: R2Bucket; }
-type Payload = { token?: string; attachmentId?: string };
+type Payload = { token?: string; attachmentId?: string; binary?: boolean };
+
 const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
   const bytes = new Uint8Array(buffer); let binary = '';
   const chunk = 0x8000;
   for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
   return btoa(binary);
 };
+const base64ToBytes = (value: string) => {
+  try { const binary = atob(value || ''); return Uint8Array.from(binary, (char) => char.charCodeAt(0)); }
+  catch { return null; }
+};
+const downloadHeaders = (fileName: string, mimeType: string, sizeBytes: number) => {
+  const encoded = encodeURIComponent(fileName || 'attachment');
+  return {
+    'Content-Type': mimeType || 'application/octet-stream',
+    'Content-Length': String(Math.max(0, Number(sizeBytes || 0))),
+    'Content-Disposition': `attachment; filename*=UTF-8''${encoded}`,
+    'X-File-Name': encoded,
+    'Cache-Control': 'private, no-store',
+  };
+};
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
   let payload: Payload; try { payload = await request.json(); } catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
@@ -18,12 +34,27 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     FROM received_attachments WHERE id=?
   `).bind(clean(payload.attachmentId, 60)).first<any>();
   if (!row) return json({ ok: false, message: '첨부파일을 찾을 수 없습니다.' }, 404);
-  let dataBase64 = row.data_base64 || '';
+
+  const binary = payload.binary === true;
   if (row.storage_type === 'r2') {
     if (!env.FILES || !row.r2_key) return json({ ok: false, message: 'R2 첨부파일 저장소가 연결되지 않았습니다.' }, 500);
     const object = await env.FILES.get(row.r2_key);
     if (!object) return json({ ok: false, message: 'R2에서 첨부파일을 찾을 수 없습니다.' }, 404);
-    dataBase64 = arrayBufferToBase64(await object.arrayBuffer());
+    if (binary) {
+      return new Response(object.body, {
+        status: 200,
+        headers: downloadHeaders(row.file_name, row.mime_type || object.httpMetadata?.contentType, Number(object.size || row.size_bytes || 0)),
+      });
+    }
+    const buffer = await object.arrayBuffer();
+    return json({ ok: true, fileName: row.file_name, mimeType: row.mime_type, sizeBytes: row.size_bytes, dataBase64: arrayBufferToBase64(buffer) });
+  }
+
+  const dataBase64 = row.data_base64 || '';
+  if (binary) {
+    const bytes = base64ToBytes(dataBase64);
+    if (!bytes) return json({ ok: false, message: '첨부파일 인코딩을 읽을 수 없습니다.' }, 500);
+    return new Response(bytes, { status: 200, headers: downloadHeaders(row.file_name, row.mime_type, bytes.byteLength) });
   }
   return json({ ok: true, fileName: row.file_name, mimeType: row.mime_type, sizeBytes: row.size_bytes, dataBase64 });
 };

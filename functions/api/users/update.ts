@@ -78,11 +78,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       }
     }
 
-    await env.DB.prepare(`
-      UPDATE system_users
-      SET name = ?, position = ?, grade = ?, department = ?, role = ?, can_approve = ?, can_accounting = ?, active = ?
-      WHERE CAST(id AS TEXT) = ?
-    `).bind(name, position || null, grade || null, department || null, role, canApprove ? 1 : 0, canAccounting ? 1 : 0, active ? 1 : 0, id).run();
+    const updateResult=await env.DB.prepare(`
+      UPDATE system_users SET name=?,position=?,grade=?,department=?,role=?,can_approve=?,can_accounting=?,active=?
+      WHERE CAST(id AS TEXT)=? AND NOT (role='admin' AND active=1 AND (?<>'admin' OR ?=0)
+        AND NOT EXISTS(SELECT 1 FROM system_users other WHERE other.role='admin' AND other.active=1 AND CAST(other.id AS TEXT)<>CAST(system_users.id AS TEXT)))
+    `).bind(name,position||null,grade||null,department||null,role,canApprove?1:0,canAccounting?1:0,active?1:0,id,role,active?1:0).run();
+    if(Number(updateResult.meta?.changes||0)!==1)return json({ok:false,message:'동시 변경으로 인해 마지막 활성 관리자 계정을 보호했습니다. 계정 목록을 새로고침해 주세요.'},409);
 
     if (newPassword) {
       const passwordHash = await hashPassword(newPassword);

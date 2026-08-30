@@ -22,9 +22,9 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       <div class="toolbar register-filters">
         <select data-status-filter aria-label="처리상태"><option value="">전체 상태</option><option>신청</option><option>검토중</option><option>완료</option><option>반려</option><option>취소</option></select>
         <div class="filter-date-range" role="group" aria-label="신청일 기간">
-          <input type="date" data-date-from aria-label="시작일" />
+          <input type="date" data-date-from data-no-weekday aria-label="시작일" />
           <span class="range-separator" aria-hidden="true">~</span>
-          <input type="date" data-date-to aria-label="종료일" />
+          <input type="date" data-date-to data-no-weekday aria-label="종료일" />
         </div>
         <input type="search" data-query placeholder="신청번호·건명·신청자 검색" />
         <select data-page-size aria-label="페이지당 건수"><option value="10">10개</option><option value="20" selected>20개</option><option value="50">50개</option></select>
@@ -698,14 +698,24 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       $$('[data-close-detail]').forEach((button) => button.addEventListener('click', closeDetail));
 
       const downloadAttachment = async (id) => {
-        const data = await api('/api/registers/attachment-data', { attachmentId: id });
-        if (!data.ok) { alert(data.message); return; }
-        const bytes = Uint8Array.from(atob(data.dataBase64), (char) => char.charCodeAt(0));
-        const url = URL.createObjectURL(new Blob([bytes], { type: data.mimeType || 'application/octet-stream' }));
+        const response = await fetch('/api/registers/attachment-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: session.token, attachmentId: id, binary: true }),
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          let data; try { data = JSON.parse(text); } catch { data = { message: `서버 응답 오류(HTTP ${response.status})` }; }
+          if (response.status === 401) { localStorage.removeItem('milgyo-system-session'); location.replace('/'); return; }
+          alert(data.message || '첨부파일을 내려받지 못했습니다.'); return;
+        }
+        const blob = await response.blob();
+        let fileName = 'attachment';
+        const encoded = response.headers.get('X-File-Name');
+        if (encoded) { try { fileName = decodeURIComponent(encoded); } catch { fileName = encoded; } }
+        const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = url;
-        link.download = data.fileName;
-        link.click();
+        link.href = url; link.download = fileName; document.body.append(link); link.click(); link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       };
 
@@ -796,11 +806,11 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
     .scope-tab{border:0;border-bottom:3px solid transparent;background:transparent;padding:.55rem .9rem;font-weight:700}
     .scope-tab.active{color:var(--gov-accent);border-bottom-color:var(--gov-accent)}
     .register-list-toolbar{margin-bottom:.8rem;gap:1rem}
-    .register-filters{justify-content:flex-end}
-    .register-filters input[type=search]{min-width:220px}
-    .register-filters .filter-date-range :is(.date-with-weekday,.managed-date-with-weekday){width:174px!important;min-width:174px!important}
+    .register-filters input[type=search]{min-width:240px}
+    .register-filters .filter-date-range{display:inline-flex;align-items:center;gap:.5rem;flex:0 0 auto;white-space:nowrap}
+    .register-filters .filter-date-range input[type="date"]{width:145px;min-width:145px;max-width:145px}
     .register-fieldset .managed-date-with-weekday{width:100%}
-    .range-separator{display:inline-flex;align-items:center;color:var(--gov-muted)}
+    .range-separator{display:inline-flex;align-items:center}
 
     .register-table{width:100%;table-layout:fixed}
     .register-table th,.register-table td{text-align:center!important;vertical-align:middle;white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
@@ -852,10 +862,6 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
     .pledge-field input{min-height:auto;margin-top:.2rem}
     .danger{color:#a12626;border-color:#dfb4b4}
 
-    @media(max-width:1180px){
-      .register-list-toolbar{align-items:flex-start;flex-direction:column}
-      .register-filters{justify-content:flex-start;width:100%}
-    }
     @media(max-width:850px){
       .register-type-tabs{grid-template-columns:1fr}
       .register-detail-modal{width:calc(100vw - 1rem);max-height:calc(100vh - 1rem)}

@@ -8,6 +8,8 @@ import {
   recordAuthFailure,
   normalizeDepartmentValue,
   normalizePositionValue,
+  hashPassword,
+  needsPasswordRehash,
   verifyPassword,
 } from '../../_shared/helpers';
 
@@ -41,7 +43,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     await ensureTables(env.DB);
     const user = await env.DB.prepare(`
       SELECT CAST(id AS TEXT) AS id, name, username, password_hash, position, grade, department, role, can_approve, can_accounting, active
-      FROM system_users WHERE username = ?
+      FROM system_users WHERE username = ? COLLATE NOCASE
     `).bind(username).first<{
       id: string; name: string; username: string; password_hash: string;
       position: string | null; grade: string | null; department: string | null; role: string; can_approve: number; can_accounting: number; active: number;
@@ -52,6 +54,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return json({ ok: false, message: '아이디 또는 비밀번호가 올바르지 않습니다.' }, 401);
     }
     await clearAuthFailures(env.DB, authRateLimit.rateKey);
+    if (needsPasswordRehash(user.password_hash)) {
+      try {
+        const upgradedHash = await hashPassword(password);
+        await env.DB.prepare(`UPDATE system_users SET password_hash=? WHERE CAST(id AS TEXT)=?`).bind(upgradedHash,user.id).run();
+      } catch (error) { console.error('password hash upgrade failed', error); }
+    }
 
     const token = await createSession(env.DB, user.id);
     const position = normalizePositionValue(user.position);

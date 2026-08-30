@@ -56,18 +56,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const now = new Date().toISOString();
+    const deleted=await env.DB.prepare(`DELETE FROM system_users WHERE CAST(id AS TEXT)=?
+      AND NOT EXISTS(SELECT 1 FROM document_approval_lines l WHERE CAST(l.user_id AS TEXT)=? AND l.status IN ('대기','예정'))
+      AND NOT (role='admin' AND active=1 AND NOT EXISTS(SELECT 1 FROM system_users other WHERE other.role='admin' AND other.active=1 AND CAST(other.id AS TEXT)<>CAST(system_users.id AS TEXT)))
+      RETURNING id`).bind(id,id).first<{id:string|number}>();
+    if(!deleted?.id)return json({ok:false,message:'동시 변경으로 인해 계정을 삭제하지 않았습니다. 마지막 관리자 여부와 미처리 결재선을 다시 확인해 주세요.'},409);
     await env.DB.batch([
       env.DB.prepare(`DELETE FROM system_sessions WHERE user_id=?`).bind(id),
       env.DB.prepare(`DELETE FROM employee_profiles WHERE user_id=?`).bind(id),
-      env.DB.prepare(`DELETE FROM system_users WHERE CAST(id AS TEXT)=?`).bind(id),
-      env.DB.prepare(`
-        INSERT INTO management_audit_logs
-          (id,category,action,target_id,actor_user_id,actor_name,details_json,created_at)
-        VALUES(?,?,?,?,?,?,?,?)
-      `).bind(
-        `MAL-${randomHex(24)}`, '계정관리', '계정삭제', id, auth.user.id, auth.user.name,
-        JSON.stringify({ name: target.name, username: target.username, role: target.role }), now,
-      ),
+      env.DB.prepare(`INSERT INTO management_audit_logs (id,category,action,target_id,actor_user_id,actor_name,details_json,created_at) VALUES(?,?,?,?,?,?,?,?)`)
+        .bind(`MAL-${randomHex(24)}`,'계정관리','계정삭제',id,auth.user.id,auth.user.name,JSON.stringify({name:target.name,username:target.username,role:target.role}),now),
     ]);
 
     return json({ ok: true, message: `${target.name}(${target.username}) 계정을 삭제했습니다.` });

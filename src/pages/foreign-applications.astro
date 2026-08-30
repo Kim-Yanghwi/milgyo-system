@@ -1,0 +1,498 @@
+---
+import ManagementLayout from '../layouts/ManagementLayout.astro';
+---
+<ManagementLayout title="외국인 신청서·신고서 작성·대장" active="foreignForms">
+  <div data-foreign-forms-version="2026-08-30-v91-foreign-applications-reconstruction" hidden></div>
+  <div class="page-heading">
+    <div>
+      <p class="page-heading__kicker">FOREIGNER APPLICATION FORMS</p>
+      <h1>외국인 신청서·신고서 작성·대장</h1>
+      <p>외국인 관련 신청서와 신고서를 화면에서 작성하고, 작성본 다운로드·인쇄 및 이력을 관리합니다.</p>
+    </div>
+  </div>
+
+  <section class="surface foreign-form-panel">
+    <div class="section-title foreign-form-title">
+      <div>
+        <h2>신청서·신고서 작성</h2>
+        <p>서식을 선택한 뒤 입력하면 미리보기, 다운로드, 출력과 이력저장이 가능합니다.</p>
+      </div>
+      <button type="button" class="btn btn-outline" data-new-form>새로 작성</button>
+    </div>
+
+    <div class="foreign-form-selector" role="tablist" aria-label="외국인 신청서 종류">
+      <button type="button" class="form-type-card active" data-form-type="거주숙소제공확인서">
+        <strong>거주/숙소제공확인서</strong>
+        <span>Confirmation of Residence/Accommodation</span>
+      </button>
+      <button type="button" class="form-type-card" data-form-type="통합신청서신고서">
+        <strong>통합신청서(신고서)</strong>
+        <span>APPLICATION FORM (REPORT FORM)</span>
+      </button>
+      <button type="button" class="form-type-card" data-form-type="사증발급인정신청서">
+        <strong>사증발급인정신청서</strong>
+        <span>APPLICATION FOR CERTIFICATE OF VISA ELIGIBILITY</span>
+      </button>
+    </div>
+
+    <div class="official-form-downloads" aria-label="원본 HWPX 서식">
+      <strong>원본 HWPX 서식</strong>
+      <a class="btn btn-outline" download href="/forms/거주숙소제공확인서(한글-영문).hwpx">거주/숙소제공확인서</a>
+      <a class="btn btn-outline" download href="/forms/[별지 제34호서식] 통합신청서 (신고서) APPLICATION FORM (REPORT FORM)(출입국관리법 시행규칙).hwpx">통합신청서(신고서)</a>
+      <a class="btn btn-outline" download href="/forms/[별지 제21호서식] 사증발급인정신청서 APPLICATION FOR CERTIFICATE OF VISA ELIGIBILITY(출입국관리법 시행규칙).hwpx">사증발급인정신청서</a>
+    </div>
+
+    <div class="record-banner" data-record-banner hidden>
+      <span>작성 이력</span><strong data-record-number>-</strong><em data-record-status>저장</em>
+    </div>
+
+    <form data-foreign-form>
+      <div data-form-host></div>
+      <div class="status-message" data-form-status aria-live="polite"></div>
+      <div class="form-actions foreign-actions">
+        <button type="button" class="btn btn-outline" data-preview>미리보기</button>
+        <button type="button" class="btn btn-outline" data-download>작성본 다운로드</button>
+        <button type="button" class="btn btn-outline" data-print>인쇄 / PDF 저장</button>
+        <button type="submit" class="btn btn-primary" data-save>이력 저장</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="surface foreign-ledger">
+    <div class="section-title ledger-section-title">
+      <div><h2>신청서·신고서 작성대장</h2><p>작성자와 서식 종류, 대상자, 출력·다운로드 이력을 확인합니다.</p></div>
+      <div class="toolbar foreign-ledger-filters">
+        <select data-ledger-type>
+          <option value="">전체 서식</option>
+          <option value="거주숙소제공확인서">거주/숙소제공확인서</option>
+          <option value="통합신청서신고서">통합신청서(신고서)</option>
+          <option value="사증발급인정신청서">사증발급인정신청서</option>
+        </select>
+        <select data-ledger-status><option value="">전체 상태</option><option value="저장">저장</option><option value="취소">취소</option></select>
+        <div class="filter-date-range"><input type="date" data-ledger-from aria-label="조회 시작일"/><span>~</span><input type="date" data-ledger-to aria-label="조회 종료일"/></div>
+        <input type="search" data-ledger-query placeholder="기록번호·성명·국적·작성자 검색"/>
+        <select data-ledger-size><option value="10">10개</option><option value="20" selected>20개</option><option value="50">50개</option></select>
+        <button type="button" class="btn btn-outline" data-ledger-search>조회</button>
+        <button type="button" class="btn btn-outline" data-ledger-export>CSV</button>
+      </div>
+    </div>
+    <div class="status-message" data-ledger-message aria-live="polite"></div>
+    <div class="data-wrap">
+      <table class="data-table foreign-ledger-table">
+        <thead><tr><th>기록번호</th><th>작성일</th><th>서식</th><th>대상자</th><th>국적</th><th>작성자</th><th>출력</th><th>다운로드</th><th>상태</th><th>관리</th></tr></thead>
+        <tbody data-ledger-body><tr><td colspan="10">불러오는 중입니다.</td></tr></tbody>
+      </table>
+    </div>
+    <div class="pagination" data-ledger-pagination></div>
+  </section>
+
+  <div class="modal-overlay" data-preview-modal hidden>
+    <section class="modal foreign-preview-modal" role="dialog" aria-modal="true" aria-labelledby="foreign-preview-title">
+      <header class="modal__header"><h2 id="foreign-preview-title">작성본 미리보기</h2><button type="button" class="modal__close" data-close-preview aria-label="닫기">×</button></header>
+      <div class="modal__body"><div data-preview-container></div></div>
+      <footer class="modal__actions"><button type="button" class="btn btn-outline" data-close-preview>닫기</button><button type="button" class="btn btn-primary" data-print-preview>인쇄 / PDF 저장</button></footer>
+    </section>
+  </div>
+
+  <script is:inline>
+    (() => {
+      const $=(selector,root=document)=>root.querySelector(selector);
+      const $$=(selector,root=document)=>Array.from(root.querySelectorAll(selector));
+      const esc=(value)=>String(value??'').replace(/[&<>"']/g,(char)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+      const session=(()=>{try{return JSON.parse(localStorage.getItem('milgyo-system-session')||'null')}catch{return null}})();
+      if(!session?.token)return;
+
+      const typeTitles={
+        거주숙소제공확인서:'거주/숙소제공확인서 (Confirmation of Residence/Accommodation)',
+        통합신청서신고서:'통합신청서(신고서) APPLICATION FORM (REPORT FORM)',
+        사증발급인정신청서:'사증발급인정신청서 APPLICATION FOR CERTIFICATE OF VISA ELIGIBILITY',
+      };
+      const typeShort={
+        거주숙소제공확인서:'거주/숙소제공확인서',
+        통합신청서신고서:'통합신청서(신고서)',
+        사증발급인정신청서:'사증발급인정신청서',
+      };
+
+      const schemas={
+        거주숙소제공확인서:[
+          {section:'1. 거주/숙소를 제공 받는 외국인 / Foreign Tenant / Recipient'},
+          {name:'nationality',label:'국적 / Nationality',required:true},
+          {name:'foreignResidentNo',label:'외국인등록(거소)번호 / Alien/Domestic Residence Registration No.',required:true},
+          {name:'residentFullName',label:'성명 / Full Name',required:true},
+          {name:'residentTelephone',label:'전화번호 / Telephone No.'},
+          {name:'residentCellPhone',label:'휴대전화 / Cell phone No.'},
+          {name:'residenceAddress',label:'주소 / Address',type:'textarea',wide:true,required:true},
+          {section:'2. 거주/숙소 제공자 / Landlord / Provider'},
+          {name:'providerNationality',label:'국적 / Nationality'},
+          {name:'providerRegistrationNo',label:'주민/외국인등록번호 / Resident/Alien Registration No.'},
+          {name:'providerName',label:'성명 / Full Name',required:true},
+          {name:'relationship',label:'외국인과의 관계 / Relationship',type:'select',options:['친척 / Relative','고용주 / Employer','기타 / Other'],required:true},
+          {name:'relationshipOther',label:'관계 기타 상세 / Relationship - Other',wide:true},
+          {name:'ownership',label:'소유형태 / Ownership Type',type:'select',options:['자가 / Own','임대 / Rent','기타 / Other']},
+          {name:'ownershipOther',label:'소유형태 기타 상세 / Ownership - Other',wide:true},
+          {name:'residenceType',label:'주거형태 / Residence Type',type:'select',options:['개인주택 등 / Private Residence, etc.','기숙사 / Dormitory','숙박시설 / Accommodation','기타 / Other']},
+          {name:'residenceTypeOther',label:'주거형태 기타 상세 / Residence Type - Other',wide:true},
+          {name:'residenceStartDate',label:'거주/숙소 제공일 / Starting Date',type:'date',required:true},
+          {name:'confirmationDate',label:'확인일 / Confirmation Date',type:'date',required:true},
+          {name:'confirmationName',label:'성명 / Name (Signature)',required:true},
+          {name:'companyName',label:'업체명 / Company Name',wide:true},
+        ],
+        통합신청서신고서:[
+          {section:'신청/신고 선택 / SELECT APPLICATION/REPORT'},
+          {name:'applicationTypes',label:'신청·신고 항목',type:'checks',wide:true,options:[
+            '외국인 등록 / FOREIGN RESIDENT REGISTRATION',
+            '체류자격 외 활동허가 / ENGAGE IN ACTIVITIES NOT COVERED BY THE STATUS OF SOJOURN',
+            '등록증 재발급 / REISSUANCE OF REGISTRATION CARD',
+            '근무처 변경·추가허가 / 신고 / CHANGE OR ADDITION OF WORKPLACE',
+            '체류기간 연장허가 / EXTENSION OF SOJOURN PERIOD',
+            '재입국허가 (단수, 복수) / REENTRY PERMIT (SINGLE, MULTIPLE)',
+            '체류자격 변경허가 / CHANGE OF STATUS OF SOJOURN',
+            '체류지 변경신고 / ALTERATION OF RESIDENCE',
+            '체류자격 부여 / GRANTING STATUS OF SOJOURN',
+            '등록사항 변경신고 / CHANGE OF INFORMATION ON REGISTRATION'
+          ]},
+          {name:'desiredStatusActivity',label:'체류자격 외 활동허가 희망 자격 / Status to apply for'},
+          {name:'desiredStatusChange',label:'체류자격 변경 희망 자격 / Status to apply for'},
+          {name:'desiredStatusGrant',label:'체류자격 부여 희망 자격 / Status to apply for'},
+          {section:'신청인 인적사항 / APPLICANT INFORMATION'},
+          {name:'surname',label:'성 / Surname',required:true},
+          {name:'givenNames',label:'명 / Given names',required:true},
+          {name:'dateOfBirth',label:'생년월일 / Date of Birth',type:'date'},
+          {name:'sex',label:'성별 / Sex',type:'select',options:['남 / M','여 / F']},
+          {name:'nationality',label:'국적 / Nationality',required:true},
+          {name:'foreignResidentNo',label:'외국인등록번호 / Foreign Resident Registration No.'},
+          {name:'passportNo',label:'여권번호 / Passport No.'},
+          {name:'passportIssueDate',label:'여권 발급일자 / Passport Issue Date',type:'date'},
+          {name:'passportExpiry',label:'여권 유효기간 / Passport Expiry Date',type:'date'},
+          {name:'residenceAddress',label:'대한민국 내 주소 / Address In Korea',type:'textarea',wide:true},
+          {name:'telephone',label:'전화번호 / Telephone No.'},
+          {name:'cellPhone',label:'휴대전화 / Cell phone No.'},
+          {name:'homeCountryAddress',label:'본국 주소 / Address In Home Country',type:'textarea',wide:true},
+          {name:'homeCountryPhone',label:'본국 전화번호 / Phone No.'},
+          {section:'재학 정보 / SCHOOL STATUS'},
+          {name:'schoolStatus',label:'재학 여부 / School Status',type:'select',options:['미취학 / Non-school','초 / Elementary','중 / Middle','고 / High']},
+          {name:'schoolName',label:'학교 이름 / Name of School'},
+          {name:'schoolPhone',label:'학교 전화번호 / Phone No.'},
+          {name:'schoolType',label:'학교 종류 / Type of School',type:'select',options:['교육청 인가 / Accredited school by Education Office','교육청 비인가·대안학교 / Non-accredited, Alternative school']},
+          {section:'근무처 / WORKPLACE'},
+          {name:'currentWorkplace',label:'원 근무처 / Current Workplace'},
+          {name:'currentBusinessNo',label:'사업자등록번호 / Business Registration No.'},
+          {name:'currentWorkplacePhone',label:'전화번호 / Phone No.'},
+          {name:'newWorkplace',label:'예정 근무처 / New Workplace'},
+          {name:'newBusinessNo',label:'사업자등록번호 / Business Registration No.'},
+          {name:'newWorkplacePhone',label:'전화번호 / Phone No.'},
+          {name:'annualIncome',label:'연 소득금액(만원) / Annual Income Amount (ten thousand won)',type:'number'},
+          {name:'occupation',label:'직업 / Occupation'},
+          {name:'reentryPeriod',label:'재입국 신청 기간 / Intended Period Of Reentry'},
+          {name:'email',label:'전자우편 / E-Mail',type:'email'},
+          {name:'refundBankAccount',label:'반환용 계좌번호 / Refund Bank Account No.',wide:true},
+          {name:'applicationDate',label:'신청일 / Date of application',type:'date',required:true},
+          {name:'signatureName',label:'신청인 성명(서명/인 표시용) / Applicant Signature/Seal Name',required:true},
+          {section:'행정정보 공동이용 동의 / CONSENT FOR SHARING OF ADMINISTRATIVE INFORMATION'},
+          {name:'consentParties',label:'동의 서명 대상',type:'checks',wide:true,options:['신청인 / Applicant','신청인의 배우자 / Spouse of applicant','신청인의 부 또는 모 / Father/Mother of applicant']},
+        ],
+        사증발급인정신청서:[
+          {section:'1. 인적사항 / PERSONAL DETAILS'},
+          {name:'familyName',label:'여권 영문 성 / Family Name',required:true},
+          {name:'givenNames',label:'여권 영문 명 / Given Names',required:true},
+          {name:'nameHanja',label:'한자성명 / 漢字姓名'},
+          {name:'sex',label:'성별 / Sex',type:'select',options:['남성 / Male','여성 / Female']},
+          {name:'dateOfBirth',label:'생년월일 / Date of Birth',type:'date'},
+          {name:'nationality',label:'국적 / Nationality',required:true},
+          {name:'countryOfBirth',label:'출생국가 / Country of Birth'},
+          {name:'nationalIdentityNo',label:'국가신분증번호 / National Identity No.'},
+          {name:'usedOtherName',label:'과거 다른 성명 사용 여부 / Other names used',type:'select',options:['아니오 / No','예 / Yes']},
+          {name:'otherFamilyName',label:'다른 성 / Other Family Name'},
+          {name:'otherGivenNames',label:'다른 명 / Other Given Names'},
+          {name:'multipleNationality',label:'복수 국적 여부 / Multiple Nationality',type:'select',options:['아니오 / No','예 / Yes']},
+          {name:'otherNationalities',label:'다른 국적 상세 / Other Nationalities',wide:true},
+          {section:'2. 여권정보 / PASSPORT INFORMATION'},
+          {name:'passportType',label:'여권종류 / Passport Type',type:'select',options:['외교관 / Diplomatic','관용 / Official','일반 / Regular','기타 / Other']},
+          {name:'passportTypeOther',label:'여권종류 기타 / Passport Type - Other'},
+          {name:'passportNo',label:'여권번호 / Passport No.',required:true},
+          {name:'passportCountry',label:'발급국가 / Country of Passport'},
+          {name:'passportPlace',label:'발급지 / Place of Issue'},
+          {name:'passportIssueDate',label:'발급일자 / Date of Issue',type:'date'},
+          {name:'passportExpiry',label:'기간만료일 / Date Of Expiry',type:'date'},
+          {name:'otherValidPassport',label:'다른 유효 여권 소지 / Other Valid Passport',type:'select',options:['아니오 / No','예 / Yes']},
+          {name:'otherPassportType',label:'다른 여권 종류 / Other Passport Type'},
+          {name:'otherPassportNo',label:'다른 여권번호 / Other Passport No.'},
+          {name:'otherPassportCountry',label:'다른 여권 발급국가 / Other Passport Country'},
+          {name:'otherPassportExpiry',label:'다른 여권 만료일 / Other Passport Expiry',type:'date'},
+          {section:'3. 연락처 / CONTACT INFORMATION'},
+          {name:'homeCountryAddress',label:'본국 주소 / Home Country Address',type:'textarea',wide:true},
+          {name:'currentAddress',label:'현 거주지 / Current Residential Address',type:'textarea',wide:true},
+          {name:'cellPhone',label:'휴대전화 / Cell Phone No.'},
+          {name:'telephone',label:'일반전화 / Telephone No.'},
+          {name:'email',label:'이메일 / E-mail',type:'email'},
+          {name:'emergencyName',label:'비상시 연락처 성명 / Emergency Contact Full Name'},
+          {name:'emergencyCountry',label:'거주국가 / Country of Residence'},
+          {name:'emergencyPhone',label:'전화번호 / Telephone No.'},
+          {name:'emergencyRelationship',label:'관계 / Relationship'},
+          {section:'4. 혼인사항 및 가족사항 / MARITAL STATUS AND FAMILY DETAILS'},
+          {name:'maritalStatus',label:'현재 혼인사항 / Current Marital Status',type:'select',options:['기혼 / Married','이혼 / Divorced','미혼 / Single']},
+          {name:'spouseFamilyName',label:'배우자 성 / Spouse Family Name'},
+          {name:'spouseGivenNames',label:'배우자 명 / Spouse Given Names'},
+          {name:'spouseDob',label:'배우자 생년월일 / Spouse Date of Birth',type:'date'},
+          {name:'spouseNationality',label:'배우자 국적 / Spouse Nationality'},
+          {name:'spouseAddress',label:'배우자 거주지 / Spouse Residential Address',type:'textarea',wide:true},
+          {name:'spouseContact',label:'배우자 연락처 / Spouse Contact No.'},
+          {name:'hasChildren',label:'자녀 유무 / Children',type:'select',options:['없음 / No','있음 / Yes']},
+          {name:'childrenCount',label:'자녀수 / Number of children',type:'number'},
+          {section:'5. 학력 / EDUCATION'},
+          {name:'educationLevel',label:'최종학력 / Highest Degree',type:'select',options:['석사/박사 / Master’s/Doctoral Degree','대졸 / Bachelor’s Degree','고졸 / High School Diploma','기타 / Other']},
+          {name:'educationOther',label:'최종학력 기타 / Education - Other'},
+          {name:'schoolName',label:'학교명 / Name of School'},
+          {name:'schoolLocation',label:'학교 소재지 / Location of School (city/province/country)'},
+          {section:'6. 직업 / EMPLOYMENT'},
+          {name:'employmentStatus',label:'직업 / Current personal circumstances',type:'select',options:['사업가 / Entrepreneur','자영업자 / Self-Employed','직장인 / Employed','공무원 / Civil Servant','학생 / Student','퇴직자 / Retired','무직 / Unemployed','기타 / Other']},
+          {name:'employmentOther',label:'직업 기타 / Employment - Other'},
+          {name:'organizationName',label:'회사/기관/학교명 / Name of Company/Institute/School'},
+          {name:'positionCourse',label:'직위/과정 / Position/Course'},
+          {name:'organizationAddress',label:'회사/기관/학교 주소 / Address',type:'textarea',wide:true},
+          {name:'organizationPhone',label:'전화번호 / Telephone No.'},
+          {section:'7. 방문정보 / DETAILS OF VISIT'},
+          {name:'visitPurposes',label:'입국목적 / Purpose of Visit to Korea',type:'checks',wide:true,options:['관광/통과 / Tourism/Transit','행사참석 / Meeting, Conference','의료관광 / Medical Tourism','단기상용 / Business Trip','유학/연수 / Study/Training','취업활동 / Work','무역/투자/주재 / Trade/Investment/Intra-Corporate Transferee','가족 또는 친지방문 / Visiting Family/Relatives/Friends','결혼이민 / Marriage Migrant','외교/공무 / Diplomatic/Official','기타 / Other']},
+          {name:'visitPurposeOther',label:'입국목적 기타 / Purpose - Other'},
+          {name:'occupationCode',label:'한국표준직업분류코드 / Occupation Code'},
+          {name:'industryCode',label:'한국표준산업분류코드 / Industry Code'},
+          {name:'intendedStayPeriod',label:'체류예정기간 / Intended Period of Stay'},
+          {name:'intendedEntryDate',label:'입국예정일 / Intended Date of Entry',type:'date'},
+          {name:'addressInKorea',label:'체류예정지(호텔 포함) / Address in Korea',type:'textarea',wide:true},
+          {name:'contactInKorea',label:'한국 내 연락처 / Contact No. in Korea'},
+          {name:'visitedKorea5Years',label:'과거 5년간 한국 방문 여부 / Travelled to Korea in last 5 years',type:'select',options:['아니오 / No','예 / Yes']},
+          {name:'koreaVisitCount',label:'한국 방문 횟수 / Number of trips',type:'number'},
+          {name:'recentKoreaVisitPurpose',label:'최근 방문목적 / Purpose of Recent Visit'},
+          {name:'otherCountries5Years',label:'한국 외 과거 5년 여행 국가 상세 / Other Countries Visited',type:'textarea',wide:true},
+          {name:'familyInKorea',label:'국내 체류 가족 상세 / Family Member(s) Staying in Korea',type:'textarea',wide:true},
+          {name:'accompanyingFamily',label:'동반입국 가족 상세 / Accompanying Family Member(s)',type:'textarea',wide:true},
+          {section:'8. 서류 작성 시 도움 여부 / ASSISTANCE WITH THIS FORM'},
+          {name:'assistanceUsed',label:'다른 사람의 도움을 받았는지 여부 / Received Assistance',type:'select',options:['아니오 / No','예 / Yes']},
+          {name:'assistantName',label:'도움 제공자 성명 / Full Name'},
+          {name:'assistantDob',label:'도움 제공자 생년월일 / Date of Birth',type:'date'},
+          {name:'assistantPhone',label:'도움 제공자 연락처 / Phone No.'},
+          {name:'assistantRelationship',label:'신청인과의 관계 / Relationship'},
+          {section:'9. 초청 정보 / DETAILS OF INVITATION'},
+          {name:'invitationExists',label:'초청인/초청회사 여부 / Inviting Person or Organization',type:'select',options:['아니오 / No','예 / Yes']},
+          {name:'inviterName',label:'초청인/초청회사명 / Name of inviting person/organization'},
+          {name:'inviterIdentityNo',label:'생년월일/사업자등록번호 / Date of Birth / Business Registration No.'},
+          {name:'inviterRelationship',label:'신청인과의 관계 / Relationship'},
+          {name:'inviterAddress',label:'주소 / Address',type:'textarea',wide:true},
+          {name:'inviterPhone',label:'전화번호 / Phone No.'},
+          {name:'applicationDate',label:'신청일자 / DATE OF APPLICATION',type:'date',required:true},
+          {name:'inviterSignatureName',label:'신청인(초청인) 성명 / NAME OF APPLICANT(INVITING PERSON)',required:true},
+          {name:'adminInfoConsent',label:'행정정보 공동이용 동의 / Consent for sharing administrative information',type:'select',options:['동의 / Agree','미동의 / Disagree']},
+          {name:'consentApplicantName',label:'동의 신청인 성명 / NAME OF APPLICANT'},
+        ],
+      };
+
+      let formType='거주숙소제공확인서';
+      let recordId='';
+      let recordNo='';
+      let recordStatus='저장';
+      let page=1,pages=1,currentRows=[];
+
+      const api=async(url,payload)=>{
+        try{
+          const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:session.token,...payload})});
+          const data=await response.json().catch(()=>({ok:false,message:'서버 응답을 확인할 수 없습니다.'}));
+          if(!data.ok&&response.status===401){localStorage.removeItem('milgyo-system-session');location.replace('/');}
+          return data;
+        }catch(error){console.error('foreign forms request failed',error);return{ok:false,message:'서버에 연결할 수 없습니다.'};}
+      };
+      const setStatus=(message,kind='')=>{const el=$('[data-form-status]');if(!el)return;el.textContent=message||'';el.dataset.kind=kind;};
+      const today=()=>new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
+
+      const fieldHtml=(field)=>{
+        if(field.section)return `<h3 class="foreign-section-title">${esc(field.section)}</h3>`;
+        const req=field.required?' required':'';
+        const wide=field.wide?' form-field--wide':'';
+        if(field.type==='textarea')return `<div class="form-field${wide}"><label>${esc(field.label)}${field.required?' <b>*</b>':''}</label><textarea name="${esc(field.name)}" rows="3"${req}></textarea></div>`;
+        if(field.type==='select')return `<div class="form-field${wide}"><label>${esc(field.label)}${field.required?' <b>*</b>':''}</label><select name="${esc(field.name)}"${req}><option value="">선택</option>${field.options.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></div>`;
+        if(field.type==='checks')return `<div class="form-field${wide}"><span class="field-label">${esc(field.label)}</span><div class="check-grid">${field.options.map(o=>`<label><input type="checkbox" name="${esc(field.name)}" value="${esc(o)}"/> ${esc(o)}</label>`).join('')}</div></div>`;
+        return `<div class="form-field${wide}"><label>${esc(field.label)}${field.required?' <b>*</b>':''}</label><input name="${esc(field.name)}" type="${esc(field.type||'text')}"${req}/></div>`;
+      };
+      const renderForm=(values={})=>{
+        const host=$('[data-form-host]');
+        host.innerHTML=`<div class="form-grid foreign-form-grid">${schemas[formType].map(fieldHtml).join('')}</div>`;
+        for(const [name,value] of Object.entries(values||{})){
+          const inputs=$$(`[name="${CSS.escape(name)}"]`,host);
+          if(!inputs.length)continue;
+          if(inputs[0].type==='checkbox'){
+            const values=Array.isArray(value)?value:[value];
+            inputs.forEach(input=>input.checked=values.includes(input.value));
+          }else inputs[0].value=value??'';
+        }
+        if(!values?.confirmationDate&&formType==='거주숙소제공확인서') $('[name="confirmationDate"]',host).value=today();
+        if(!values?.applicationDate&&formType!=='거주숙소제공확인서') $('[name="applicationDate"]',host).value=today();
+        window.__MILGYO_SYNC_MANAGED_DATES__?.(host);
+      };
+      const getValues=()=>{
+        const form=$('[data-foreign-form]');
+        const data={};
+        for(const field of schemas[formType]){
+          if(!field.name)continue;
+          if(field.type==='checks')data[field.name]=$$(`[name="${CSS.escape(field.name)}"]:checked`,form).map(el=>el.value);
+          else data[field.name]=form.elements.namedItem(field.name)?.value??'';
+        }
+        return data;
+      };
+      const validateForm=()=>{
+        const form=$('[data-foreign-form]');
+        if(!form.reportValidity())return false;
+        return true;
+      };
+      const updateRecordBanner=()=>{
+        const banner=$('[data-record-banner]');
+        banner.hidden=!recordId;
+        $('[data-record-number]').textContent=recordNo||'-';
+        $('[data-record-status]').textContent=recordStatus||'저장';
+      };
+      const resetRecord=()=>{
+        recordId='';recordNo='';recordStatus='저장';updateRecordBanner();setStatus('');
+        renderForm({});
+      };
+      const selectType=(nextType,values={})=>{
+        formType=nextType;
+        $$('[data-form-type]').forEach(btn=>btn.classList.toggle('active',btn.dataset.formType===formType));
+        resetRecord();
+        renderForm(values);
+      };
+
+      const printableSections=(values)=>{
+        const sections=[];let current={title:'',rows:[]};sections.push(current);
+        for(const field of schemas[formType]){
+          if(field.section){current={title:field.section,rows:[]};sections.push(current);continue;}
+          let value=values[field.name];
+          if(Array.isArray(value))value=value.length?`☑ ${value.join('\n☑ ')}`:'';
+          current.rows.push({label:field.label,value:value||''});
+        }
+        return sections.filter(s=>s.rows.length);
+      };
+      const documentHtml=(values,withShell=true)=>{
+        const sections=printableSections(values);
+        const inner=`<article class="official-document">
+          <header><h1>${esc(typeTitles[formType])}</h1>${recordNo?`<p class="record-no">관리번호 ${esc(recordNo)}</p>`:''}</header>
+          ${sections.map(section=>`<section>${section.title?`<h2>${esc(section.title)}</h2>`:''}<table>${section.rows.map(row=>`<tr><th>${esc(row.label)}</th><td>${esc(String(row.value||'')).replace(/\n/g,'<br>')}</td></tr>`).join('')}</table></section>`).join('')}
+          <p class="print-note">본 문서는 종단관리시스템에서 작성·출력한 웹 작성본입니다. 제출 전 관할 출입국·외국인관서의 최신 서식 및 필수 첨부서류를 확인하십시오.</p>
+        </article>`;
+        if(!withShell)return inner;
+        return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(typeShort[formType])}</title><style>
+          @page{size:A4;margin:12mm}*{box-sizing:border-box}body{font-family:Arial,"Noto Sans KR",sans-serif;color:#111;margin:0}.official-document{max-width:186mm;margin:0 auto}.official-document header{text-align:center;margin-bottom:14px}.official-document h1{font-size:19px;margin:0 0 6px;line-height:1.35}.record-no{font-size:11px;text-align:right}.official-document h2{font-size:13px;background:#f1f3f5;border:1px solid #222;border-bottom:0;padding:6px;margin:10px 0 0}.official-document table{width:100%;border-collapse:collapse;table-layout:fixed}.official-document th,.official-document td{border:1px solid #222;padding:6px;vertical-align:top;font-size:11px;line-height:1.45}.official-document th{width:39%;background:#fafafa;text-align:left}.print-note{font-size:9px;color:#555;margin-top:10px}</style></head><body>${inner}</body></html>`;
+      };
+      const eventForRecord=async(event)=>{
+        if(!recordId)return;
+        await api('/api/foreign-forms/action',{action:'event',id:recordId,event});
+      };
+      const saveCurrent=async(silent=false)=>{
+        if(!validateForm())return false;
+        if(!silent)setStatus('저장 중입니다...');
+        const result=await api('/api/foreign-forms/action',{action:'save',id:recordId||undefined,formType,snapshot:getValues()});
+        if(!result.ok){setStatus(result.message||'저장에 실패했습니다.','error');return false;}
+        recordId=result.row.id||recordId;recordNo=result.row.record_no||recordNo;recordStatus=result.row.status||recordStatus;
+        updateRecordBanner();
+        if(!silent)setStatus(result.message||'저장했습니다.','ok');
+        loadLedger();
+        return true;
+      };
+      const openPrint=async(values)=>{
+        const popup=window.open('','_blank');
+        if(!popup){setStatus('팝업이 차단되었습니다. 브라우저에서 팝업을 허용해 주세요.','error');return;}
+        try{popup.opener=null;}catch{}
+        popup.document.open();popup.document.write('<!doctype html><meta charset="utf-8"><p style="font-family:sans-serif;padding:24px">작성 이력을 저장하고 출력본을 준비하고 있습니다...</p>');popup.document.close();
+        if(!(await saveCurrent(true))){popup.close();return;}
+        values=getValues();
+        popup.document.open();popup.document.write(documentHtml(values,true));popup.document.close();
+        await eventForRecord('print');loadLedger();
+        setTimeout(()=>{popup.focus();popup.print();},250);
+      };
+
+      $('[data-foreign-form]').addEventListener('submit',async(e)=>{
+        e.preventDefault();
+        await saveCurrent(false);
+      });
+
+      $$('[data-form-type]').forEach(btn=>btn.addEventListener('click',()=>selectType(btn.dataset.formType)));
+      $('[data-new-form]').addEventListener('click',()=>resetRecord());
+      $('[data-preview]').addEventListener('click',()=>{
+        if(!validateForm())return;
+        $('[data-preview-container]').innerHTML=documentHtml(getValues(),false);
+        $('[data-preview-modal]').hidden=false;
+      });
+      $$('[data-close-preview]').forEach(btn=>btn.addEventListener('click',()=>{ $('[data-preview-modal]').hidden=true; }));
+      $('[data-print-preview]').addEventListener('click',()=>openPrint(getValues()));
+      $('[data-print]').addEventListener('click',()=>{if(validateForm())openPrint(getValues());});
+      $('[data-download]').addEventListener('click',async()=>{
+        if(!(await saveCurrent(true)))return;
+        const blob=new Blob([documentHtml(getValues(),true)],{type:'text/html;charset=utf-8'});
+        const url=URL.createObjectURL(blob);const a=document.createElement('a');
+        const safe=(recordNo||typeShort[formType]).replace(/[\\/:*?"<>|]/g,'_');
+        a.href=url;a.download=`${safe}.html`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+        await eventForRecord('download');loadLedger();setStatus('작성본을 HTML 파일로 다운로드했습니다. 인쇄 메뉴에서 PDF로도 저장할 수 있습니다.','ok');
+      });
+
+      const fmtDate=(value)=>{if(!value)return'-';const d=new Date(value);return Number.isNaN(d.getTime())?String(value):d.toLocaleString('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});};
+      const loadLedger=async(targetPage=page)=>{
+        const result=await api('/api/foreign-forms/query',{
+          mode:'list',page:targetPage,size:Number($('[data-ledger-size]').value)||20,
+          formType:$('[data-ledger-type]').value,status:$('[data-ledger-status]').value,
+          from:$('[data-ledger-from]').value,to:$('[data-ledger-to]').value,query:$('[data-ledger-query]').value
+        });
+        const body=$('[data-ledger-body]');
+        if(!result.ok){body.innerHTML=`<tr><td colspan="10">${esc(result.message||'목록을 불러오지 못했습니다.')}</td></tr>`;return;}
+        currentRows=result.rows||[];page=result.pagination.page;pages=result.pagination.pages;
+        body.innerHTML=currentRows.length?currentRows.map(row=>`<tr>
+          <td>${esc(row.record_no)}</td><td>${esc(fmtDate(row.created_at))}</td><td>${esc(typeShort[row.form_type]||row.form_type)}</td>
+          <td>${esc(row.subject_name||'-')}</td><td>${esc(row.nationality||'-')}</td><td>${esc(row.created_by_name||'-')}</td>
+          <td>${Number(row.print_count||0)}회</td><td>${Number(row.download_count||0)}회</td>
+          <td><span class="status-pill ${row.status==='취소'?'status-pill--cancel':''}">${esc(row.status)}</span></td>
+          <td class="manage-cell"><button type="button" class="btn btn-outline btn-sm" data-open-record="${esc(row.id)}">열기</button>${row.status!=='취소'?`<button type="button" class="btn btn-outline btn-sm" data-cancel-record="${esc(row.id)}">취소</button>`:''}</td>
+        </tr>`).join(''):`<tr><td colspan="10">저장된 작성 이력이 없습니다.</td></tr>`;
+        renderPagination();
+      };
+      const renderPagination=()=>{
+        const host=$('[data-ledger-pagination]');host.innerHTML='';
+        const make=(label,target,disabled=false,active=false)=>{const b=document.createElement('button');b.type='button';b.className=`btn btn-outline btn-sm${active?' active':''}`;b.textContent=label;b.disabled=disabled;b.addEventListener('click',()=>loadLedger(target));return b;};
+        host.append(make('이전',Math.max(1,page-1),page<=1));
+        const start=Math.max(1,page-2),end=Math.min(pages,start+4);
+        for(let p=start;p<=end;p++)host.append(make(String(p),p,false,p===page));
+        host.append(make('다음',Math.min(pages,page+1),page>=pages));
+      };
+      $('[data-ledger-body]').addEventListener('click',async(e)=>{
+        const open=e.target.closest('[data-open-record]');
+        if(open){
+          const result=await api('/api/foreign-forms/query',{mode:'detail',id:open.dataset.openRecord});
+          if(!result.ok){$('[data-ledger-message]').textContent=result.message||'기록을 불러오지 못했습니다.';return;}
+          const row=result.row;formType=row.form_type;recordId=row.id;recordNo=row.record_no;recordStatus=row.status;
+          $$('[data-form-type]').forEach(btn=>btn.classList.toggle('active',btn.dataset.formType===formType));
+          renderForm(row.snapshot||{});updateRecordBanner();window.scrollTo({top:0,behavior:'smooth'});setStatus('저장된 작성 이력을 불러왔습니다.','ok');return;
+        }
+        const cancel=e.target.closest('[data-cancel-record]');
+        if(cancel){
+          if(!confirm('이 작성 이력을 취소 상태로 변경하시겠습니까? 원본 데이터는 감사 이력을 위해 삭제되지 않습니다.'))return;
+          const result=await api('/api/foreign-forms/action',{action:'cancel',id:cancel.dataset.cancelRecord});
+          $('[data-ledger-message]').textContent=result.message||'';if(result.ok)loadLedger();
+        }
+      });
+      $('[data-ledger-search]').addEventListener('click',()=>loadLedger(1));
+      $('[data-ledger-size]').addEventListener('change',()=>loadLedger(1));
+      $('[data-ledger-query]').addEventListener('keydown',(e)=>{if(e.key==='Enter'){e.preventDefault();loadLedger(1);}});
+      $('[data-ledger-export]').addEventListener('click',()=>{
+        if(!currentRows.length)return;
+        const headers=['기록번호','작성일','서식','대상자','국적','작성자','출력횟수','다운로드횟수','상태'];
+        const rows=currentRows.map(r=>[r.record_no,r.created_at,typeShort[r.form_type]||r.form_type,r.subject_name,r.nationality,r.created_by_name,r.print_count,r.download_count,r.status]);
+        const csvSafe=(value)=>{const text=String(value??'');return /^[\s]*[=+\-@]/.test(text)?`'${text}`:text;};
+        const csv=[headers,...rows].map(row=>row.map(v=>`"${csvSafe(v).replaceAll('\"','\"\"')}"`).join(',')).join('\r\n');
+        const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='외국인신청서_작성대장.csv';a.click();URL.revokeObjectURL(url);
+      });
+
+      renderForm({});
+      loadLedger(1);
+    })();
+  </script>
+
+  <style>
+    .foreign-form-panel,.foreign-ledger{margin-bottom:1.2rem}.foreign-form-title{align-items:flex-start}.foreign-form-selector{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem;margin:1rem 0 1.15rem}.form-type-card{border:1px solid #cbd5e1;background:#fff;border-radius:6px;padding:.8rem;text-align:left;cursor:pointer;min-height:78px}.form-type-card strong,.form-type-card span{display:block}.form-type-card span{font-size:.74rem;color:#64748b;margin-top:.25rem;line-height:1.35}.form-type-card.active{border:2px solid var(--gov-accent);background:#eef4ff;color:var(--gov-accent)}.official-form-downloads{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin:-.25rem 0 1rem}.official-form-downloads strong{font-size:.78rem;color:#526174}.official-form-downloads .btn{padding:.4rem .55rem;font-size:.75rem}.record-banner{display:flex;gap:.7rem;align-items:center;border:1px solid #b8c8dd;background:#f4f7fb;padding:.6rem .75rem;margin-bottom:.8rem}.record-banner span{font-size:.78rem;color:#526174}.record-banner strong{font-size:.88rem}.record-banner em{font-style:normal;font-size:.74rem;background:#e8effe;padding:.18rem .45rem;border-radius:999px}.foreign-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.foreign-section-title{grid-column:1/-1;margin:.65rem 0 0;border-bottom:2px solid #345b8c;padding:.48rem .15rem;font-size:1rem;color:#24486f}.form-field--wide{grid-column:1/-1}.form-field b{color:#b42318}.form-field textarea{resize:vertical}.field-label{font-weight:700;font-size:.84rem;margin-bottom:.35rem}.check-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.35rem .7rem;padding:.65rem;border:1px solid var(--gov-border);background:#fafbfd}.check-grid label{display:flex;gap:.4rem;font-size:.82rem;align-items:flex-start}.foreign-actions{justify-content:flex-end;flex-wrap:wrap}.foreign-ledger-filters{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}.foreign-ledger-table{min-width:1120px}.foreign-ledger-table th,.foreign-ledger-table td{font-size:.78rem}.manage-cell{display:flex;gap:.25rem}.status-pill{display:inline-block;padding:.18rem .45rem;background:#e7f6ec;color:#1d6b36;border-radius:999px;font-size:.72rem}.status-pill--cancel{background:#fce8e6;color:#9b1c1c}.foreign-preview-modal{width:min(1000px,94vw);max-height:92vh;overflow:auto}.official-document{background:#fff;color:#111;padding:12mm;box-shadow:0 1px 7px rgba(0,0,0,.12);font-family:Arial,"Noto Sans KR",sans-serif}.official-document header{text-align:center;margin-bottom:14px}.official-document h1{font-size:19px;line-height:1.35}.official-document .record-no{text-align:right;font-size:11px}.official-document h2{font-size:13px;background:#f1f3f5;border:1px solid #222;border-bottom:0;padding:6px;margin:10px 0 0}.official-document table{width:100%;border-collapse:collapse;table-layout:fixed}.official-document th,.official-document td{border:1px solid #222;padding:6px;vertical-align:top;font-size:11px;line-height:1.45}.official-document th{width:39%;background:#fafafa;text-align:left}.print-note{font-size:9px;color:#555;margin-top:10px}
+    @media(max-width:900px){.foreign-form-selector{grid-template-columns:1fr}.foreign-form-grid{grid-template-columns:1fr}.form-field--wide,.foreign-section-title{grid-column:1}.check-grid{grid-template-columns:1fr}}
+  </style>
+</ManagementLayout>

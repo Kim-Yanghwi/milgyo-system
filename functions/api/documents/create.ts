@@ -53,6 +53,7 @@ const VALID_DOC_TYPES = ['기안', '발송'];
 const VALID_ACCESS_SCOPES = ['전체', '관련자'];
 const VALID_APPROVAL_MODES = ['결재', '전결'];
 const MAX_PEOPLE_PER_ROLE = 10;
+const isClientRequestUniqueError=(error:unknown)=>/UNIQUE constraint failed:\s*documents\.client_request_id|idx_documents_request_id/i.test(error instanceof Error?error.message:String(error));
 
 const sanitizeFormData = (raw: unknown) => {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
@@ -321,6 +322,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           : `문서가 ${lines[0].lineType} 단계로 상신되었습니다.`,
     });
   } catch (error) {
+    if (clientRequestId && !documentId && isClientRequestUniqueError(error)) {
+      const duplicate=await env.DB.prepare(`SELECT id,status FROM documents WHERE client_request_id=?`).bind(clientRequestId).first<{id:string;status:string}>();
+      if(duplicate)return json({ok:true,id:duplicate.id,status:duplicate.status,duplicate:true,message:'이미 등록된 요청입니다.'});
+    }
     console.error('document create failed', error);
     return json({ ok: false, message: '문서 저장 중 오류가 발생했습니다.' }, 500);
   }

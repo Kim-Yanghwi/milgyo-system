@@ -364,3 +364,19 @@ SELECT 'VEHICLE_LOG_ORPHAN' AS check_name,COUNT(*) AS count
 FROM accounting_vehicle_logs l
 LEFT JOIN accounting_vehicle_records v ON v.id=l.vehicle_id
 WHERE v.id IS NULL;
+
+-- 오픈 전 성능 인덱스 적용 확인
+SELECT 'PERF_INDEX_IMPORT_MATCH' AS check_name,
+  CASE WHEN EXISTS(SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_import_tx_match_target') THEN 'OK' ELSE 'MISSING' END AS result;
+
+SELECT 'PERF_INDEX_DONATION_AUTO_MATCH' AS check_name,
+  CASE WHEN EXISTS(SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_donations_auto_match') THEN 'OK' ELSE 'MISSING' END AS result;
+
+SELECT 'PERF_INDEX_RESOLUTION_AUTO_MATCH' AS check_name,
+  CASE WHEN EXISTS(SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_resolutions_auto_match') THEN 'OK' ELSE 'MISSING' END AS result;
+
+SELECT 'PERF_INDEX_CARD_AUTO_MATCH' AS check_name,
+  CASE WHEN EXISTS(SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_card_transactions_auto_match') THEN 'OK' ELSE 'MISSING' END AS result;
+
+SELECT 'IMPORT_MATCH_TARGET_DUPLICATE' AS check_name,COUNT(*) AS count FROM (SELECT matched_type,matched_id FROM accounting_import_transactions WHERE status='matched' AND COALESCE(matched_type,'')<>'' AND COALESCE(matched_id,'')<>'' GROUP BY matched_type,matched_id HAVING COUNT(*)>1);
+SELECT 'RECONCILIATION_INTEGRITY_TRIGGERS' AS check_name,CASE WHEN (SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name IN ('trg_import_match_target_unique_insert','trg_import_match_target_unique_update'))=2 THEN 'OK' ELSE 'MISSING' END AS result;

@@ -31,13 +31,13 @@ bucket_name = "milgyo-accounting-files"
 [[env.preview.d1_databases]]
 binding = "DB"
 database_name = "milgyo-system-db-preview-v2"
-database_id = "9b1eaf97-f037-48e4-ae5f-e24bbfd4759d"
+database_id = "e2cb8019-b010-4e65-91e8-1b96793da038"
 migrations_dir = "migrations/main"
 
 [[env.preview.d1_databases]]
 binding = "ACCOUNTING_DB"
 database_name = "milgyo-accounting-db-preview"
-database_id = "e1a43a3d-ada9-4463-9ac4-c7b1bacd0e1f"
+database_id = "3d8a61bf-5a77-4140-aa75-9c472d8c5156"
 migrations_dir = "migrations/accounting"
 
 [[env.preview.r2_buckets]]

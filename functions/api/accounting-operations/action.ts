@@ -1,7 +1,7 @@
 import { authenticateSession, clean, ensureTables, json, randomHex, normalizeDepartmentValue } from '../../_shared/helpers';
 import { ensureAccountingTables, hasAccountingAccess, isAccountingManager, parseMoney } from '../../_shared/accounting';
 import { validateDimensions } from '../../_shared/accounting-dimensions';
-import { nextSpecialNumber } from '../../_shared/accounting-numbering';
+import { nextSpecialNumber, reserveSpecialNumberBlock } from '../../_shared/accounting-numbering';
 import {
   budgetVersionStatement,
   ensureAccountingOperationsTables,
@@ -33,7 +33,16 @@ const chunks = <T>(items: T[], size: number) => {
   return result;
 };
 const runStatements = async (db: D1Database, statements: D1PreparedStatement[]) => {
-  for (const group of chunks(statements, 80)) await db.batch(group);
+  for (const group of chunks(statements, 40)) await db.batch(group);
+};
+const JSON_SQL_PAYLOAD_MAX_BYTES = 1_200_000;
+const jsonPayloadChunks = <T>(items: T[], maxItems = 120) => {
+  const encoder = new TextEncoder(), result: string[] = []; let current: T[] = [];
+  for (const item of items) {
+    const candidate=[...current,item], serialized=JSON.stringify(candidate);
+    if(current.length && (candidate.length>maxItems || encoder.encode(serialized).byteLength>JSON_SQL_PAYLOAD_MAX_BYTES)){result.push(JSON.stringify(current));current=[item]}else current=candidate;
+  }
+  if(current.length)result.push(JSON.stringify(current)); return result;
 };
 
 const matchTargetForTransaction = async (db: D1Database, tx: any, type: string, targetId: string) => {
@@ -80,66 +89,84 @@ const matchTargetForTransaction = async (db: D1Database, tx: any, type: string, 
   return target;
 };
 
-const candidateForTransaction = async (db: D1Database, tx: any) => {
-  const transactionText = normalizeMatchText(`${tx.counterparty || ''} ${tx.description || ''}`);
-  let candidates: Array<{ type: string; id: string; date: string; name: string; amount: number; approvalNo?: string }> = [];
-  if (tx.source_type === 'bank' && tx.direction === 'in') {
-    const rows = await db.prepare(`SELECT d.id,d.donation_date AS date,COALESCE(o.name,'익명') AS name,d.amount
-      FROM accounting_donations d LEFT JOIN accounting_donors o ON o.id=d.donor_id
-      WHERE d.amount=? AND ABS(julianday(d.donation_date)-julianday(?))<=5
-      ORDER BY ABS(julianday(d.donation_date)-julianday(?)),d.created_at LIMIT 12`)
-      .bind(tx.amount, tx.transaction_date, tx.transaction_date).all<any>();
-    candidates = (rows.results || []).map((row: any) => ({ type: 'donation', id: row.id, date: row.date, name: row.name, amount: Number(row.amount) }));
-  } else {
-    const rows = await db.prepare(`SELECT r.id,r.resolution_date AS date,r.counterparty AS name,r.amount
-      FROM accounting_resolutions r
-      WHERE r.resolution_type='expense' AND r.amount=?
-        AND ABS(julianday(r.resolution_date)-julianday(?))<=7
-      ORDER BY ABS(julianday(r.resolution_date)-julianday(?)),r.created_at LIMIT 15`)
-      .bind(tx.amount, tx.transaction_date, tx.transaction_date).all<any>();
-    candidates = (rows.results || []).map((row: any) => ({ type: 'resolution', id: row.id, date: row.date, name: row.name, amount: Number(row.amount) }));
-    if (tx.source_type === 'card') {
-      const cardRows = await db.prepare(`SELECT c.id,c.transaction_date AS date,c.merchant AS name,c.amount,c.transaction_no AS approval_no
-        FROM accounting_card_transactions c JOIN accounting_import_batches b ON b.source_account_id=c.card_id
-        WHERE b.id=? AND c.amount=? AND ABS(julianday(c.transaction_date)-julianday(?))<=3
-        ORDER BY ABS(julianday(c.transaction_date)-julianday(?)),c.created_at LIMIT 10`)
-        .bind(tx.batch_id, tx.amount, tx.transaction_date, tx.transaction_date).all<any>();
-      candidates.unshift(...(cardRows.results || []).map((row: any) => ({ type: 'card_transaction', id: row.id, date: row.date, name: row.name, amount: Number(row.amount), approvalNo: row.approval_no })));
-    }
-  }
-  let best: any = null;
-  for (const candidate of candidates) {
-    if (!await matchTargetForTransaction(db, tx, candidate.type, candidate.id)) continue;
-    const used = await db.prepare(`SELECT 1 AS yes FROM accounting_import_transactions
-      WHERE status='matched' AND matched_type=? AND matched_id=? AND id<>? LIMIT 1`)
-      .bind(candidate.type, candidate.id, tx.id).first<{ yes: number }>();
-    if (used) continue;
-    const days = Math.abs((Date.parse(`${candidate.date}T00:00:00Z`) - Date.parse(`${tx.transaction_date}T00:00:00Z`)) / 86400000);
-    const candidateText = normalizeMatchText(candidate.name);
-    const nameMatch = !!candidateText && !!transactionText && (candidateText.includes(transactionText) || transactionText.includes(candidateText));
-    const approvalMatch = !!tx.approval_no && !!candidate.approvalNo && normalizeMatchText(tx.approval_no) === normalizeMatchText(candidate.approvalNo);
-    const score = Math.min(100, 60 + (days === 0 ? 20 : Math.max(0, 15 - days * 3)) + (nameMatch ? 20 : 0) + (approvalMatch ? 20 : 0));
-    if (!best || score > best.score) best = { ...candidate, score, reason: `금액 일치 · 날짜 ${days === 0 ? '일치' : `${days}일 차이`}${nameMatch ? ' · 거래처 일치' : ''}${approvalMatch ? ' · 승인번호 일치' : ''}` };
-  }
-  return best;
+type ImportCandidateRow = {
+  sourceIndex: number;
+  row: Record<string, unknown>;
+  date: string;
+  postedDate: string;
+  direction: string;
+  amount: number;
+  description: string;
+  counterparty: string;
+  approvalNo: string;
+  externalKey: string;
 };
 
-const applyMatchingSuggestion = async (db: D1Database, tx: any, user: any, now: string) => {
-  const best = await candidateForTransaction(db, tx);
-  if (best && best.score >= 70) {
-    if (best.score >= 95) {
-      await db.batch([
-        db.prepare(`UPDATE accounting_import_transactions SET status='matched',suggested_type=?,suggested_id=?,suggested_score=?,suggested_reason=?,matched_type=?,matched_id=?,matched_by=?,matched_at=?,updated_at=? WHERE id=?`)
-          .bind(best.type, best.id, best.score, best.reason, best.type, best.id, '자동대사', now, now, tx.id),
-        operationAudit(db, 'auto-match', 'import-transaction', tx.id, user, { matchedType: best.type, matchedId: best.id, score: best.score }, now),
-      ]);
-      return 'matched';
-    }
-    await db.prepare(`UPDATE accounting_import_transactions SET status='suggested',suggested_type=?,suggested_id=?,suggested_score=?,suggested_reason=?,updated_at=? WHERE id=?`)
-      .bind(best.type, best.id, best.score, best.reason, now, tx.id).run();
-    return 'suggested';
+type AutoMatchCandidate = {
+  type: 'donation' | 'resolution' | 'card_transaction'; id: string; date: string; name: string; amount: number;
+  approval_no?: string | null; created_at?: string | null;
+};
+type AutoMatchCandidateRow = AutoMatchCandidate & { tx_id: string };
+
+// Set-based candidate loading keeps the 250-row path well below D1's per-invocation query budget.
+const loadAutoMatchCandidateMap = async (db: D1Database, transactions: any[]) => {
+  const map = new Map<string, AutoMatchCandidate[]>(); if (!transactions.length) return map;
+  const ids = JSON.stringify(transactions.map((row:any)=>String(row.id)));
+  const cte = `WITH selected AS (
+    SELECT t.id AS tx_id,t.source_type,t.transaction_date,t.direction,t.amount,b.source_account_id,
+      COALESCE(NULLIF(ba.book_type_code,''),NULLIF(c.book_type_code,''),'general') AS book_type_code,
+      COALESCE(NULLIF(ba.entity_id,''),NULLIF(c.entity_id,''),'ENTITY-HQ') AS entity_id,COALESCE(ba.fund_id,'') AS fund_id
+    FROM accounting_import_transactions t JOIN accounting_import_batches b ON b.id=t.batch_id
+    LEFT JOIN accounting_bank_accounts ba ON b.source_type='bank' AND ba.id=b.source_account_id
+    LEFT JOIN accounting_cards c ON b.source_type='card' AND c.id=b.source_account_id
+    WHERE t.id IN (SELECT CAST(value AS TEXT) FROM json_each(?)) )`;
+  const statements=[
+    db.prepare(`${cte}, ranked AS (SELECT s.tx_id,'donation' AS type,d.id,d.donation_date AS date,COALESCE(o.name,'익명') AS name,d.amount,NULL AS approval_no,d.created_at,ROW_NUMBER() OVER(PARTITION BY s.tx_id ORDER BY ABS(julianday(d.donation_date)-julianday(s.transaction_date)),d.created_at,d.id) rn FROM selected s JOIN accounting_donations d ON s.source_type='bank' AND s.direction='in' AND d.status IN ('registered','posted') AND d.amount=s.amount AND d.donation_date BETWEEN date(s.transaction_date,'-5 day') AND date(s.transaction_date,'+5 day') AND COALESCE(NULLIF(d.book_type_code,''),'general')=s.book_type_code AND COALESCE(NULLIF(d.entity_id,''),'ENTITY-HQ')=s.entity_id AND COALESCE(d.fund_id,'')=s.fund_id LEFT JOIN accounting_donors o ON o.id=d.donor_id) SELECT tx_id,type,id,date,name,amount,approval_no,created_at FROM ranked WHERE rn<=12`).bind(ids),
+    db.prepare(`${cte}, ranked AS (SELECT s.tx_id,'card_transaction' AS type,c.id,c.transaction_date AS date,c.merchant AS name,c.amount,c.transaction_no AS approval_no,c.created_at,ROW_NUMBER() OVER(PARTITION BY s.tx_id ORDER BY ABS(julianday(c.transaction_date)-julianday(s.transaction_date)),c.created_at,c.id) rn FROM selected s JOIN accounting_card_transactions c ON s.source_type='card' AND s.direction='out' AND c.card_id=s.source_account_id AND c.status IN ('unmatched','posted') AND c.amount=s.amount AND c.transaction_date BETWEEN date(s.transaction_date,'-3 day') AND date(s.transaction_date,'+3 day') AND COALESCE(NULLIF(c.book_type_code,''),'general')=s.book_type_code AND COALESCE(NULLIF(c.entity_id,''),'ENTITY-HQ')=s.entity_id AND COALESCE(c.fund_id,'')=s.fund_id) SELECT tx_id,type,id,date,name,amount,approval_no,created_at FROM ranked WHERE rn<=10`).bind(ids),
+    db.prepare(`${cte}, ranked AS (SELECT s.tx_id,'resolution' AS type,r.id,r.resolution_date AS date,r.counterparty AS name,r.amount,NULL AS approval_no,r.created_at,ROW_NUMBER() OVER(PARTITION BY s.tx_id ORDER BY ABS(julianday(r.resolution_date)-julianday(s.transaction_date)),r.created_at,r.id) rn FROM selected s JOIN accounting_resolutions r ON s.direction='out' AND r.resolution_type='expense' AND r.status IN ('approved','posted') AND r.amount=s.amount AND r.resolution_date BETWEEN date(s.transaction_date,'-7 day') AND date(s.transaction_date,'+7 day') LEFT JOIN accounting_resolution_dimensions d ON d.resolution_id=r.id WHERE COALESCE(NULLIF(d.book_type_code,''),'general')=s.book_type_code AND COALESCE(NULLIF(d.entity_id,''),'ENTITY-HQ')=s.entity_id AND COALESCE(d.fund_id,'')=s.fund_id) SELECT tx_id,type,id,date,name,amount,approval_no,created_at FROM ranked WHERE rn<=15`).bind(ids),
+  ];
+  const results=await db.batch(statements); for(const result of results)for(const row of (result.results||[]) as AutoMatchCandidateRow[]){const list=map.get(String(row.tx_id))||[];list.push({type:row.type,id:row.id,date:row.date,name:row.name,amount:row.amount,approval_no:row.approval_no,created_at:row.created_at});map.set(String(row.tx_id),list)} return map;
+};
+const loadMatchedTargetKeys = async (db:D1Database,candidates:AutoMatchCandidate[])=>{
+  const used=new Set<string>(), byType=new Map<string,Set<string>>(); for(const c of candidates){const set=byType.get(c.type)||new Set<string>();set.add(c.id);byType.set(c.type,set)}
+  const statements:D1PreparedStatement[]=[];for(const [type,ids] of byType)statements.push(db.prepare(`SELECT matched_type,matched_id FROM accounting_import_transactions WHERE status='matched' AND matched_type=? AND matched_id IN (SELECT CAST(value AS TEXT) FROM json_each(?))`).bind(type,JSON.stringify([...ids])));
+  if(!statements.length)return used;for(const result of await db.batch(statements))for(const row of (result.results||[]) as any[])used.add(`${String(row.matched_type||'')}:${String(row.matched_id||'')}`);return used;
+};
+const bulkInsertImportTransactions=async(db:D1Database,rows:Array<Record<string,unknown>>)=>{
+  if(!rows.length)return;const statements=jsonPayloadChunks(rows,100).map(payload=>db.prepare(`INSERT INTO accounting_import_transactions (id,batch_id,source_type,external_key,transaction_date,posted_date,direction,description,counterparty,amount,tax_amount,balance,approval_no,original_json,classification_account_code,status,created_at,updated_at)
+    SELECT json_extract(value,'$.id'),json_extract(value,'$.batchId'),json_extract(value,'$.sourceType'),json_extract(value,'$.externalKey'),json_extract(value,'$.date'),NULLIF(json_extract(value,'$.postedDate'),''),json_extract(value,'$.direction'),COALESCE(json_extract(value,'$.description'),''),COALESCE(json_extract(value,'$.counterparty'),''),CAST(json_extract(value,'$.amount') AS INTEGER),CAST(COALESCE(json_extract(value,'$.taxAmount'),0) AS INTEGER),CASE WHEN json_type(value,'$.balance')='null' THEN NULL ELSE CAST(json_extract(value,'$.balance') AS INTEGER) END,NULLIF(json_extract(value,'$.approvalNo'),''),COALESCE(json_extract(value,'$.originalJson'),'{}'),NULLIF(json_extract(value,'$.classificationAccountCode'),''),'unmatched',json_extract(value,'$.now'),json_extract(value,'$.now') FROM json_each(?) WHERE 1=1 ON CONFLICT(external_key) DO NOTHING`).bind(payload));await db.batch(statements);
+};
+type AutoMatchUpdate={id:string;type:string;targetId:string;score:number;reason:string};
+const applyAutoMatchUpdates=async(db:D1Database,matched:AutoMatchUpdate[],suggested:AutoMatchUpdate[],resetIds:string[],me:{id:string;name:string},now:string)=>{
+  const statements:D1PreparedStatement[]=[];
+  if(matched.length){const payload=JSON.stringify(matched);statements.push(db.prepare(`WITH u AS (SELECT json_extract(value,'$.id') id,json_extract(value,'$.type') type,json_extract(value,'$.targetId') target_id,CAST(json_extract(value,'$.score') AS INTEGER) score,json_extract(value,'$.reason') reason FROM json_each(?)) UPDATE accounting_import_transactions SET status='matched',suggested_type=(SELECT type FROM u WHERE u.id=accounting_import_transactions.id),suggested_id=(SELECT target_id FROM u WHERE u.id=accounting_import_transactions.id),suggested_score=(SELECT score FROM u WHERE u.id=accounting_import_transactions.id),suggested_reason=(SELECT reason FROM u WHERE u.id=accounting_import_transactions.id),matched_type=(SELECT type FROM u WHERE u.id=accounting_import_transactions.id),matched_id=(SELECT target_id FROM u WHERE u.id=accounting_import_transactions.id),matched_by='자동대사',matched_at=?,updated_at=? WHERE id IN (SELECT id FROM u) AND status IN ('unmatched','suggested')`).bind(payload,now,now));}
+  if(suggested.length){const payload=JSON.stringify(suggested);statements.push(db.prepare(`WITH u AS (SELECT json_extract(value,'$.id') id,json_extract(value,'$.type') type,json_extract(value,'$.targetId') target_id,CAST(json_extract(value,'$.score') AS INTEGER) score,json_extract(value,'$.reason') reason FROM json_each(?)) UPDATE accounting_import_transactions SET status='suggested',suggested_type=(SELECT type FROM u WHERE u.id=accounting_import_transactions.id),suggested_id=(SELECT target_id FROM u WHERE u.id=accounting_import_transactions.id),suggested_score=(SELECT score FROM u WHERE u.id=accounting_import_transactions.id),suggested_reason=(SELECT reason FROM u WHERE u.id=accounting_import_transactions.id),updated_at=? WHERE id IN (SELECT id FROM u) AND status IN ('unmatched','suggested')`).bind(payload,now));}
+  if(resetIds.length)statements.push(db.prepare(`UPDATE accounting_import_transactions SET status='unmatched',suggested_type=NULL,suggested_id=NULL,suggested_score=NULL,suggested_reason=NULL,updated_at=? WHERE id IN (SELECT CAST(value AS TEXT) FROM json_each(?)) AND status='suggested'`).bind(now,JSON.stringify(resetIds)));
+  if(statements.length)await db.batch(statements);
+};
+
+const scoreAutoMatchCandidate = (tx: any, candidate: AutoMatchCandidate) => {
+  const days = Math.abs((Date.parse(`${candidate.date}T00:00:00Z`) - Date.parse(`${tx.transaction_date}T00:00:00Z`)) / 86400000);
+  const transactionText = normalizeMatchText(`${tx.counterparty || ''} ${tx.description || ''}`);
+  const candidateText = normalizeMatchText(candidate.name);
+  const nameMatch = !!candidateText && !!transactionText && (candidateText.includes(transactionText) || transactionText.includes(candidateText));
+  const approvalMatch = !!tx.approval_no && !!candidate.approval_no && normalizeMatchText(tx.approval_no) === normalizeMatchText(candidate.approval_no);
+  const score = Math.min(100, 60 + (days === 0 ? 20 : Math.max(0, 15 - days * 3)) + (nameMatch ? 20 : 0) + (approvalMatch ? 20 : 0));
+  return {
+    ...candidate,
+    score,
+    reason: `금액 일치 · 날짜 ${days === 0 ? '일치' : `${days}일 차이`}${nameMatch ? ' · 거래처 일치' : ''}${approvalMatch ? ' · 승인번호 일치' : ''}`,
+  };
+};
+
+const chooseAutoMatchCandidate = (tx: any, candidates: AutoMatchCandidate[], unavailable: Set<string>) => {
+  let best: ReturnType<typeof scoreAutoMatchCandidate> | null = null;
+  for (const candidate of candidates) {
+    if (unavailable.has(`${candidate.type}:${candidate.id}`)) continue;
+    const scored = scoreAutoMatchCandidate(tx, candidate);
+    if (!best || scored.score > best.score) best = scored;
   }
-  return 'unmatched';
+  return best;
 };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -212,62 +239,93 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         || (periodStart && periodEnd && periodStart > periodEnd)) {
         return json({ ok: false, message: '가져오기 대상기간의 날짜와 선후관계를 확인해 주세요.' }, 400);
       }
-      const rows = Array.isArray(payload.rows) ? (payload.rows as Array<Record<string, unknown>>).slice(0, 1000) : [];
+      const rawRows=Array.isArray(payload.rows)?payload.rows as Array<Record<string,unknown>>:[];
+      if(rawRows.length>1000)return json({ok:false,message:'거래내역은 한 번에 최대 1,000건까지 가져올 수 있습니다. 파일을 나누어 처리해 주세요.'},400);
+      const rows=rawRows;
       if (!rows.length) return json({ ok: false, message: '가져올 거래내역이 없습니다.' }, 400);
-      const year = validYear(String(rows[0]?.transactionDate || '').slice(0, 4)) || new Date().getUTCFullYear();
+      const year = validYear(String(rows[0]?.transactionDate || '').slice(0, 4)) || new Date(Date.now()+9*60*60*1000).getUTCFullYear();
       const batchNo = await nextOperationNumber(db, 'import', year), batchId = `IMB-${randomHex(24)}`, now = new Date().toISOString();
       const rules = await db.prepare(`SELECT * FROM accounting_matching_rules WHERE active=1 AND source_type IN ('all',?) ORDER BY priority,id`).bind(sourceType).all<any>();
-      const statements: D1PreparedStatement[] = [];
-      let imported = 0, duplicates = 0, invalid = 0;
+      const normalized: Omit<ImportCandidateRow, 'externalKey'>[] = [];
+      let duplicates = 0, invalid = 0;
       for (let index = 0; index < rows.length; index += 1) {
         const row = rows[index];
         const date = clean(row.transactionDate, 10), postedDate = clean(row.postedDate, 10), direction = clean(row.direction, 10), amount = Math.abs(parseMoney(row.amount));
         if (!validAccountingDate(date) || (postedDate && !validAccountingDate(postedDate))
           || !['in', 'out'].includes(direction) || amount <= 0
           || (periodStart && date < periodStart) || (periodEnd && date > periodEnd)) { invalid += 1; continue; }
-        const description = clean(row.description, 300), counterparty = clean(row.counterparty, 160), approvalNo = clean(row.approvalNo, 100);
-        const externalKey = await sha256Hex([sourceType, sourceAccountId, date, direction, amount, approvalNo, counterparty, description, clean(row.sequence, 30) || String(index + 1), clean(row.balance, 40)].join('|'));
-        const exists = await db.prepare(`SELECT id FROM accounting_import_transactions WHERE external_key=?`).bind(externalKey).first();
-        if (exists) { duplicates += 1; continue; }
-        const text = normalizeMatchText(`${counterparty} ${description}`);
-        const rule = (rules.results || []).find((item: any) => (item.direction === 'all' || item.direction === direction) && text.includes(normalizeMatchText(item.keyword)));
-        const id = `IMT-${randomHex(24)}`;
-        statements.push(db.prepare(`INSERT INTO accounting_import_transactions
-          (id,batch_id,source_type,external_key,transaction_date,posted_date,direction,description,counterparty,amount,tax_amount,balance,approval_no,original_json,classification_account_code,status,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-          .bind(id, batchId, sourceType, externalKey, date, postedDate || null, direction, description, counterparty, amount, Math.abs(parseMoney(row.taxAmount)), row.balance === '' || row.balance == null ? null : parseMoney(row.balance), approvalNo || null, JSON.stringify(row), rule?.account_code || null, 'unmatched', now, now));
-        imported += 1;
+        normalized.push({
+          sourceIndex: index,
+          row,
+          date,
+          postedDate,
+          direction,
+          amount,
+          description: clean(row.description, 300),
+          counterparty: clean(row.counterparty, 160),
+          approvalNo: clean(row.approvalNo, 100),
+        });
+      }
+      const prepared: ImportCandidateRow[] = [];
+      for (const group of chunks(normalized, 50)) {
+        const hashed = await Promise.all(group.map(async (item) => ({
+          ...item,
+          externalKey: await sha256Hex([
+            sourceType, sourceAccountId, item.date, item.direction, item.amount, item.approvalNo,
+            item.counterparty, item.description, clean(item.row.sequence, 30) || String(item.sourceIndex + 1), clean(item.row.balance, 40),
+          ].join('|')),
+        })));
+        prepared.push(...hashed);
+      }
+      const seenInputKeys = new Set<string>();
+      const insertRows: Array<Record<string, unknown>> = [];
+      for (const item of prepared) {
+        if (seenInputKeys.has(item.externalKey)) { duplicates += 1; continue; }
+        seenInputKeys.add(item.externalKey);
+        const text = normalizeMatchText(`${item.counterparty} ${item.description}`);
+        const rule = (rules.results || []).find((candidate: any) => (candidate.direction === 'all' || candidate.direction === item.direction)
+          && text.includes(normalizeMatchText(candidate.keyword)));
+        insertRows.push({ id:`IMT-${randomHex(24)}`, batchId, sourceType, externalKey:item.externalKey, date:item.date, postedDate:item.postedDate,
+          direction:item.direction, description:item.description, counterparty:item.counterparty, amount:item.amount,
+          taxAmount:Math.abs(parseMoney(item.row.taxAmount)), balance:item.row.balance === '' || item.row.balance == null ? null : parseMoney(item.row.balance),
+          approvalNo:item.approvalNo, originalJson:JSON.stringify(item.row), classificationAccountCode:rule?.account_code || '', now });
       }
       await db.prepare(`INSERT INTO accounting_import_batches
         (id,batch_no,source_type,source_account_id,period_start,period_end,statement_balance,original_filename,total_rows,imported_rows,duplicate_rows,status,created_by,created_at,updated_at)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-        .bind(batchId, batchNo, sourceType, sourceAccountId, periodStart || null, periodEnd || null, payload.statementBalance === '' || payload.statementBalance == null ? null : parseMoney(payload.statementBalance), clean(payload.filename, 200) || null, rows.length, 0, duplicates, 'processing', me.name, now, now).run();
+        .bind(batchId,batchNo,sourceType,sourceAccountId,periodStart||null,periodEnd||null,
+          payload.statementBalance === '' || payload.statementBalance == null ? null : parseMoney(payload.statementBalance), clean(payload.filename,200)||null,
+          rows.length,0,duplicates,'processing',me.name,now,now).run();
       try {
-        await runStatements(db, statements);
+        await bulkInsertImportTransactions(db, insertRows);
+        const insertedRow=await db.prepare(`SELECT COUNT(*) AS count FROM accounting_import_transactions WHERE batch_id=?`).bind(batchId).first<{count:number}>();
+        const imported=Number(insertedRow?.count||0); duplicates += Math.max(0, insertRows.length-imported);
         await db.batch([
-          db.prepare(`UPDATE accounting_import_batches SET imported_rows=?,duplicate_rows=?,status='imported',updated_at=? WHERE id=?`).bind(imported, duplicates, now, batchId),
-          operationAudit(db, 'import', 'import-batch', batchId, me, { batchNo, sourceType, sourceAccountId, total: rows.length, imported, duplicates, invalid }, now),
+          db.prepare(`UPDATE accounting_import_batches SET imported_rows=?,duplicate_rows=?,status='imported',updated_at=? WHERE id=?`).bind(imported,duplicates,now,batchId),
+          operationAudit(db,'import','import-batch',batchId,me,{batchNo,sourceType,sourceAccountId,total:rows.length,imported,duplicates,invalid},now),
         ]);
-      } catch (error) {
-        await db.batch([
-          db.prepare(`DELETE FROM accounting_import_transactions WHERE batch_id=?`).bind(batchId),
-          db.prepare(`DELETE FROM accounting_import_batches WHERE id=?`).bind(batchId),
-        ]).catch(() => undefined);
+        return json({ok:true,id:batchId,batchNo,imported,duplicates,invalid,message:`${imported}건을 가져왔습니다. 중복 ${duplicates}건, 형식오류 ${invalid}건은 제외했습니다.`});
+      } catch(error) {
+        await db.batch([db.prepare(`DELETE FROM accounting_import_transactions WHERE batch_id=?`).bind(batchId),db.prepare(`DELETE FROM accounting_import_batches WHERE id=?`).bind(batchId)]).catch(()=>undefined);
         throw error;
       }
-      return json({ ok: true, id: batchId, batchNo, imported, duplicates, invalid, message: `${imported}건을 가져왔습니다. 중복 ${duplicates}건, 형식오류 ${invalid}건은 제외했습니다.` });
     }
 
     if (action === 'auto-match') {
       if (!manager) return json({ ok: false, message: '자동대사 실행 권한이 없습니다.' }, 403);
-      const batchId = clean(payload.batchId, 80);
-      const rows = await db.prepare(`SELECT * FROM accounting_import_transactions WHERE status IN ('unmatched','suggested') ${batchId ? 'AND batch_id=?' : ''} ORDER BY transaction_date,id LIMIT 250`)
-        .bind(...(batchId ? [batchId] : [])).all<any>();
-      const counts = { matched: 0, suggested: 0, unmatched: 0 };
-      const now = new Date().toISOString();
-      for (const row of rows.results || []) counts[await applyMatchingSuggestion(db, row, me, now) as keyof typeof counts] += 1;
-      if (batchId) await db.prepare(`UPDATE accounting_import_batches SET status=?,updated_at=? WHERE id=?`).bind(counts.unmatched || counts.suggested ? 'reconciling' : 'reconciled', now, batchId).run();
-      return json({ ok: true, ...counts, processed: (rows.results || []).length, message: `자동확정 ${counts.matched}건, 확인필요 ${counts.suggested}건, 미매칭 ${counts.unmatched}건입니다.` });
+      const batchId=clean(payload.batchId,80);
+      const rows=await db.prepare(`SELECT * FROM accounting_import_transactions WHERE status IN ('unmatched','suggested') ${batchId?'AND batch_id=?':''} ORDER BY transaction_date,id LIMIT 250`).bind(...(batchId?[batchId]:[])).all<any>();
+      const transactions=rows.results||[], now=new Date().toISOString();
+      if(transactions.length){
+        const candidateMap=await loadAutoMatchCandidateMap(db,transactions), allCandidates=[...candidateMap.values()].flat(), unavailable=await loadMatchedTargetKeys(db,allCandidates);
+        const matched:AutoMatchUpdate[]=[],suggested:AutoMatchUpdate[]=[],resetIds:string[]=[];
+        for(const tx of transactions){const best=chooseAutoMatchCandidate(tx,candidateMap.get(String(tx.id))||[],unavailable);if(best&&best.score>=95){unavailable.add(`${best.type}:${best.id}`);matched.push({id:String(tx.id),type:best.type,targetId:best.id,score:best.score,reason:best.reason})}else if(best&&best.score>=70){suggested.push({id:String(tx.id),type:best.type,targetId:best.id,score:best.score,reason:best.reason})}else if(String(tx.status||'')==='suggested'||tx.suggested_type||tx.suggested_id||tx.suggested_score)resetIds.push(String(tx.id))}
+        await applyAutoMatchUpdates(db,matched,suggested,resetIds,me,now);
+      }
+      const counts={matched:0,suggested:0,unmatched:0};
+      if(transactions.length){const counted=await db.prepare(`SELECT status,COUNT(*) AS count FROM accounting_import_transactions WHERE id IN (SELECT CAST(value AS TEXT) FROM json_each(?)) GROUP BY status`).bind(JSON.stringify(transactions.map((r:any)=>String(r.id)))).all<any>();for(const row of counted.results||[]){const status=String(row.status||'');if(status==='matched')counts.matched+=Number(row.count||0);else if(status==='suggested')counts.suggested+=Number(row.count||0);else if(status==='unmatched')counts.unmatched+=Number(row.count||0)}}
+      if(batchId){const pending=await db.prepare(`SELECT COUNT(*) AS count FROM accounting_import_transactions WHERE batch_id=? AND status IN ('unmatched','suggested')`).bind(batchId).first<{count:number}>();await db.prepare(`UPDATE accounting_import_batches SET status=?,updated_at=? WHERE id=?`).bind(Number(pending?.count||0)?'reconciling':'reconciled',now,batchId).run()}
+      return json({ok:true,...counts,processed:transactions.length,message:`자동확정 ${counts.matched}건, 확인필요 ${counts.suggested}건, 미매칭 ${counts.unmatched}건입니다.`});
     }
 
     if (action === 'confirm-match' || action === 'unmatch' || action === 'ignore-transaction') {
@@ -605,76 +663,42 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (action === 'create-donation-export') {
       if (!manager) return json({ ok: false, message: '전자기부금영수증 일괄처리 권한이 없습니다.' }, 403);
-      const ids = listIds(payload.donationIds, 501), year = validYear(payload.year);
-      if (ids.length > 500) return json({ ok: false, message: '한 번에 최대 500건까지 처리할 수 있습니다. 500건씩 나누어 생성해 주세요.' }, 400);
-      if (!year || !ids.length) return json({ ok: false, message: '일괄처리할 기부내역을 선택해 주세요.' }, 400);
-      const rows = await db.prepare(`SELECT d.id,d.donation_no FROM accounting_donations d WHERE d.fiscal_year=? AND d.donor_id IS NOT NULL
-        AND d.status<>'cancelled' AND d.receipt_status IN ('not_requested','requested','error')
-        AND d.id IN (${ids.map(() => '?').join(',')}) ORDER BY d.donation_date,d.id`).bind(year, ...ids).all<any>();
-      if (!(rows.results || []).length) return json({ ok: false, message: '일괄발급 대상 기부내역이 없습니다.' }, 400);
-      const exportNo = await nextOperationNumber(db, 'donation-export', year), id = `DEX-${randomHex(24)}`, now = new Date().toISOString();
-      const statements: D1PreparedStatement[] = [db.prepare(`INSERT INTO accounting_donation_export_batches
-        (id,export_no,fiscal_year,export_type,status,item_count,created_by,created_at,updated_at) VALUES (?,?,?,'hometax_workbook','created',?,?,?,?)`)
-        .bind(id, exportNo, year, (rows.results || []).length, me.name, now, now)];
-      for (const row of rows.results || []) statements.push(db.prepare(`INSERT INTO accounting_donation_export_items
-        (id,batch_id,donation_id,donation_no,export_status,created_at,updated_at) VALUES (?,?,?,?,'exported',?,?)`)
-        .bind(`DEXI-${randomHex(20)}`, id, row.id, row.donation_no, now, now));
-      statements.push(operationAudit(db, 'create', 'donation-export', id, me, { exportNo, year, itemCount: (rows.results || []).length }, now));
-      try {
-        await runStatements(db, statements);
-      } catch (error) {
-        await db.batch([
-          db.prepare(`DELETE FROM accounting_donation_export_items WHERE batch_id=?`).bind(id),
-          db.prepare(`DELETE FROM accounting_donation_export_batches WHERE id=?`).bind(id),
-        ]).catch((cleanupError) => console.error('donation export compensation failed', id, cleanupError));
-        throw error;
-      }
-      return json({ ok: true, id, exportNo, itemCount: (rows.results || []).length, message: '홈택스 작업파일 생성 이력을 등록했습니다.' });
+      const ids=listIds(payload.donationIds,501),year=validYear(payload.year);if(ids.length>500)return json({ok:false,message:'한 번에 최대 500건까지 처리할 수 있습니다.'},400);if(!year||!ids.length)return json({ok:false,message:'일괄처리할 기부내역을 선택해 주세요.'},400);
+      const rows=await db.prepare(`SELECT d.id,d.donation_no FROM accounting_donations d WHERE d.fiscal_year=? AND d.donor_id IS NOT NULL AND d.status<>'cancelled' AND d.receipt_status IN ('not_requested','requested','error') AND d.id IN (SELECT CAST(value AS TEXT) FROM json_each(?)) ORDER BY d.donation_date,d.id`).bind(year,JSON.stringify(ids)).all<any>();
+      if(!(rows.results||[]).length)return json({ok:false,message:'일괄발급 대상 기부내역이 없습니다.'},400);
+      const exportNo=await nextOperationNumber(db,'donation-export',year),id=`DEX-${randomHex(24)}`,now=new Date().toISOString(),items=(rows.results||[]).map((r:any)=>({id:`DEXI-${randomHex(20)}`,donationId:r.id,donationNo:r.donation_no}));
+      await db.batch([
+        db.prepare(`INSERT INTO accounting_donation_export_batches (id,export_no,fiscal_year,export_type,status,item_count,created_by,created_at,updated_at) VALUES (?,?,?,'hometax_workbook','created',?,?,?,?)`).bind(id,exportNo,year,items.length,me.name,now,now),
+        db.prepare(`INSERT INTO accounting_donation_export_items (id,batch_id,donation_id,donation_no,export_status,created_at,updated_at) SELECT json_extract(value,'$.id'),?,json_extract(value,'$.donationId'),json_extract(value,'$.donationNo'),'exported',?,? FROM json_each(?)`).bind(id,now,now,JSON.stringify(items)),
+        operationAudit(db,'create','donation-export',id,me,{exportNo,year,itemCount:items.length},now),
+      ]);
+      return json({ok:true,id,exportNo,itemCount:items.length,message:'홈택스 작업파일 생성 이력을 등록했습니다.'});
     }
 
     if (action === 'apply-donation-results') {
       if (!manager) return json({ ok: false, message: '전자기부금영수증 결과 반영 권한이 없습니다.' }, 403);
-      const rawResultRows = Array.isArray(payload.rows) ? payload.rows as Array<Record<string, unknown>> : [];
-      if (rawResultRows.length > 500) return json({ ok: false, message: '결과파일이 500건을 초과합니다. 일괄처리 건별 결과파일인지 확인해 주세요.' }, 400);
-      const batchId = clean(payload.batchId, 80), filename = clean(payload.filename, 200), resultRows = rawResultRows;
-      const batch = await db.prepare(`SELECT * FROM accounting_donation_export_batches WHERE id=?`).bind(batchId).first<any>();
-      if (!batch || !resultRows.length) return json({ ok: false, message: '결과를 반영할 일괄처리 건과 파일을 확인해 주세요.' }, 400);
-      if (!['created','processed_with_errors'].includes(String(batch.status || ''))) return json({ ok: false, message: '이미 결과 반영이 완료된 일괄처리 건입니다.' }, 409);
-      const now = new Date().toISOString(), statements: D1PreparedStatement[] = [];
-      let success = 0, errors = 0, cancelled = 0, skipped = 0;
-      for (const item of resultRows) {
-        const donationNo = clean(item.donationNo, 80), rawStatus = normalizeMatchText(item.status), externalNo = clean(item.externalReceiptNo, 100), message = clean(item.message, 500);
-        const exportItem = await db.prepare(`SELECT i.*,d.fiscal_year,d.receipt_no,d.receipt_status FROM accounting_donation_export_items i JOIN accounting_donations d ON d.id=i.donation_id
-          WHERE i.batch_id=? AND i.donation_no=? AND i.export_status IN ('exported','error') AND d.status<>'cancelled'`).bind(batchId, donationNo).first<any>();
-        if (!exportItem) { skipped += 1; continue; }
-        const isCancel = /취소|cancel/.test(rawStatus), isSuccess = /정상|성공|발급|완료|success|issued/.test(rawStatus) && !/오류|실패|error/.test(rawStatus);
-        if (isCancel) {
-          statements.push(
-            db.prepare(`UPDATE accounting_donations SET receipt_status='cancelled',receipt_cancelled_at=?,updated_at=? WHERE id=? AND receipt_status IN ('requested','issued','error')`).bind(now, now, exportItem.donation_id),
-            db.prepare(`UPDATE accounting_donation_export_items SET export_status='cancelled',external_receipt_no=?,result_code=?,result_message=?,processed_at=?,updated_at=? WHERE id=?`).bind(externalNo || null, clean(item.status, 80), message || null, now, now, exportItem.id),
-          );
-          cancelled += 1;
-        } else if (isSuccess) {
-          const receiptNo = externalNo || exportItem.receipt_no || await nextSpecialNumber(db, 'receipt', Number(exportItem.fiscal_year));
-          statements.push(
-            db.prepare(`UPDATE accounting_donations SET receipt_requested=1,receipt_status='issued',receipt_no=?,receipt_issued_at=?,receipt_cancelled_at=NULL,updated_at=? WHERE id=? AND receipt_status IN ('not_requested','requested','error')`).bind(receiptNo, now, now, exportItem.donation_id),
-            db.prepare(`UPDATE accounting_donation_export_items SET export_status='issued',external_receipt_no=?,result_code=?,result_message=?,processed_at=?,updated_at=? WHERE id=?`).bind(externalNo || receiptNo, clean(item.status, 80), message || null, now, now, exportItem.id),
-          );
-          success += 1;
-        } else {
-          statements.push(
-            db.prepare(`UPDATE accounting_donations SET receipt_requested=1,receipt_status='error',updated_at=? WHERE id=? AND receipt_status IN ('not_requested','requested','error')`).bind(now, exportItem.donation_id),
-            db.prepare(`UPDATE accounting_donation_export_items SET export_status='error',external_receipt_no=?,result_code=?,result_message=?,processed_at=?,updated_at=? WHERE id=?`).bind(externalNo || null, clean(item.status, 80) || 'error', message || '처리 오류', now, now, exportItem.id),
-          );
-          errors += 1;
-        }
-      }
-      statements.push(
-        db.prepare(`UPDATE accounting_donation_export_batches SET status=?,success_count=?,error_count=?,original_result_filename=?,processed_by=?,processed_at=?,updated_at=? WHERE id=?`).bind(errors ? 'processed_with_errors' : 'processed', success + cancelled, errors, filename || null, me.name, now, now, batchId),
-        operationAudit(db, 'apply-results', 'donation-export', batchId, me, { success, errors, cancelled, skipped, filename }, now),
-      );
-      await runStatements(db, statements);
-      return json({ ok: true, success, errors, cancelled, skipped, message: `발급 ${success}건, 취소 ${cancelled}건, 오류 ${errors}건을 반영했습니다.${skipped ? ` 미확인 ${skipped}건은 제외했습니다.` : ''}` });
+      const rows=Array.isArray(payload.rows)?payload.rows as Array<Record<string,unknown>>:[];if(rows.length>500)return json({ok:false,message:'결과파일은 한 번에 최대 500건까지 반영할 수 있습니다.'},400);
+      const batchId=clean(payload.batchId,80),filename=clean(payload.filename,200);if(!batchId||!rows.length)return json({ok:false,message:'결과를 반영할 일괄처리 건과 파일을 확인해 주세요.'},400);
+      const normalized=rows.map(x=>({donationNo:clean(x.donationNo,80),rawStatus:normalizeMatchText(x.status),statusLabel:clean(x.status,80),externalNo:clean(x.externalReceiptNo,100),message:clean(x.message,500)}));
+      const seen=new Set<string>();for(const x of normalized){if(!x.donationNo)continue;if(seen.has(x.donationNo))return json({ok:false,message:`결과파일에 기부번호 ${x.donationNo}가 중복되어 있습니다.`},400);seen.add(x.donationNo)}
+      const now=new Date().toISOString(),staleBefore=new Date(Date.now()-10*60*1000).toISOString();
+      const batch=await db.prepare(`UPDATE accounting_donation_export_batches SET status='processing_results',updated_at=? WHERE id=? AND (status IN ('created','processed_with_errors') OR (status='processing_results' AND updated_at<?)) RETURNING *`).bind(now,batchId,staleBefore).first<any>();
+      if(!batch){const current=await db.prepare(`SELECT status FROM accounting_donation_export_batches WHERE id=?`).bind(batchId).first<{status:string}>();return json({ok:false,message:!current?'결과를 반영할 일괄처리 건을 찾을 수 없습니다.':current.status==='processing_results'?'같은 일괄처리 건의 결과가 이미 반영 중입니다.':'이미 결과 반영이 완료된 일괄처리 건입니다.'},current?409:404)}
+      const previous=String(batch.status||'created');
+      try{
+        const nos=normalized.map(x=>x.donationNo).filter(Boolean);const found=await db.prepare(`SELECT i.*,d.fiscal_year,d.receipt_no,d.receipt_status,d.status AS donation_status FROM accounting_donation_export_items i JOIN accounting_donations d ON d.id=i.donation_id WHERE i.batch_id=? AND i.donation_no IN (SELECT CAST(value AS TEXT) FROM json_each(?)) AND i.export_status IN ('exported','error') AND d.status<>'cancelled'`).bind(batchId,JSON.stringify(nos)).all<any>();
+        const byNo=new Map<string,any>();for(const r of found.results||[])byNo.set(String(r.donation_no||''),r);
+        type U={itemId:string;donationId:string;receiptNo:string;externalNo:string;resultCode:string;resultMessage:string;year:number};const success:U[]=[],cancel:U[]=[],errorRows:U[]=[],needs=new Map<number,U[]>();let skipped=0;
+        for(const x of normalized){const r=byNo.get(x.donationNo);if(!r){skipped++;continue}const isCancel=/취소|cancel/.test(x.rawStatus),isSuccess=/정상|성공|발급|완료|success|issued/.test(x.rawStatus)&&!/오류|실패|error/.test(x.rawStatus);const u:U={itemId:String(r.id),donationId:String(r.donation_id),receiptNo:'',externalNo:x.externalNo,resultCode:x.statusLabel||(isSuccess?'success':isCancel?'cancelled':'error'),resultMessage:x.message||'',year:Number(r.fiscal_year||batch.fiscal_year||0)};
+          if(isCancel){cancel.push(u);continue}if(isSuccess){u.receiptNo=x.externalNo||clean(r.receipt_no,100);if(u.receiptNo){u.externalNo=u.externalNo||u.receiptNo;success.push(u)}else{const a=needs.get(u.year)||[];a.push(u);needs.set(u.year,a)}}else errorRows.push(u)}
+        for(const [year,list] of needs){const nums=await reserveSpecialNumberBlock(db,'receipt',list.length,year);list.forEach((u,i)=>{u.receiptNo=nums[i];u.externalNo=nums[i];success.push(u)})}
+        const statements:D1PreparedStatement[]=[];
+        if(success.length){const j=JSON.stringify(success);statements.push(db.prepare(`WITH u AS (SELECT json_extract(value,'$.donationId') donation_id,json_extract(value,'$.receiptNo') receipt_no FROM json_each(?)) UPDATE accounting_donations SET receipt_requested=1,receipt_status='issued',receipt_no=(SELECT receipt_no FROM u WHERE u.donation_id=accounting_donations.id),receipt_issued_at=?,receipt_cancelled_at=NULL,updated_at=? WHERE id IN (SELECT donation_id FROM u) AND receipt_status IN ('not_requested','requested','error')`).bind(j,now,now),db.prepare(`WITH u AS (SELECT json_extract(value,'$.itemId') item_id,json_extract(value,'$.externalNo') external_no,json_extract(value,'$.resultCode') result_code,NULLIF(json_extract(value,'$.resultMessage'),'') result_message FROM json_each(?)) UPDATE accounting_donation_export_items SET export_status='issued',external_receipt_no=(SELECT external_no FROM u WHERE u.item_id=accounting_donation_export_items.id),result_code=(SELECT result_code FROM u WHERE u.item_id=accounting_donation_export_items.id),result_message=(SELECT result_message FROM u WHERE u.item_id=accounting_donation_export_items.id),processed_at=?,updated_at=? WHERE id IN (SELECT item_id FROM u)`).bind(j,now,now))}
+        if(cancel.length){const j=JSON.stringify(cancel);statements.push(db.prepare(`WITH u AS (SELECT json_extract(value,'$.donationId') donation_id FROM json_each(?)) UPDATE accounting_donations SET receipt_status='cancelled',receipt_cancelled_at=?,updated_at=? WHERE id IN (SELECT donation_id FROM u) AND receipt_status IN ('requested','issued','error')`).bind(j,now,now),db.prepare(`WITH u AS (SELECT json_extract(value,'$.itemId') item_id,json_extract(value,'$.externalNo') external_no,json_extract(value,'$.resultCode') result_code,NULLIF(json_extract(value,'$.resultMessage'),'') result_message FROM json_each(?)) UPDATE accounting_donation_export_items SET export_status='cancelled',external_receipt_no=(SELECT external_no FROM u WHERE u.item_id=accounting_donation_export_items.id),result_code=(SELECT result_code FROM u WHERE u.item_id=accounting_donation_export_items.id),result_message=(SELECT result_message FROM u WHERE u.item_id=accounting_donation_export_items.id),processed_at=?,updated_at=? WHERE id IN (SELECT item_id FROM u)`).bind(j,now,now))}
+        if(errorRows.length){const j=JSON.stringify(errorRows);statements.push(db.prepare(`WITH u AS (SELECT json_extract(value,'$.donationId') donation_id FROM json_each(?)) UPDATE accounting_donations SET receipt_requested=1,receipt_status='error',updated_at=? WHERE id IN (SELECT donation_id FROM u) AND receipt_status IN ('not_requested','requested','error')`).bind(j,now),db.prepare(`WITH u AS (SELECT json_extract(value,'$.itemId') item_id,json_extract(value,'$.externalNo') external_no,json_extract(value,'$.resultCode') result_code,COALESCE(NULLIF(json_extract(value,'$.resultMessage'),''),'처리 오류') result_message FROM json_each(?)) UPDATE accounting_donation_export_items SET export_status='error',external_receipt_no=(SELECT external_no FROM u WHERE u.item_id=accounting_donation_export_items.id),result_code=(SELECT result_code FROM u WHERE u.item_id=accounting_donation_export_items.id),result_message=(SELECT result_message FROM u WHERE u.item_id=accounting_donation_export_items.id),processed_at=?,updated_at=? WHERE id IN (SELECT item_id FROM u)`).bind(j,now,now))}
+        statements.push(db.prepare(`UPDATE accounting_donation_export_batches SET status=CASE WHEN EXISTS(SELECT 1 FROM accounting_donation_export_items i WHERE i.batch_id=? AND i.export_status IN ('exported','error')) THEN 'processed_with_errors' ELSE 'processed' END,success_count=(SELECT COUNT(*) FROM accounting_donation_export_items i WHERE i.batch_id=? AND i.export_status IN ('issued','cancelled')),error_count=(SELECT COUNT(*) FROM accounting_donation_export_items i WHERE i.batch_id=? AND i.export_status='error'),original_result_filename=?,processed_by=?,processed_at=?,updated_at=? WHERE id=? AND status='processing_results'`).bind(batchId,batchId,batchId,filename||null,me.name,now,now,batchId),operationAudit(db,'apply-results','donation-export',batchId,me,{requested:rows.length,success:success.length,cancelled:cancel.length,errors:errorRows.length,skipped,filename},now));
+        await db.batch(statements);return json({ok:true,success:success.length,errors:errorRows.length,cancelled:cancel.length,skipped,message:`발급 ${success.length}건, 취소 ${cancel.length}건, 오류 ${errorRows.length}건을 반영했습니다.${skipped?` 미확인 ${skipped}건은 제외했습니다.`:''}`});
+      }catch(error){await db.prepare(`UPDATE accounting_donation_export_batches SET status=?,updated_at=? WHERE id=? AND status='processing_results'`).bind(previous==='processed_with_errors'?'processed_with_errors':'created',new Date().toISOString(),batchId).run().catch(()=>undefined);throw error}
     }
 
     return json({ ok: false, message: '지원하지 않는 실무 회계처리입니다.' }, 400);

@@ -157,26 +157,20 @@ const base64ToBytes = (value: string) => {
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 };
 
-// 새 비밀번호는 PBKDF2로 저장합니다. 기존 salt:sha256 형식도 계속 검증해 자동 호환합니다.
-const PBKDF2_ITERATIONS = 30_000;
+// Cloudflare Workers WebCrypto는 PBKDF2 반복 횟수를 최대 100,000회까지 허용합니다.
+// 새 비밀번호는 런타임 상한인 100,000회 PBKDF2-SHA256으로 저장하고, 기존 약한 해시는 로그인 성공 후 자동 상향합니다.
+export const PBKDF2_MAX_RUNTIME_ITERATIONS = 100_000;
+export const PBKDF2_ITERATIONS = PBKDF2_MAX_RUNTIME_ITERATIONS;
 export const hashPassword = async (password: string) => {
-  const salt = new Uint8Array(16);
-  crypto.getRandomValues(salt);
-  try {
-    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
-    const bits = await crypto.subtle.deriveBits(
-      { name: 'PBKDF2', hash: 'SHA-256', salt, iterations: PBKDF2_ITERATIONS },
-      key,
-      256,
-    );
-    return `pbkdf2$${PBKDF2_ITERATIONS}$${bytesToBase64(salt)}$${bytesToBase64(new Uint8Array(bits))}`;
-  } catch (error) {
-    // 일부 오래된 Pages Functions 런타임에서 PBKDF2가 제한되는 경우에도 계정 생성을 막지 않습니다.
-    // 로그인 검증기는 이 salt:sha256 형식을 계속 지원합니다.
-    console.warn('PBKDF2 unavailable; using compatible salted SHA-256 password hash', error);
-    const saltText = toHex(salt.buffer);
-    return `${saltText}:${await sha256(`${saltText}:${password}`)}`;
-  }
+  const salt = new Uint8Array(16); crypto.getRandomValues(salt);
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: PBKDF2_ITERATIONS }, key, 256);
+  return `pbkdf2$${PBKDF2_ITERATIONS}$${bytesToBase64(salt)}$${bytesToBase64(new Uint8Array(bits))}`;
+};
+export const needsPasswordRehash = (stored: string) => {
+  if (!stored?.startsWith('pbkdf2$')) return true;
+  const [, text] = stored.split('$'); const n = Number(text);
+  return !Number.isInteger(n) || n !== PBKDF2_ITERATIONS;
 };
 
 export const verifyPassword = async (password: string, stored: string) => {
@@ -184,7 +178,7 @@ export const verifyPassword = async (password: string, stored: string) => {
   if (stored.startsWith('pbkdf2$')) {
     const [, iterationText, saltText, expectedText] = stored.split('$');
     const iterations = Number(iterationText);
-    if (!Number.isInteger(iterations) || iterations < 10_000 || iterations > 1_000_000 || !saltText || !expectedText) return false;
+    if (!Number.isInteger(iterations) || iterations < 10_000 || iterations > PBKDF2_MAX_RUNTIME_ITERATIONS || !saltText || !expectedText) return false;
     const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
     const bits = await crypto.subtle.deriveBits(
       { name: 'PBKDF2', hash: 'SHA-256', salt: base64ToBytes(saltText), iterations },
@@ -1013,7 +1007,7 @@ let tablesEnsured = false;
 let tablesEnsurePromise: Promise<void> | null = null;
 let lastRateLimitCleanupAt = 0;
 const MAINTENANCE_COOLDOWN_MS = 10 * 60 * 1000;
-const SCHEMA_VERSION = '2026-08-15.17';
+const SCHEMA_VERSION = '2026-08-30.1';
 
 type TableColumnInfo = { name: string; type: string; notnull: number; dflt_value?: unknown; pk: number };
 
@@ -1038,20 +1032,41 @@ export const isSchemaError = (error: unknown) => {
 };
 
 const seedTemplates = async (db: D1Database) => {
+  // Fresh/recovery D1 databases used to seed 37 templates as 37 separate D1 statements.
+  // On a Free-plan invocation that can consume most of the per-request D1 query budget before
+  // authentication even starts. Send the templates as one JSON payload and upsert them set-wise.
   const now = new Date().toISOString();
-  await db.batch(BUILT_IN_TEMPLATES.map((template) => db.prepare(`
+  const payload = JSON.stringify(BUILT_IN_TEMPLATES.map((template) => ({
+    id: template.id,
+    name: template.name,
+    description: template.description,
+    docType: template.docType,
+    category: template.category,
+    titlePrefix: template.titlePrefix,
+    fieldsJson: JSON.stringify(template.fields),
+    bodyTemplate: template.bodyTemplate,
+  })));
+  await db.prepare(`
     INSERT INTO document_templates
       (id, name, description, doc_type, category, title_prefix, fields_json, body_template, is_system, active, created_by, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 'system', ?, ?)
+    SELECT
+      json_extract(j.value, '$.id'),
+      json_extract(j.value, '$.name'),
+      json_extract(j.value, '$.description'),
+      json_extract(j.value, '$.docType'),
+      json_extract(j.value, '$.category'),
+      json_extract(j.value, '$.titlePrefix'),
+      json_extract(j.value, '$.fieldsJson'),
+      json_extract(j.value, '$.bodyTemplate'),
+      1, 1, 'system', ?, ?
+    FROM json_each(?) AS j
+    WHERE 1
     ON CONFLICT(id) DO UPDATE SET
       name=excluded.name, description=excluded.description, doc_type=excluded.doc_type,
       category=excluded.category, title_prefix=excluded.title_prefix,
       fields_json=excluded.fields_json, body_template=excluded.body_template,
-      is_system=1, updated_at=excluded.updated_at
-  `).bind(
-    template.id, template.name, template.description, template.docType, template.category,
-    template.titlePrefix, JSON.stringify(template.fields), template.bodyTemplate, now, now,
-  )));
+      is_system=1, active=1, updated_at=excluded.updated_at
+  `).bind(now, now, payload).run();
 };
 
 const runSchemaMigration = async (db: D1Database) => {
@@ -1094,6 +1109,9 @@ const runSchemaMigration = async (db: D1Database) => {
     )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS document_dispatch_links (
       document_id TEXT PRIMARY KEY, registry_id TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS document_transition_locks (
+      document_id TEXT PRIMARY KEY, lock_token TEXT NOT NULL, locked_at TEXT NOT NULL
     )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS document_attachments (
       id TEXT PRIMARY KEY, document_id TEXT NOT NULL, file_name TEXT NOT NULL,
@@ -1163,6 +1181,16 @@ const runSchemaMigration = async (db: D1Database) => {
     db.prepare(`CREATE TABLE IF NOT EXISTS management_audit_logs (
       id TEXT PRIMARY KEY, category TEXT NOT NULL, action TEXT NOT NULL, target_id TEXT NOT NULL,
       actor_user_id TEXT NOT NULL, actor_name TEXT NOT NULL, details_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS foreign_application_forms (
+      id TEXT PRIMARY KEY, record_no TEXT NOT NULL UNIQUE, form_type TEXT NOT NULL,
+      subject_name TEXT NOT NULL DEFAULT '', nationality TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT '저장', snapshot_json TEXT NOT NULL,
+      created_by_user_id TEXT NOT NULL, created_by_name TEXT NOT NULL,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      last_printed_at TEXT, last_downloaded_at TEXT,
+      print_count INTEGER NOT NULL DEFAULT 0, download_count INTEGER NOT NULL DEFAULT 0,
+      canceled_at TEXT, canceled_by_name TEXT
     )`),
   ]);
 
@@ -1288,9 +1316,11 @@ const runSchemaMigration = async (db: D1Database) => {
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_received_documents_handler ON received_documents (handled_by_user_id, created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_received_documents_related ON received_documents (related_document_id, direction)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_dispatch_links_registry ON document_dispatch_links (registry_id)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_document_transition_locks_time ON document_transition_locks (locked_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_document_attachments_doc ON document_attachments (document_id, created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_received_attachments_doc ON received_attachments (received_document_id, created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_system_sessions_user ON system_sessions (user_id)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_system_sessions_expires ON system_sessions (expires_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_admin_rate_limits_key_created ON admin_rate_limits (rate_key, created_at)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_approver ON documents (approver_user_id, status)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_documents_reviewer ON documents (reviewer_user_id, status)`),
@@ -1308,6 +1338,9 @@ const runSchemaMigration = async (db: D1Database) => {
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_ordination_certificates_dharma ON ordination_certificates(dharma_name_korean, dharma_name_hanja, ordination_date DESC)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_ordination_certificates_status ON ordination_certificates(status, ordination_date DESC)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_management_audit_target ON management_audit_logs(category, target_id, created_at)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_foreign_application_forms_type_date ON foreign_application_forms(form_type, created_at DESC)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_foreign_application_forms_subject ON foreign_application_forms(subject_name, nationality)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_foreign_application_forms_creator ON foreign_application_forms(created_by_user_id, created_at DESC)`),
   ]);
 
   await seedTemplates(db);
@@ -1318,17 +1351,56 @@ const runSchemaMigration = async (db: D1Database) => {
   `).bind(SCHEMA_VERSION, new Date().toISOString()).run();
 };
 
-const hasCurrentSchema = async (db: D1Database) => {
+type MainSchemaState = {
+  meta_value: string | null;
+  has_transition_locks: number;
+  has_session_expiry_index: number;
+  has_management_registers: number;
+  has_employment_certificates: number;
+  has_ordination_certificates: number;
+  has_foreign_application_forms: number;
+  has_template_table: number;
+  built_in_template_count: number;
+};
+
+const getMainSchemaState = async (db: D1Database): Promise<MainSchemaState | null> => {
   try {
-    const row = await db.prepare(`SELECT meta_value FROM system_meta WHERE meta_key = 'schema_version'`)
-      .first<{ meta_value: string }>();
-    // 스키마 버전은 전체 마이그레이션이 성공한 마지막 단계에서만 기록됩니다.
-    // 매 Worker 기동마다 여러 PRAGMA를 재실행하면 모든 화면의 첫 조회가 지연되므로
-    // 정상 운영 요청은 버전 표식 한 건만 확인하고, 불일치 시에만 전체 복구를 수행합니다.
-    return row?.meta_value === SCHEMA_VERSION;
-  } catch {
-    return false;
-  }
+    return await db.prepare(`SELECT
+      (SELECT meta_value FROM system_meta WHERE meta_key='schema_version') AS meta_value,
+      EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='document_transition_locks') AS has_transition_locks,
+      EXISTS(SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_system_sessions_expires') AS has_session_expiry_index,
+      EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='management_registers') AS has_management_registers,
+      EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='employment_certificates') AS has_employment_certificates,
+      EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='ordination_certificates') AS has_ordination_certificates,
+      EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='foreign_application_forms') AS has_foreign_application_forms,
+      EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='document_templates') AS has_template_table,
+      CASE WHEN EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='document_templates')
+        THEN (SELECT COUNT(*) FROM document_templates WHERE is_system=1)
+        ELSE 0 END AS built_in_template_count`)
+      .first<MainSchemaState>();
+  } catch { return null; }
+};
+
+const hasMigratedMainStructure = (state: MainSchemaState | null) => !!state
+  && Number(state.has_transition_locks || 0) === 1
+  && Number(state.has_session_expiry_index || 0) === 1
+  && Number(state.has_management_registers || 0) === 1
+  && Number(state.has_employment_certificates || 0) === 1
+  && Number(state.has_ordination_certificates || 0) === 1
+  && Number(state.has_foreign_application_forms || 0) === 1
+  && Number(state.has_template_table || 0) === 1;
+
+const hasCurrentSchema = (state: MainSchemaState | null) => hasMigratedMainStructure(state)
+  && state?.meta_value === SCHEMA_VERSION
+  && Number(state?.built_in_template_count || 0) >= BUILT_IN_TEMPLATES.length;
+
+const finalizeMigratedMainSchema = async (db: D1Database) => {
+  await seedTemplates(db);
+  await db.prepare(`
+    INSERT INTO system_meta (meta_key, meta_value, updated_at)
+    VALUES ('schema_version', ?, ?)
+    ON CONFLICT(meta_key) DO UPDATE SET meta_value=excluded.meta_value, updated_at=excluded.updated_at
+  `).bind(SCHEMA_VERSION, new Date().toISOString()).run();
 };
 
 export const repairTables = async (db: D1Database) => {
@@ -1342,8 +1414,14 @@ export const ensureTables = async (db: D1Database) => {
   if (tablesEnsured) return;
   if (!tablesEnsurePromise) {
     tablesEnsurePromise = (async () => {
-      // 대부분의 요청에서는 버전 및 핵심 컬럼만 1회 확인합니다.
-      if (!(await hasCurrentSchema(db))) await runSchemaMigration(db);
+      // Wrangler migrations are the primary schema authority. A freshly migrated database may
+      // still be missing only runtime seed data/schema marker. Do not run the large legacy repair
+      // path in that case: it can exceed D1 per-invocation query budgets on Free plans.
+      const state = await getMainSchemaState(db);
+      if (!hasCurrentSchema(state)) {
+        if (hasMigratedMainStructure(state)) await finalizeMigratedMainSchema(db);
+        else await runSchemaMigration(db);
+      }
       tablesEnsured = true;
     })().catch((error) => {
       tablesEnsurePromise = null;
@@ -1501,14 +1579,39 @@ export const insertSystemUser = async (db: D1Database, input: NewSystemUser) => 
   return String(inserted.id);
 };
 
+const DOCUMENT_TRANSITION_LOCK_STALE_MS = 5 * 60 * 1000;
+export const claimDocumentTransition = async (db: D1Database, documentId: string, expectedStatuses: string[]) => {
+  const statuses = [...new Set(expectedStatuses.filter(Boolean))]; if (!documentId || !statuses.length) return null;
+  const now = new Date(); const lockToken = randomHex(40); const ph = statuses.map(() => '?').join(',');
+  const staleBefore = new Date(now.getTime() - DOCUMENT_TRANSITION_LOCK_STALE_MS).toISOString();
+  const row = await db.prepare(`INSERT INTO document_transition_locks (document_id,lock_token,locked_at)
+    SELECT ?,?,? WHERE EXISTS (SELECT 1 FROM documents WHERE id=? AND status IN (${ph}))
+    ON CONFLICT(document_id) DO UPDATE SET lock_token=excluded.lock_token,locked_at=excluded.locked_at
+    WHERE document_transition_locks.locked_at < ? RETURNING lock_token`)
+    .bind(documentId,lockToken,now.toISOString(),documentId,...statuses,staleBefore).first<{lock_token:string}>();
+  return row?.lock_token === lockToken ? lockToken : null;
+};
+export const releaseDocumentTransition = async (db: D1Database, documentId: string, lockToken: string) => {
+  if (documentId && lockToken) await db.prepare(`DELETE FROM document_transition_locks WHERE document_id=? AND lock_token=?`).bind(documentId,lockToken).run();
+};
+export const documentTransitionReleaseStatement = (db: D1Database, documentId: string, lockToken: string) =>
+  db.prepare(`DELETE FROM document_transition_locks WHERE document_id=? AND lock_token=?`).bind(documentId,lockToken);
+
 export type SessionUser = {
   id: string; name: string; username: string; position: string | null; grade: string | null;
   department: string | null; role: string; can_approve: number; can_accounting: number;
 };
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const SESSION_PRUNE_INTERVAL_MS = 60 * 60 * 1000;
+let lastSessionPruneAt = 0;
 export const createSession = async (db: D1Database, userId: string) => {
   const token = randomHex(48); const now = new Date();
-  await db.prepare(`INSERT INTO system_sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`)
+  if (now.getTime() - lastSessionPruneAt >= SESSION_PRUNE_INTERVAL_MS) {
+    lastSessionPruneAt = now.getTime();
+    try { await db.prepare(`DELETE FROM system_sessions WHERE expires_at < ?`).bind(now.toISOString()).run(); }
+    catch (error) { console.warn('expired session cleanup failed', error); }
+  }
+  await db.prepare(`INSERT INTO system_sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)` )
     .bind(token, userId, now.toISOString(), new Date(now.getTime() + SESSION_TTL_MS).toISOString()).run();
   return token;
 };

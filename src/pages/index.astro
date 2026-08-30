@@ -63,7 +63,7 @@ import GovLayout from '../layouts/GovLayout.astro';
   <!-- 앱 셸 -->
   <div class="app-shell" data-app-shell>
     <header class="app-topbar">
-      <button type="button" class="app-topbar__menu-toggle" data-toggle-sidebar aria-label="메뉴 접기">☰</button>
+      <button type="button" class="app-topbar__menu-toggle" data-toggle-sidebar aria-controls="main-sidebar" aria-expanded="true" aria-label="메뉴 접기">☰</button>
       <button type="button" class="app-topbar__brand" data-go-home aria-label="대한불교밀교종 종단관리시스템 홈으로 이동">
         <img class="app-topbar__logo" src="/brand-logo-transparent.png" alt="대한불교밀교종 로고" data-topbar-logo />
         <span class="app-topbar__brand-title">
@@ -88,7 +88,7 @@ import GovLayout from '../layouts/GovLayout.astro';
     </header>
 
     <div class="app-body">
-      <aside class="app-sidebar">
+      <aside class="app-sidebar" id="main-sidebar">
         <section class="sidebar-profile" aria-label="로그인 계정 정보">
           <div class="sidebar-profile__row"><span>이름</span><strong data-me-name>-</strong></div>
           <div class="sidebar-profile__row"><span>직책</span><strong data-me-position>-</strong></div>
@@ -132,9 +132,10 @@ import GovLayout from '../layouts/GovLayout.astro';
         </div>
 
         <div class="sidebar-group">
-          <p class="sidebar-group__title">증명서 발급·대장</p>
+          <p class="sidebar-group__title">증명서·신청서 발급·대장</p>
           <a class="sidebar-link sidebar-external-link" href="/employee-certificates">재직증명서 발급·대장</a>
           <a class="sidebar-link sidebar-external-link" href="/ordination-certificates">수계증서 발급·대장</a>
+          <a class="sidebar-link sidebar-external-link" href="/foreign-applications">외국인 신청서·신고서 작성·대장</a>
         </div>
 
         <div class="sidebar-group">
@@ -179,9 +180,9 @@ import GovLayout from '../layouts/GovLayout.astro';
               <select data-category-filter><option value="">전체 분류</option></select>
               <select data-department-filter aria-label="담당부서별 문서 조회"><option value="">전체 부서</option></select>
               <div class="filter-date-range" role="group" aria-label="문서 등록일 기간">
-                <input type="date" data-date-from aria-label="시작일" />
+                <input type="date" data-date-from data-no-weekday aria-label="시작일" />
                 <span class="filter-separator" aria-hidden="true">~</span>
-                <input type="date" data-date-to aria-label="종료일" />
+                <input type="date" data-date-to data-no-weekday aria-label="종료일" />
               </div>
               <input type="search" data-query placeholder="문서번호, 제목, 기안자, 부서 검색" />
               <select data-sort><option value="newest">최신순</option><option value="oldest">과거순</option><option value="updated">최근처리순</option><option value="title">제목순</option></select>
@@ -210,9 +211,9 @@ import GovLayout from '../layouts/GovLayout.astro';
             <div class="panel-header__tools panel-filter-grid">
               <select data-received-filter><option value="전체">전체</option><option value="접수">접수</option><option value="외부발송">외부발송</option></select>
               <div class="filter-date-range" role="group" aria-label="접수·발송 등록일 기간">
-                <input type="date" data-received-date-from aria-label="시작일" />
+                <input type="date" data-received-date-from data-no-weekday aria-label="시작일" />
                 <span class="filter-separator" aria-hidden="true">~</span>
-                <input type="date" data-received-date-to aria-label="종료일" />
+                <input type="date" data-received-date-to data-no-weekday aria-label="종료일" />
               </div>
               <input type="search" data-received-query placeholder="번호, 제목, 상대기관, 경로 검색" />
               <select data-received-sort><option value="newest">최신순</option><option value="oldest">과거순</option><option value="title">제목순</option></select>
@@ -382,7 +383,7 @@ import GovLayout from '../layouts/GovLayout.astro';
               <div class="official-doc__issue-name">
                 <span class="official-doc__issuer-org" data-preview-issuer-org>
                   <span class="official-doc__issuer-org-text">사단법인 대한불교밀교종</span>
-                  <span class="stamp-mark" data-stamp="preview">밀교종印</span>
+                  <span class="stamp-mark stamp-mark--image" data-stamp="preview"><img src="/organization-seal-official.png" alt="대한불교밀교종 직인" /></span>
                 </span>
                 <span class="official-doc__issuer-signer" data-preview-signer-wrap hidden><span data-preview-signer-position></span> <span data-preview-signer-name></span></span>
                 <span class="official-doc__issuer-department-title" data-preview-department-title hidden></span>
@@ -629,7 +630,7 @@ import GovLayout from '../layouts/GovLayout.astro';
               <div class="official-doc__issue-name">
                 <span class="official-doc__issuer-org" data-detail-preview-issuer-org>
                   <span class="official-doc__issuer-org-text">사단법인 대한불교밀교종</span>
-                  <span class="stamp-mark" data-detail-preview-stamp data-stamp="detail">밀교종印</span>
+                  <span class="stamp-mark stamp-mark--image" data-detail-preview-stamp data-stamp="detail"><img src="/organization-seal-official.png" alt="대한불교밀교종 직인" /></span>
                 </span>
                 <span class="official-doc__issuer-signer" data-detail-preview-signer-wrap hidden><span data-detail-preview-signer-position></span> <span data-detail-preview-signer-name></span></span>
                 <span class="official-doc__issuer-department-title" data-detail-preview-department-title hidden></span>
@@ -736,6 +737,18 @@ import GovLayout from '../layouts/GovLayout.astro';
       };
       const getToken = () => getSession()?.token || '';
       const getMe = () => getSession()?.user || null;
+      const normalizeSessionUser = (user) => user ? ({
+        ...user,
+        canApprove: user.canApprove ?? !!user.can_approve,
+        canAccounting: user.canAccounting ?? (user.role === 'admin' || !!user.can_accounting),
+      }) : null;
+      const replaceSessionUser = (user) => {
+        const session = getSession();
+        if (!session?.token || !user) return null;
+        const normalized = normalizeSessionUser(user);
+        setSession({ token: session.token, user: normalized });
+        return normalized;
+      };
       const randomRequestId = () => `REQ-${Date.now()}-${crypto.getRandomValues(new Uint32Array(2)).join('-')}`;
       const formatDate = (value) => value ? String(value).slice(0, 10) : '-';
       const formatDateTime = (value) => value ? new Date(value).toLocaleString('ko-KR') : '-';
@@ -888,7 +901,8 @@ import GovLayout from '../layouts/GovLayout.astro';
           meLabel.textContent = `${me.name}${me.position ? ' · ' + me.position : ''}`;
           meName.textContent = me.name || '-';
           mePosition.textContent = me.position || '-';
-          const departmentPath = resolveDepartmentPath(me.department, me.position || '');
+          const inferredDepartment = me.department || (departmentTree.some((dep) => dep.name === me.position) ? me.position : '');
+          const departmentPath = resolveDepartmentPath(inferredDepartment, me.position || '');
           meDepartmentPrimary.textContent = departmentPath.primary;
           meDepartmentSecondary.textContent = departmentPath.secondary || '-';
           meDepartmentSecondaryRow.hidden = !departmentPath.secondary;
@@ -900,13 +914,22 @@ import GovLayout from '../layouts/GovLayout.astro';
           const brandingButton = $('[data-open-branding]'); if (brandingButton) brandingButton.hidden = !admin;
         }
       };
+      const refreshCurrentSessionUser = async () => {
+        const session = getSession();
+        if (!session?.token) return null;
+        const data = await callApi('/api/auth/session', { token: session.token });
+        if (!data.ok || !data.user) return null;
+        const user = replaceSessionUser(data.user);
+        if (user) showApp();
+        return user;
+      };
       $('[data-toggle-bootstrap]').addEventListener('click', () => { bootstrapForm.hidden = !bootstrapForm.hidden; });
       window.addEventListener('storage', (event) => {
         if (event.key !== STORAGE_KEY) return;
         if (getToken()) {
           showApp();
           activateHome();
-          Promise.all([refreshUserOptions(), refreshTemplates(), loadOrgSettings()]).catch((error) => console.error('탭 동기화 데이터 로드 실패', error));
+          Promise.all([refreshCurrentSessionUser(), refreshUserOptions(), refreshTemplates(), loadOrgSettings()]).catch((error) => console.error('탭 동기화 데이터 로드 실패', error));
         } else {
           showLogin();
         }
@@ -1071,7 +1094,6 @@ import GovLayout from '../layouts/GovLayout.astro';
         statusEl.textContent = `총 ${formatNumber(data.total)}건 · ${data.page}/${data.pages}쪽`;
         renderDocumentRows(data.rows || []);
         renderPagination($('[data-doc-pagination]'), data.page, data.pages, (page) => { docPage = page; refreshDocuments(); });
-        const countEl=$(`[data-count="${requestView}"]`);if(countEl)countEl.textContent=String(data.total||0);
         if(forceDashboard||!dashboardLoadedAt){
           await refreshSidebarCounts(forceDashboard).catch((error)=>console.error('대시보드 수량 갱신 실패',error));
         }
@@ -1083,25 +1105,30 @@ import GovLayout from '../layouts/GovLayout.astro';
       };
       let dashboardLoadedAt=0;
       let dashboardRequest=null;
+      let dashboardRequestSerial=0;
+      const invalidateDashboard = () => { dashboardLoadedAt = 0; dashboardRequestSerial += 1; };
       const refreshDashboard = async (force=false) => {
         if(!force && dashboardRequest) return dashboardRequest;
         if(!force && Date.now()-dashboardLoadedAt<15000) return {ok:true,cached:true};
-        dashboardRequest=(async()=>{
-        const data = await callApi('/api/dashboard/summary', { token: getToken() });
-        if (!data.ok) return data;
-        dashboardLoadedAt=Date.now();
-        applyDashboardCounts(data.counts || {});
-        if (data.permissions && typeof data.permissions.accounting === 'boolean') setAccountingAccessLinks(data.permissions.accounting);
-        const r2Warning = $('[data-r2-warning]'); if (r2Warning) r2Warning.hidden = !!data.storage?.r2Connected;
-        const recentDocs = $('[data-home-recent-docs]');
-        recentDocs.innerHTML = (data.recentDocuments || []).map((row) => `<button type="button" class="home-list-row" data-home-doc="${esc(row.id)}"><span class="home-list-row__main"><strong>${esc(row.title)}</strong><small>${esc(row.id)} · ${esc(row.drafter || '-')} · ${esc(formatDepartmentLabel(row.department))}</small></span><span class="badge badge--${esc(row.status)}">${esc(row.status)}</span></button>`).join('') || '<p class="muted">최근 문서가 없습니다.</p>';
-        $$('[data-home-doc]', recentDocs).forEach((button) => button.addEventListener('click', () => openDetail(button.dataset.homeDoc)));
-        const recentRegistry = $('[data-home-recent-received]');
-        recentRegistry.innerHTML = (data.recentRegistry || []).map((row) => `<button type="button" class="home-list-row" data-home-received-id="${esc(row.id)}"><span class="home-list-row__main"><strong>${esc(row.title)}</strong><small>${esc(row.id)} · ${esc(row.counterparty || '-')} · ${esc(row.received_at || '-')}</small></span><span class="registry-direction">${esc(row.direction)}</span></button>`).join('') || '<p class="muted">최근 등록 문서가 없습니다.</p>';
-        $$('[data-home-received-id]', recentRegistry).forEach((button) => button.addEventListener('click', () => openReceivedDetail(button.dataset.homeReceivedId)));
-        return data;
+        const requestSerial=++dashboardRequestSerial;
+        const request=(async()=>{
+          const data = await callApi('/api/dashboard/summary', { token: getToken() });
+          if (requestSerial !== dashboardRequestSerial) return { ok: true, stale: true };
+          if (!data.ok) return data;
+          dashboardLoadedAt=Date.now();
+          applyDashboardCounts(data.counts || {});
+          if (data.permissions && typeof data.permissions.accounting === 'boolean') setAccountingAccessLinks(data.permissions.accounting);
+          const r2Warning = $('[data-r2-warning]'); if (r2Warning) r2Warning.hidden = !!data.storage?.r2Connected;
+          const recentDocs = $('[data-home-recent-docs]');
+          recentDocs.innerHTML = (data.recentDocuments || []).map((row) => `<button type="button" class="home-list-row" data-home-doc="${esc(row.id)}"><span class="home-list-row__main"><strong>${esc(row.title)}</strong><small>${esc(row.id)} · ${esc(row.drafter || '-')} · ${esc(formatDepartmentLabel(row.department))}</small></span><span class="badge badge--${esc(row.status)}">${esc(row.status)}</span></button>`).join('') || '<p class="muted">최근 문서가 없습니다.</p>';
+          $$('[data-home-doc]', recentDocs).forEach((button) => button.addEventListener('click', () => openDetail(button.dataset.homeDoc)));
+          const recentRegistry = $('[data-home-recent-received]');
+          recentRegistry.innerHTML = (data.recentRegistry || []).map((row) => `<button type="button" class="home-list-row" data-home-received-id="${esc(row.id)}"><span class="home-list-row__main"><strong>${esc(row.title)}</strong><small>${esc(row.id)} · ${esc(row.counterparty || '-')} · ${esc(row.received_at || '-')}</small></span><span class="registry-direction">${esc(row.direction)}</span></button>`).join('') || '<p class="muted">최근 등록 문서가 없습니다.</p>';
+          $$('[data-home-received-id]', recentRegistry).forEach((button) => button.addEventListener('click', () => openReceivedDetail(button.dataset.homeReceivedId)));
+          return data;
         })();
-        try{return await dashboardRequest;}finally{dashboardRequest=null;}
+        dashboardRequest=request;
+        try{return await request;}finally{if(dashboardRequest===request)dashboardRequest=null;}
       };
       const refreshSidebarCounts = async (force=false) => refreshDashboard(force);
       const setTopNav = (name) => $$('[data-nav]').forEach((button) => button.classList.toggle('active', button.dataset.nav === name));
@@ -1111,13 +1138,13 @@ import GovLayout from '../layouts/GovLayout.astro';
         setTopNav('home');
         refreshDashboard();
       };
-      const activateDocumentsView = (view) => {
+      const activateDocumentsView = (view, forceDashboard = false) => {
         currentView = view; docPage = 1;
         panelHome.hidden = true; panelDocuments.hidden = false; panelReceived.hidden = true;
         $$('[data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
         $('[data-panel-title]').textContent = viewLabels[view] || '문서목록';
         setTopNav(view === '전체' ? 'registry' : 'approval');
-        return refreshDocuments();
+        return refreshDocuments(forceDashboard);
       };
       const activateReceivedView = () => {
         panelHome.hidden = true; panelDocuments.hidden = true; panelReceived.hidden = false;
@@ -1141,7 +1168,13 @@ import GovLayout from '../layouts/GovLayout.astro';
       $('[data-home-all-received]').addEventListener('click', activateReceivedView);
       $('[data-home-compose]').addEventListener('click', () => $('[data-open-compose]').click());
       $('[data-home-received]').addEventListener('click', () => $('[data-open-received]').click());
-      $('[data-toggle-sidebar]').addEventListener('click', () => appShell.classList.toggle('sidebar-collapsed'));
+      const sidebarToggle=$('[data-toggle-sidebar]');
+      const setSidebarCollapsed=(collapsed)=>{
+        appShell.classList.toggle('sidebar-collapsed',!!collapsed);
+        sidebarToggle.setAttribute('aria-expanded',String(!collapsed));
+        sidebarToggle.setAttribute('aria-label',collapsed?'메뉴 펼치기':'메뉴 접기');
+      };
+      sidebarToggle.addEventListener('click',()=>setSidebarCollapsed(!appShell.classList.contains('sidebar-collapsed')));
       $('[data-refresh]').addEventListener('click', () => { docPage = 1; refreshDocuments(); });
       $('[data-query]').addEventListener('keydown', (event) => { if (event.key === 'Enter') { docPage = 1; refreshDocuments(); } });
       $$('[data-doc-type-filter],[data-category-filter],[data-department-filter],[data-date-from],[data-date-to],[data-sort],[data-page-size]').forEach((el) => el.addEventListener('change', () => { docPage = 1; refreshDocuments(); }));
@@ -1161,7 +1194,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           if(!data.ok){statusEl.textContent=data.message||'CSV 생성에 실패했습니다.';return;}
           rows.push(...(data.rows||[]));pages=data.pages||1;page+=1;
         } while(page<=pages && rows.length<5000);
-        downloadCsv(`문서목록_${new Date().toISOString().slice(0,10)}.csv`,['문서번호','구분','등록일','제목','담당부서','기안자','검토자','협조자','결재·전결자','상태'],rows.map((r)=>[r.id,r.doc_type,formatDate(r.created_at),r.title,formatDepartmentLabel(r.department),r.drafter,r.reviewer_names||r.reviewer_name,r.cooperator_names,r.approver_name,r.status]));
+        downloadCsv(`문서목록_${todayKst()}.csv`,['문서번호','구분','등록일','제목','담당부서','기안자','검토자','협조자','결재·전결자','상태'],rows.map((r)=>[r.id,r.doc_type,formatDate(r.created_at),r.title,formatDepartmentLabel(r.department),r.drafter,r.reviewer_names||r.reviewer_name,r.cooperator_names,r.approver_name,r.status]));
         statusEl.textContent=`총 ${formatNumber(rows.length)}건을 CSV로 저장했습니다.`;
       });
 
@@ -1500,7 +1533,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           const result=await callApi('/api/documents/create',payload);
           if(!result.ok){statusEl.textContent=result.message||'저장에 실패했습니다.';return;}
           const uploadFailures=pendingAttachmentFiles.length?await uploadFiles('/api/documents/upload-attachment','documentId',result.id,pendingAttachmentFiles):[];
-          composeModal.hidden=true; await activateDocumentsView(result.nextView||(saveAsDraft?'임시저장':'진행'));
+          composeModal.hidden=true; invalidateDashboard(); await activateDocumentsView(result.nextView||(saveAsDraft?'임시저장':'진행'), true);
           statusEl.textContent=uploadFailures.length?`${result.id} 문서는 저장됐지만 첨부파일 일부가 실패했습니다: ${uploadFailures.join(' / ')}`:`${result.id} ${result.message}`;
         } finally { buttons.forEach((b)=>b.disabled=false); }
       });
@@ -1508,10 +1541,11 @@ import GovLayout from '../layouts/GovLayout.astro';
       // 문서 상세
       const detailModal=$('[data-detail-modal]'),decideForm=$('[data-decide-form]'),sendForm=$('[data-send-form]');
       $$('[data-close-detail]').forEach((btn)=>btn.addEventListener('click',()=>{detailModal.hidden=true;currentDetailId=null;currentDetailDoc=null;currentDetailApprovalLines=[];}));
-      const downloadBase64 = async (endpoint, attachmentId) => {
-        const data=await callApi(endpoint,{token:getToken(),attachmentId}); if(!data.ok){statusEl.textContent=data.message;return;}
-        const binary=atob(data.dataBase64),bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
-        const url=URL.createObjectURL(new Blob([bytes],{type:data.mimeType||'application/octet-stream'}));const a=document.createElement('a');a.href=url;a.download=data.fileName||'attachment';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      const downloadAttachmentBinary = async (endpoint, attachmentId) => {
+        const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:getToken(),attachmentId,binary:true})});
+        if(!response.ok){const text=await response.text();let data;try{data=JSON.parse(text)}catch{data={message:`서버 응답 오류(HTTP ${response.status})`}}if(response.status===401){localStorage.removeItem('milgyo-system-session');location.replace('/');return;}statusEl.textContent=data.message||'첨부파일을 내려받지 못했습니다.';return;}
+        const blob=await response.blob();let fileName='attachment';const encoded=response.headers.get('X-File-Name');if(encoded){try{fileName=decodeURIComponent(encoded)}catch{fileName=encoded}}
+        const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=fileName;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
       };
       const accountingFieldLabels={resolutionNo:'결의번호',resolutionType:'결의구분',amount:'금액',accountCode:'계정과목',settlementAccountCode:'입·출금계정',bookTypeCode:'회계구분',entityId:'회계조직',fundId:'재원'};
       const accountingTypeLabels={income:'수입결의',expense:'지출결의'};
@@ -1573,7 +1607,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         renderDetailFormData(doc);
         $('[data-detail-history]').innerHTML=(data.approvals||[]).map((a)=>`<div class="doc-approval-history__item">${esc(formatDateTime(a.created_at))} · ${esc(a.approver_role||'')} ${esc(a.approver_name)} · <strong>${esc(a.action)}</strong>${a.memo?' · '+esc(a.memo):''}</div>`).join('')||'<p class="muted">결재 이력이 없습니다.</p>';
         const attachments=$('[data-detail-attachments]');attachments.innerHTML=(data.attachments||[]).map((a)=>`<li class="attachment-list__item"><span>${esc(a.file_name)} <span class="muted">(${Math.max(1,Math.round((a.size_bytes||0)/1024))}KB)</span></span><button type="button" class="btn btn-outline" data-download-attachment="${esc(a.id)}">다운로드</button></li>`).join('')||'<li class="muted">등록된 첨부파일이 없습니다.</li>';
-        $$('[data-download-attachment]',attachments).forEach((b)=>b.addEventListener('click',()=>downloadBase64('/api/documents/attachment-data',b.dataset.downloadAttachment)));
+        $$('[data-download-attachment]',attachments).forEach((b)=>b.addEventListener('click',()=>downloadAttachmentBinary('/api/documents/attachment-data',b.dataset.downloadAttachment)));
         $('[data-detail-preview-number]').textContent=`문서번호 : ${doc.id}`;$('[data-detail-preview-recipient]').textContent=doc.recipient||'(내부결재)';
         const localizedDetailBody=translateAccountingDocumentBody(doc.body||'',doc.form_data||{});doc.body=localizedDetailBody;$('[data-detail-preview-via-row]').hidden=!doc.via;$('[data-detail-preview-via]').textContent=doc.via||'-';$('[data-detail-preview-title]').textContent=doc.title;$('[data-detail-preview-body]').textContent=localizedDetailBody;$('[data-detail-preview-attachments]').textContent=doc.attachments_note||'—';
         const detailTrackLabel=doc.approval_track==='이사장결재'?'이사장 결재':doc.approval_track==='이사회의결'?'이사회 의결':doc.approval_track;
@@ -1611,9 +1645,9 @@ import GovLayout from '../layouts/GovLayout.astro';
         $('[data-recall-document]').hidden=!(activeStatus&&(me.role==='admin'||doc.drafter_user_id===me.id));
         detailModal.hidden=false;
       };
-      decideForm.addEventListener('submit',async(event)=>{event.preventDefault();const action=event.submitter?.dataset.action||'승인';const button=event.submitter;if(button)button.disabled=true;try{const result=await callApi('/api/documents/decide',{token:getToken(),id:currentDetailId,action,memo:new FormData(decideForm).get('memo')});if(!result.ok){statusEl.textContent=result.message;return;}detailModal.hidden=true;statusEl.textContent=result.message;dashboardLoadedAt=0;await refreshDocuments(true);}finally{if(button)button.disabled=false;}});
-      sendForm.addEventListener('submit',async(event)=>{event.preventDefault();const button=$('button[type="submit"]',sendForm);button.disabled=true;try{const result=await callApi('/api/documents/mark-sent',{token:getToken(),id:currentDetailId,sentMethod:new FormData(sendForm).get('sentMethod')});if(!result.ok){statusEl.textContent=result.message;return;}sendQueueDocuments=[];detailModal.hidden=true;statusEl.textContent=result.message;await Promise.all([refreshDocuments(),refreshDashboard(true),refreshReceived()]);}finally{button.disabled=false;}});
-      $('[data-delete-draft]').addEventListener('click',async()=>{if(!currentDetailId||!confirm('임시문서를 삭제하시겠습니까?'))return;const result=await callApi('/api/documents/delete-draft',{token:getToken(),id:currentDetailId});if(!result.ok){statusEl.textContent=result.message;return;}detailModal.hidden=true;statusEl.textContent=result.message;activateDocumentsView('임시저장');});
+      decideForm.addEventListener('submit',async(event)=>{event.preventDefault();const action=event.submitter?.dataset.action||'승인';const button=event.submitter;if(button)button.disabled=true;try{const result=await callApi('/api/documents/decide',{token:getToken(),id:currentDetailId,action,memo:new FormData(decideForm).get('memo')});if(!result.ok){statusEl.textContent=result.message;return;}detailModal.hidden=true;statusEl.textContent=result.message;invalidateDashboard();await refreshDocuments(true);}finally{if(button)button.disabled=false;}});
+      sendForm.addEventListener('submit',async(event)=>{event.preventDefault();const button=$('button[type="submit"]',sendForm);button.disabled=true;try{const result=await callApi('/api/documents/mark-sent',{token:getToken(),id:currentDetailId,sentMethod:new FormData(sendForm).get('sentMethod')});if(!result.ok){statusEl.textContent=result.message;return;}sendQueueDocuments=[];detailModal.hidden=true;statusEl.textContent=result.message;invalidateDashboard();await Promise.all([refreshDocuments(true),refreshReceived()]);}finally{button.disabled=false;}});
+      $('[data-delete-draft]').addEventListener('click',async()=>{if(!currentDetailId||!confirm('임시문서를 삭제하시겠습니까?'))return;const result=await callApi('/api/documents/delete-draft',{token:getToken(),id:currentDetailId});if(!result.ok){statusEl.textContent=result.message;return;}detailModal.hidden=true;statusEl.textContent=result.message;invalidateDashboard();await activateDocumentsView('임시저장', true);});
       const loadDocumentIntoCompose=async(doc,asCopy=false)=>{
         if(!doc)return;
         await Promise.all([refreshUserOptions(),refreshTemplates()]);
@@ -1641,13 +1675,13 @@ import GovLayout from '../layouts/GovLayout.astro';
         syncIssueDisplayFields();renderApprovalPickers();updateTrackHint();updatePreview();detailModal.hidden=true;composeModal.hidden=false;
       };
       $('[data-copy-document]').addEventListener('click',()=>loadDocumentIntoCompose(currentDetailDoc,true));
-      $('[data-recall-document]').addEventListener('click',async()=>{if(!currentDetailId||!confirm('진행 중인 문서를 회수하여 임시저장함으로 이동하시겠습니까?'))return;const result=await callApi('/api/documents/recall',{token:getToken(),id:currentDetailId});if(!result.ok){statusEl.textContent=result.message;return;}detailModal.hidden=true;statusEl.textContent=result.message;activateDocumentsView('임시저장');});
+      $('[data-recall-document]').addEventListener('click',async()=>{if(!currentDetailId||!confirm('진행 중인 문서를 회수하여 임시저장함으로 이동하시겠습니까?'))return;const result=await callApi('/api/documents/recall',{token:getToken(),id:currentDetailId});if(!result.ok){statusEl.textContent=result.message;return;}detailModal.hidden=true;statusEl.textContent=result.message;invalidateDashboard();await activateDocumentsView('임시저장', true);});
       $('[data-edit-draft]').addEventListener('click',()=>loadDocumentIntoCompose(currentDetailDoc,false));
       $('[data-print-detail]').addEventListener('click',()=>{
         const node=$('[data-official-doc="detail"]');
         const w=window.open('','_blank','width=900,height=1000');
         if(!w)return;
-        w.document.write(`<html><head><meta charset="utf-8"><title>${esc(currentDetailDoc?.title||'문서')}</title><style>
+        w.document.write(`<html><head><meta charset="utf-8"><base href="${location.origin}/"><title>${esc(currentDetailDoc?.title||'문서')}</title><style>
           body{font-family:Batang,serif;padding:30px;color:#222}.official-doc{max-width:720px;margin:auto}.official-doc__masthead{display:flex;flex-direction:column;align-items:stretch;margin-bottom:2px;width:100%}.official-doc__brand{display:flex;align-items:center;align-self:center;justify-content:center;gap:6px;white-space:nowrap}.official-doc__number-row{display:flex;justify-content:flex-end;align-items:flex-end;width:100%;min-height:13px;padding-top:2px;margin-bottom:1px}.official-doc__number{white-space:nowrap;text-align:right;font-size:10px;color:#666;margin:0}.official-doc__issue,.official-doc__footer{text-align:center}.official-doc__emblem{width:38px;height:38px;flex:0 0 38px;background:transparent;overflow:visible}.official-doc__emblem img{display:block;width:100%;height:100%;object-fit:contain;background:transparent;border:0;border-radius:0}.official-doc__orgname{margin:0;font-size:21px;line-height:1.2;letter-spacing:.1em}.official-doc__meta{border-top:2px solid #222;border-bottom:1px solid #222}.official-doc__meta-row{display:flex;gap:12px;padding:7px 4px;line-height:1.45}.official-doc__meta-row>span{width:48px}.official-doc__body{min-height:300px;white-space:pre-wrap;padding:24px 0 26px;font-size:14px;line-height:1.65}.official-doc__approval-strip{display:flex;flex-wrap:wrap;justify-content:flex-start;width:620px;max-width:100%;margin:12px auto 0 0}.approval-person{display:grid;grid-template-columns:30px minmax(70px,1fr) 20px;flex:0 0 126px;border:1px solid #777;margin:-1px 0 0 -1px;min-height:36px;font-size:8.7px}.approval-person>*{display:flex;align-items:center;justify-content:center;padding:2px}.approval-person>span{background:#f4f0e6;border-right:1px solid #777}.approval-person>strong{flex-direction:column;line-height:1.15;overflow:hidden}.approval-person>em{font-style:normal;border-left:1px solid #777}.approval-person b,.approval-person i{display:block;max-width:100%;white-space:nowrap;font-style:normal;font-weight:400}.approval-person b{overflow:visible;text-overflow:clip;font-size:8px;letter-spacing:-.04em}.approval-person i{overflow:hidden;text-overflow:ellipsis;font-size:8.5px}.official-doc__approval-meta{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;width:620px;max-width:100%;margin:4px auto 0 0}.official-doc__issue-department,.official-doc__issue-track--under{margin:0;font-size:10px;color:#666;white-space:nowrap}.official-doc__issue-department{text-align:left}.official-doc__issue-track--under{text-align:right}.official-doc__issue{margin-top:9px;padding-top:16px;border-top:1px solid #ddd}.official-doc__issue-name{position:relative;display:inline-flex;flex-direction:column;align-items:flex-end;gap:1px;font-size:18px;font-weight:700}.official-doc__issuer-org{position:relative;display:inline-block;line-height:1.45;padding-right:17px}.official-doc__issuer-org[hidden],.official-doc__issuer-signer[hidden]{display:none!important}.official-doc__issuer-org-text{position:relative;z-index:2;white-space:nowrap}.official-doc__issuer-signer{display:block;margin-right:17px;line-height:1.35;white-space:nowrap;text-align:right}.official-doc__issuer-department-title{display:block;line-height:1.45;white-space:nowrap;text-align:center;font-size:18px;letter-spacing:.04em}.official-doc__issuer-department-title[hidden]{display:none!important}.stamp-mark{position:absolute;z-index:1;right:-8px;bottom:-9px;display:inline-flex;width:46px;height:46px;align-items:center;justify-content:center;border:2px solid #b22;border-radius:50%;color:#b22;font-size:9px;overflow:hidden;transform:none}.stamp-mark--image{border:0;border-radius:0;opacity:.9;overflow:visible;transform:none;mix-blend-mode:multiply}.stamp-mark img{display:block;width:100%;height:100%;object-fit:contain}.official-doc__footer{margin-top:18px;font-size:10px;color:#8a8578}
         </style></head><body>${node.outerHTML}</body></html>`);
         w.document.close();
@@ -1659,7 +1693,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       const batchModal=$('[data-batch-modal]'),batchForm=$('[data-batch-form]');
       $('[data-open-batch-approve]').addEventListener('click',()=>{if(!selectedIds.size){statusEl.textContent='처리할 문서를 선택해 주세요.';return;}$('[data-batch-hint]').textContent=`선택한 ${selectedIds.size}건을 처리합니다.`;batchModal.hidden=false;});
       $$('[data-close-batch]').forEach((b)=>b.addEventListener('click',()=>batchModal.hidden=true));
-      batchForm.addEventListener('submit',async(event)=>{event.preventDefault();const button=event.submitter;if(button)button.disabled=true;try{const result=await callApi('/api/documents/decide-batch',{token:getToken(),ids:Array.from(selectedIds),action:button?.dataset.batchAction||'승인',memo:new FormData(batchForm).get('memo')});if(!result.ok){statusEl.textContent=result.message;return;}batchModal.hidden=true;statusEl.textContent=result.message;dashboardLoadedAt=0;await refreshDocuments(true);}finally{if(button)button.disabled=false;}});
+      batchForm.addEventListener('submit',async(event)=>{event.preventDefault();const button=event.submitter;if(button)button.disabled=true;try{const result=await callApi('/api/documents/decide-batch',{token:getToken(),ids:Array.from(selectedIds),action:button?.dataset.batchAction||'승인',memo:new FormData(batchForm).get('memo')});if(!result.ok){statusEl.textContent=result.message;return;}batchModal.hidden=true;statusEl.textContent=result.message;invalidateDashboard();await refreshDocuments(true);}finally{if(button)button.disabled=false;}});
 
       // 접수·발송대장
       const receivedTable=$('[data-received-table]'),receivedStatus=$('[data-received-status]');
@@ -1675,7 +1709,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         receivedStatus.textContent='전체 검색결과를 CSV로 준비 중입니다...';
         const rows=[];let page=1,pages=1;
         do { const data=await callApi('/api/received/list',{token:getToken(),direction:$('[data-received-filter]').value,query:$('[data-received-query]').value.trim(),dateFrom:$('[data-received-date-from]').value,dateTo:$('[data-received-date-to]').value,sort:$('[data-received-sort]').value,page,pageSize:100});if(!data.ok){receivedStatus.textContent=data.message||'CSV 생성에 실패했습니다.';return;}rows.push(...(data.rows||[]));pages=data.pages||1;page+=1;} while(page<=pages&&rows.length<5000);
-        downloadCsv(`접수발송대장_${new Date().toISOString().slice(0,10)}.csv`,['등록번호','구분','일자','제목','상대기관','경로','상대문서번호','담당부서','등록자'],rows.map((r)=>[r.id,r.direction,r.received_at,r.title,r.counterparty,r.source_system,r.external_doc_number,formatDepartmentLabel(r.department),r.handled_by]));receivedStatus.textContent=`총 ${formatNumber(rows.length)}건을 CSV로 저장했습니다.`;
+        downloadCsv(`접수발송대장_${todayKst()}.csv`,['등록번호','구분','일자','제목','상대기관','경로','상대문서번호','담당부서','등록자'],rows.map((r)=>[r.id,r.direction,r.received_at,r.title,r.counterparty,r.source_system,r.external_doc_number,formatDepartmentLabel(r.department),r.handled_by]));receivedStatus.textContent=`총 ${formatNumber(rows.length)}건을 CSV로 저장했습니다.`;
       });
       const receivedModal=$('[data-received-modal]'),receivedForm=$('[data-received-form]');let pendingReceivedFiles=[];
       const relatedManualRow=$('[data-related-manual-row]');
@@ -1747,14 +1781,14 @@ import GovLayout from '../layouts/GovLayout.astro';
           const editing=!!payload.id;const result=await callApi(editing?'/api/received/update':'/api/received/create',payload);
           if(!result.ok){receivedStatus.textContent=result.message;return;}
           const uploadFailures=pendingReceivedFiles.length?await uploadFiles('/api/received/upload-attachment','receivedDocumentId',result.id,pendingReceivedFiles):[];
-          sendQueueDocuments=[];receivedModal.hidden=true;await Promise.all([refreshReceived(),refreshDashboard(true),refreshDocuments()]);
+          sendQueueDocuments=[];receivedModal.hidden=true;invalidateDashboard();await Promise.all([refreshReceived(),refreshDocuments(true)]);
           receivedStatus.textContent=uploadFailures.length?`${result.id}은 저장됐지만 첨부파일 일부가 실패했습니다: ${uploadFailures.join(' / ')}`:(result.message||`${result.id} 저장되었습니다.`);
         }finally{submitButton.disabled=false;}
       });
       const receivedDetailModal=$('[data-received-detail-modal]');$$('[data-close-received-detail]').forEach((b)=>b.addEventListener('click',()=>receivedDetailModal.hidden=true));
-      const openReceivedDetail=async(id)=>{const data=await callApi('/api/received/detail',{token:getToken(),id});if(!data.ok){receivedStatus.textContent=data.message;return;}currentReceivedDetailId=id;currentReceivedDetailDoc=data.document;const d=data.document;const me=getMe()||{};const canManageReceived=me.role==='admin'||d.handled_by_user_id===me.id;$('[data-edit-received-detail]').hidden=!canManageReceived;$('[data-delete-received-detail]').hidden=!canManageReceived;$('[data-received-detail-title]').textContent=`${d.id} · ${d.title}`;$('[data-received-detail-meta]').innerHTML=[['구분',d.direction],['접수·발송일',d.received_at],['상대기관',d.counterparty],['전달경로',d.source_system||'-'],['상대문서번호',d.external_doc_number||'-'],['담당부서',formatDepartmentLabel(d.department)],[d.direction==='접수'?'내부문서 번호':'연결 내부문서',d.related_document_id||'-'],['등록자',d.handled_by],['메모',d.memo||'-']].map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');const list=$('[data-received-detail-attachments]');list.innerHTML=(data.attachments||[]).map((a)=>`<li class="attachment-list__item"><span>${esc(a.file_name)}</span><button type="button" class="btn btn-outline" data-download-received="${esc(a.id)}">다운로드</button></li>`).join('')||'<li class="muted">첨부파일이 없습니다.</li>';$$('[data-download-received]',list).forEach((b)=>b.addEventListener('click',()=>downloadBase64('/api/received/attachment-data',b.dataset.downloadReceived)));receivedDetailModal.hidden=false;};
+      const openReceivedDetail=async(id)=>{const data=await callApi('/api/received/detail',{token:getToken(),id});if(!data.ok){receivedStatus.textContent=data.message;return;}currentReceivedDetailId=id;currentReceivedDetailDoc=data.document;const d=data.document;const me=getMe()||{};const canManageReceived=me.role==='admin'||d.handled_by_user_id===me.id;$('[data-edit-received-detail]').hidden=!canManageReceived;$('[data-delete-received-detail]').hidden=!canManageReceived;$('[data-received-detail-title]').textContent=`${d.id} · ${d.title}`;$('[data-received-detail-meta]').innerHTML=[['구분',d.direction],['접수·발송일',d.received_at],['상대기관',d.counterparty],['전달경로',d.source_system||'-'],['상대문서번호',d.external_doc_number||'-'],['담당부서',formatDepartmentLabel(d.department)],[d.direction==='접수'?'내부문서 번호':'연결 내부문서',d.related_document_id||'-'],['등록자',d.handled_by],['메모',d.memo||'-']].map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');const list=$('[data-received-detail-attachments]');list.innerHTML=(data.attachments||[]).map((a)=>`<li class="attachment-list__item"><span>${esc(a.file_name)}</span><button type="button" class="btn btn-outline" data-download-received="${esc(a.id)}">다운로드</button></li>`).join('')||'<li class="muted">첨부파일이 없습니다.</li>';$$('[data-download-received]',list).forEach((b)=>b.addEventListener('click',()=>downloadAttachmentBinary('/api/received/attachment-data',b.dataset.downloadReceived)));receivedDetailModal.hidden=false;};
       $('[data-edit-received-detail]').addEventListener('click',async()=>{const d=currentReceivedDetailDoc;if(!d)return;receivedForm.reset();receivedForm.elements.id.value=d.id;receivedForm.elements.direction.value=d.direction;receivedForm.elements.title.value=d.title||'';receivedForm.elements.counterparty.value=d.counterparty||'';receivedForm.elements.sourceSystem.value=d.source_system||'';receivedForm.elements.externalDocNumber.value=d.external_doc_number||'';receivedForm.elements.receivedAt.value=d.received_at||'';receivedForm.elements.department.value=normalizeDepartmentValue(d.department);receivedForm.elements.memo.value=d.memo||'';pendingReceivedFiles=[];renderReceivedPending();await syncReceivedDirection();if(d.direction==='외부발송'){renderSendQueueOptions(d.related_document_id||'',d);relatedSelect.value=d.related_document_id||'';}else{relatedManualInput.value=d.related_document_id||'';relatedManualHelp.textContent='등록 당시 자동 배정된 내부문서 번호이며 수정할 수 없습니다.';}$('[data-received-modal-title]').textContent=`접수·발송 수정 — ${d.id}`;receivedDetailModal.hidden=true;receivedModal.hidden=false;});
-      $('[data-delete-received-detail]').addEventListener('click',async()=>{if(!currentReceivedDetailId||!confirm('이 접수·발송대장 기록과 첨부파일을 삭제하시겠습니까?'))return;const result=await callApi('/api/received/delete',{token:getToken(),id:currentReceivedDetailId});if(!result.ok){receivedStatus.textContent=result.message;return;}sendQueueDocuments=[];receivedDetailModal.hidden=true;receivedStatus.textContent=result.message;await Promise.all([refreshReceived(),refreshDashboard(true),refreshDocuments()]);});
+      $('[data-delete-received-detail]').addEventListener('click',async()=>{if(!currentReceivedDetailId||!confirm('이 접수·발송대장 기록과 첨부파일을 삭제하시겠습니까?'))return;const result=await callApi('/api/received/delete',{token:getToken(),id:currentReceivedDetailId});if(!result.ok){receivedStatus.textContent=result.message;return;}sendQueueDocuments=[];receivedDetailModal.hidden=true;receivedStatus.textContent=result.message;invalidateDashboard();await Promise.all([refreshReceived(),refreshDocuments(true)]);});
 
       // 서식관리
       const templatesModal=$('[data-templates-modal]'),templateForm=$('[data-template-form]'),templateBuilder=$('[data-template-field-builder]');
@@ -1795,7 +1829,12 @@ import GovLayout from '../layouts/GovLayout.astro';
           const payload={token:getToken(),id,name:fd.get('name'),username:fd.get('username'),password:fd.get('password')||undefined,newPassword:fd.get('password')||undefined,position:fd.get('position'),grade:fd.get('grade'),department:fd.get('department'),role:fd.get('role'),canApprove:fd.get('canApprove')==='on',canAccounting:fd.get('canAccounting')==='on',active:fd.get('active')==='on'};
           const result=await callApi(id?'/api/users/update':'/api/users/create',payload);
           $('[data-user-form-status]').textContent=result.message||'';
-          if(result.ok){resetUserForm();await Promise.all([refreshUsersTable(),refreshUserOptions()]);$('[data-user-form-status]').textContent=result.message||'계정 정보가 저장되었습니다.';}
+          if(result.ok){
+            const editedCurrentUser = !!id && String(id) === String(getMe()?.id || '');
+            resetUserForm();
+            await Promise.all([refreshUsersTable(),refreshUserOptions(), editedCurrentUser ? refreshCurrentSessionUser() : Promise.resolve(null)]);
+            $('[data-user-form-status]').textContent=result.message||'계정 정보가 저장되었습니다.';
+          }
         }finally{
           submitButton.disabled=false;
           setUserSubmitLabel(!!userForm.elements.id.value);
@@ -1839,11 +1878,11 @@ import GovLayout from '../layouts/GovLayout.astro';
         };
         image.onerror=()=>resolve(dataUrl);image.src=dataUrl;
       });
-      const applyBranding=()=>{const logoSource=orgLogoImage||'/brand-logo-transparent.png';$$('[data-emblem]').forEach((el)=>{el.innerHTML=`<img src="${logoSource}" alt="대한불교밀교종 로고" />`;});$$('[data-stamp]').forEach((el)=>{el.innerHTML=orgSealImage?`<img src="${orgSealImage}" alt="관인" />`:'밀교종印';el.classList.toggle('stamp-mark--image',!!orgSealImage);});$$('[data-topbar-logo]').forEach((el)=>{el.src=logoSource;});};
+      const applyBranding=()=>{const logoSource=orgLogoImage||'/brand-logo-transparent.png';const sealSource=orgSealImage||'/organization-seal-official.png';$$('[data-emblem]').forEach((el)=>{el.innerHTML=`<img src="${logoSource}" alt="대한불교밀교종 로고" />`;});$$('[data-stamp]').forEach((el)=>{el.innerHTML=`<img src="${sealSource}" alt="대한불교밀교종 직인" />`;el.classList.add('stamp-mark--image');});$$('[data-topbar-logo]').forEach((el)=>{el.src=logoSource;});};
       const loadOrgSettings=async()=>{const d=await callApi('/api/settings/get',{token:getToken()});if(d.ok){orgSealImage=await trimTransparentImage(d.sealImage||'');orgLogoImage=d.logoImage||'';applyBranding();}};
       const brandingModal=$('[data-branding-modal]'),brandingForm=$('[data-branding-form]');let pendingLogo='',pendingSeal='';
       const readImage=(file)=>new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||''));r.onerror=()=>reject(r.error);r.readAsDataURL(file);});
-      const renderBranding=()=>{$('[data-branding-logo-preview]').innerHTML=`<img src="${pendingLogo||orgLogoImage||'/brand-logo-transparent.png'}" alt="로고" />`;$('[data-branding-seal-preview]').innerHTML=(pendingSeal||orgSealImage)?`<img src="${pendingSeal||orgSealImage}" alt="관인" />`:'<span class="muted">등록된 관인 없음</span>';};
+      const renderBranding=()=>{$('[data-branding-logo-preview]').innerHTML=`<img src="${pendingLogo||orgLogoImage||'/brand-logo-transparent.png'}" alt="로고" />`;$('[data-branding-seal-preview]').innerHTML=`<img src="${pendingSeal||orgSealImage||'/organization-seal-official.png'}" alt="관인" />`;};
       $('[data-open-branding]').addEventListener('click',()=>{pendingLogo='';pendingSeal='';renderBranding();brandingModal.hidden=false;});$$('[data-close-branding]').forEach((b)=>b.addEventListener('click',()=>brandingModal.hidden=true));$('#brand-logo').addEventListener('change',async(e)=>{if(e.target.files[0])pendingLogo=await readImage(e.target.files[0]);renderBranding();});$('#brand-seal').addEventListener('change',async(e)=>{if(e.target.files[0])pendingSeal=await trimTransparentImage(await readImage(e.target.files[0]));renderBranding();});brandingForm.addEventListener('submit',async(e)=>{e.preventDefault();const d=await callApi('/api/settings/save',{token:getToken(),logoImage:pendingLogo,sealImage:pendingSeal});$('[data-branding-status]').textContent=d.message||'';if(d.ok){await loadOrgSettings();renderBranding();}});
 
       // 조직도
@@ -1872,7 +1911,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           const fd=new FormData(loginForm),d=await callApi('/api/auth/login',{username:fd.get('username'),password:fd.get('password')});
           if(!d.ok){loginError.hidden=false;loginError.textContent=d.message;return;}
           setSession({token:d.token,user:d.user});showApp();activateHome();
-          Promise.all([refreshUserOptions(),refreshTemplates(),loadOrgSettings()]).catch((error)=>console.error('초기 데이터 로드 실패',error));
+          Promise.all([refreshCurrentSessionUser(),refreshUserOptions(),refreshTemplates(),loadOrgSettings()]).catch((error)=>console.error('초기 데이터 로드 실패',error));
         } finally { button.disabled=false;button.textContent=original; }
       });
       bootstrapForm.addEventListener('submit',async(e)=>{e.preventDefault();bootstrapError.hidden=true;bootstrapOk.hidden=true;const fd=new FormData(bootstrapForm),d=await callApi('/api/auth/bootstrap',{adminToken:fd.get('adminToken'),name:fd.get('name'),username:fd.get('username'),password:fd.get('password'),position:fd.get('position')});if(!d.ok){bootstrapError.hidden=false;bootstrapError.textContent=d.message;return;}bootstrapOk.hidden=false;bootstrapOk.textContent=d.message;$('#login-username').value=fd.get('username');});
@@ -1934,7 +1973,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       };
       if(getToken()){
         showApp();activateFromQuery();
-        Promise.all([refreshUserOptions(),refreshTemplates(),loadOrgSettings()]).catch((error)=>console.error('초기 데이터 로드 실패',error));
+        Promise.all([refreshCurrentSessionUser(),refreshUserOptions(),refreshTemplates(),loadOrgSettings()]).catch((error)=>console.error('초기 데이터 로드 실패',error));
       } else showLogin();
     })();
   </script>
@@ -2332,8 +2371,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       background: #fff;
       min-height: 40px;
     }
-    .panel-header__tools input[type="search"] { min-width: 220px; flex: 1 1 240px; }
-    .panel-header__tools .filter-date-range input[type="date"] { min-width: 0; }
+    .panel-header__tools input { min-width: 280px; }
     .panel-status { color: var(--gov-muted); font-size: 0.86rem; margin-bottom: 0.75rem; }
 
     .mono { font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.82rem; color: var(--gov-muted); }
@@ -2712,14 +2750,9 @@ import GovLayout from '../layouts/GovLayout.astro';
     .badge--협조대기 { background: #ece8ff; color: #5a43a5; }
     .badge--전결대기 { background: #e7f4ee; color: #176b4b; }
     .badge--임시저장 { background: #eceff3; color: #505968; }
-    .panel-filter-grid { justify-content: flex-end; width: 100%; flex-wrap: nowrap; min-width: 0; overflow-x: auto; overflow-y: hidden; padding-bottom: 2px; scrollbar-width: thin; }
-    .panel-filter-grid > select { flex: 0 1 auto; max-width: 140px; min-width: 76px; }
-    .panel-filter-grid > [data-category-filter],
-    .panel-filter-grid > [data-department-filter] { max-width: 155px; }
-    .panel-filter-grid > [data-sort] { max-width: 105px; }
-    .panel-filter-grid > [data-page-size],
-    .panel-filter-grid > [data-received-page-size] { max-width: 88px; }
-    .panel-filter-grid > input[type=search] { min-width: 170px; flex: 1 1 210px; }
+    .panel-filter-grid { justify-content: flex-end; }
+    .panel-filter-grid .filter-date-range { display: inline-flex; align-items: center; gap: 0.5rem; flex: 0 0 auto; white-space: nowrap; }
+    .panel-filter-grid .filter-date-range input[type="date"] { width: 145px; min-width: 145px; max-width: 145px; }
     .filter-separator { color: var(--gov-muted); font-size: 0.9rem; }
     .pagination { display: flex; justify-content: center; gap: 0.35rem; margin-top: 1rem; flex-wrap: wrap; }
     .pagination button { min-width: 34px; height: 34px; border: 1px solid var(--gov-border); background: #fff; border-radius: 6px; }
@@ -2848,9 +2881,6 @@ import GovLayout from '../layouts/GovLayout.astro';
       .content-section { padding: 1rem; }
       .panel-header__tools input { min-width: 0; width: 100%; }
       .panel-header__tools { width: 100%; }
-      .panel-filter-grid { flex-wrap: wrap; overflow: visible; padding-bottom: 0; }
-      .panel-header__tools .filter-date-range { width: 100%; }
-      .panel-header__tools .filter-date-range > :is(.date-with-weekday,.managed-date-with-weekday) { flex: 1 1 0; width: auto !important; min-width: 0 !important; }
       .modal--wide { width: calc(100vw - 1rem); max-width: calc(100vw - 1rem); }
       .compose-fieldset,
       .compose-fieldset > [data-reviewer-approver-fields],

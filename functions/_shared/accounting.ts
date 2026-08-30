@@ -3,6 +3,7 @@ import { ensureAccountingDomainTables } from './accounting-domain-schema';
 import { getResolutionDimensions } from './accounting-dimensions';
 
 export const ACCOUNTING_SCHEMA_VERSION='2026-08-21.1';
+const REQUIRED_INTEGRITY_TRIGGERS=['trg_import_match_target_unique_insert','trg_import_match_target_unique_update'];
 const REQUIRED_TABLES=['accounting_fiscal_years','accounting_accounts','accounting_resolutions','accounting_journals','accounting_journal_lines','accounting_closings','accounting_audit_logs','accounting_sequences','accounting_meta','accounting_monthly_summary','accounting_attachments','accounting_attachment_policy','accounting_attachment_integrity_issues','accounting_attachment_operations'];
 const schemaReady=new WeakSet<object>();
 const schemaPromises=new WeakMap<object,Promise<void>>();
@@ -33,15 +34,20 @@ export const ensureAccountingTables=async(db:D1Database)=>{
   let pending=schemaPromises.get(key);
   if(!pending){pending=(async()=>{
     const placeholders=REQUIRED_TABLES.map(()=>'?').join(',');
-    const [tables,version]=await db.batch([
+    const triggerPlaceholders=REQUIRED_INTEGRITY_TRIGGERS.map(()=>'?').join(',');
+    const [tables,version,triggers,duplicates]=await db.batch([
       db.prepare(`SELECT COUNT(*) AS count FROM sqlite_master WHERE type='table' AND name IN (${placeholders})`).bind(...REQUIRED_TABLES),
       db.prepare(`SELECT meta_value FROM accounting_meta WHERE meta_key='schema_version'`),
+      db.prepare(`SELECT COUNT(*) AS count FROM sqlite_master WHERE type='trigger' AND name IN (${triggerPlaceholders})`).bind(...REQUIRED_INTEGRITY_TRIGGERS),
+      db.prepare(`SELECT matched_type,matched_id,COUNT(*) AS count FROM accounting_import_transactions WHERE status='matched' AND COALESCE(matched_type,'')<>'' AND COALESCE(matched_id,'')<>'' GROUP BY matched_type,matched_id HAVING COUNT(*)>1 LIMIT 1`),
     ]);
     if(Number((tables.results?.[0] as any)?.count||0)!==REQUIRED_TABLES.length)throw new Error('회계 전용 DB 스키마가 준비되지 않았습니다. 회계 마이그레이션을 순서대로 적용해 주세요.');
     const actualVersion=String((version.results?.[0] as any)?.meta_value||'');
     if(actualVersion!==ACCOUNTING_SCHEMA_VERSION){
-      throw new Error(`회계 전용 DB 스키마 버전이 맞지 않습니다. 요구 ${ACCOUNTING_SCHEMA_VERSION}, 현재 ${actualVersion||'미확인'}입니다. 0016 마이그레이션까지 적용해 주세요.`);
+      throw new Error(`회계 전용 DB 스키마 버전이 맞지 않습니다. 요구 ${ACCOUNTING_SCHEMA_VERSION}, 현재 ${actualVersion||'미확인'}입니다. 0018 마이그레이션까지 적용해 주세요.`);
     }
+    if(Number((triggers.results?.[0] as any)?.count||0)!==REQUIRED_INTEGRITY_TRIGGERS.length)throw new Error('회계 대사 무결성 보호가 준비되지 않았습니다. 0018 마이그레이션을 적용해 주세요.');
+    if((duplicates.results||[]).length)throw new Error('기존 대사자료에 중복 연결이 발견되었습니다. 운영 전 정리가 필요합니다.');
     await ensureAccountingDomainTables(db);
     schemaReady.add(key);
   })().catch((error)=>{schemaPromises.delete(key);throw error;});

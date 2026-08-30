@@ -4,7 +4,7 @@ import fs from 'node:fs';
 
 const read = (file: string) => fs.readFileSync(file, 'utf8');
 
-test('management date ranges stay grouped as one horizontal control', () => {
+test('management date ranges stay grouped without changing the original shared layout', () => {
   const pages = [
     'src/pages/index.astro',
     'src/pages/register-management.astro',
@@ -12,11 +12,14 @@ test('management date ranges stay grouped as one horizontal control', () => {
   ];
   for (const file of pages) {
     const source = read(file);
-    assert.match(source, /class="filter-date-range"/, `${file} must use the shared compact date-range group`);
+    assert.match(source, /class="filter-date-range"/, `${file} must keep start/end dates as one compact group`);
   }
   const layout = read('src/layouts/ManagementLayout.astro');
-  assert.match(layout, /\.filter-date-range\{[^}]*display:inline-flex[^}]*white-space:nowrap/);
-  assert.match(layout, /\.filter-date-range>:is\(\.date-with-weekday,\.managed-date-with-weekday\)\{width:174px!important;min-width:174px!important\}/);
+  assert.doesNotMatch(layout, /\.filter-date-range\{/);
+  const register = read('src/pages/register-management.astro');
+  assert.match(register, /\.register-filters \.filter-date-range\{[^}]*display:inline-flex[^}]*white-space:nowrap/);
+  const ordination = read('src/pages/ordination-certificates.astro');
+  assert.match(ordination, /\.ledger-filters \.filter-date-range\{[^}]*display:inline-flex[^}]*white-space:nowrap/);
 });
 
 test('electronic document filters keep date range next to existing search controls', () => {
@@ -25,7 +28,10 @@ test('electronic document filters keep date range next to existing search contro
   assert.match(documentFilters, /filter-date-range/);
   assert.match(documentFilters, /data-query/);
   assert.ok(documentFilters.indexOf('filter-date-range') < documentFilters.indexOf('data-query'), 'date range should remain in the same toolbar before search');
-  assert.match(source, /\.panel-filter-grid \{[^}]*flex-wrap: nowrap[^}]*min-width: 0/);
+  assert.match(source, /\.panel-filter-grid \{ justify-content: flex-end; \}/);
+  assert.doesNotMatch(source, /\.panel-filter-grid \{[^}]*overflow-x: auto/);
+  assert.match(documentFilters, /data-date-from data-no-weekday/);
+  assert.match(documentFilters, /data-date-to data-no-weekday/);
 });
 
 test('management subpages use cheap session validation instead of dashboard aggregation', () => {
