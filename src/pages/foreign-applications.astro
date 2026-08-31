@@ -1,13 +1,13 @@
 ---
 import ManagementLayout from '../layouts/ManagementLayout.astro';
 ---
-<ManagementLayout title="외국인 신청서·신고서 작성·대장" active="foreignForms">
-  <div data-foreign-forms-version="2026-08-30-v91-foreign-applications-reconstruction" hidden></div>
+<ManagementLayout title="출입국 신청서 작성·대장" active="foreignForms">
+  <div data-foreign-forms-version="2026-08-31-v91-1-immigration-form-layout" hidden></div>
   <div class="page-heading">
     <div>
-      <p class="page-heading__kicker">FOREIGNER APPLICATION FORMS</p>
-      <h1>외국인 신청서·신고서 작성·대장</h1>
-      <p>외국인 관련 신청서와 신고서를 화면에서 작성하고, 작성본 다운로드·인쇄 및 이력을 관리합니다.</p>
+      <p class="page-heading__kicker">IMMIGRATION APPLICATION FORMS</p>
+      <h1>출입국 신청서 작성·대장</h1>
+      <p>출입국 관련 신청서(신고서)를 화면에서 작성하고, 작성본 다운로드·인쇄 및 이력을 관리합니다.</p>
     </div>
   </div>
 
@@ -17,10 +17,9 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         <h2>신청서·신고서 작성</h2>
         <p>서식을 선택한 뒤 입력하면 미리보기, 다운로드, 출력과 이력저장이 가능합니다.</p>
       </div>
-      <button type="button" class="btn btn-outline" data-new-form>새로 작성</button>
     </div>
 
-    <div class="foreign-form-selector" role="tablist" aria-label="외국인 신청서 종류">
+    <div class="foreign-form-selector" role="tablist" aria-label="출입국 신청서 종류">
       <button type="button" class="form-type-card active" data-form-type="거주숙소제공확인서">
         <strong>거주/숙소제공확인서</strong>
         <span>Confirmation of Residence/Accommodation</span>
@@ -35,12 +34,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       </button>
     </div>
 
-    <div class="official-form-downloads" aria-label="원본 HWPX 서식">
-      <strong>원본 HWPX 서식</strong>
-      <a class="btn btn-outline" download href="/forms/거주숙소제공확인서(한글-영문).hwpx">거주/숙소제공확인서</a>
-      <a class="btn btn-outline" download href="/forms/[별지 제34호서식] 통합신청서 (신고서) APPLICATION FORM (REPORT FORM)(출입국관리법 시행규칙).hwpx">통합신청서(신고서)</a>
-      <a class="btn btn-outline" download href="/forms/[별지 제21호서식] 사증발급인정신청서 APPLICATION FOR CERTIFICATE OF VISA ELIGIBILITY(출입국관리법 시행규칙).hwpx">사증발급인정신청서</a>
-    </div>
+    <div class="form-selector-actions"><button type="button" class="btn btn-outline" data-new-form>새로 작성</button></div>
 
     <div class="record-banner" data-record-banner hidden>
       <span>작성 이력</span><strong data-record-number>-</strong><em data-record-status>저장</em>
@@ -61,19 +55,32 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
   <section class="surface foreign-ledger">
     <div class="section-title ledger-section-title">
       <div><h2>신청서·신고서 작성대장</h2><p>작성자와 서식 종류, 대상자, 출력·다운로드 이력을 확인합니다.</p></div>
-      <div class="toolbar foreign-ledger-filters">
-        <select data-ledger-type>
+    </div>
+    <div class="ledger-controls">
+      <div class="foreign-ledger-filters">
+        <select data-ledger-type aria-label="서식 종류">
           <option value="">전체 서식</option>
           <option value="거주숙소제공확인서">거주/숙소제공확인서</option>
           <option value="통합신청서신고서">통합신청서(신고서)</option>
           <option value="사증발급인정신청서">사증발급인정신청서</option>
         </select>
-        <select data-ledger-status><option value="">전체 상태</option><option value="저장">저장</option><option value="취소">취소</option></select>
-        <div class="filter-date-range"><input type="date" data-ledger-from aria-label="조회 시작일"/><span>~</span><input type="date" data-ledger-to aria-label="조회 종료일"/></div>
+        <select data-ledger-status aria-label="작성 상태"><option value="">전체 상태</option><option value="저장">저장</option><option value="취소">취소</option></select>
+        <div class="filter-date-range" aria-label="작성일 조회 기간">
+          <span class="filter-date-label">작성일</span>
+          <input type="date" data-no-weekday data-ledger-from aria-label="조회 시작일"/>
+          <span class="filter-date-separator">~</span>
+          <input type="date" data-no-weekday data-ledger-to aria-label="조회 종료일"/>
+        </div>
         <input type="search" data-ledger-query placeholder="기록번호·성명·국적·작성자 검색"/>
-        <select data-ledger-size><option value="10">10개</option><option value="20" selected>20개</option><option value="50">50개</option></select>
+        <select data-ledger-size aria-label="페이지당 건수"><option value="10">10개</option><option value="20" selected>20개</option><option value="50">50개</option></select>
         <button type="button" class="btn btn-outline" data-ledger-search>조회</button>
         <button type="button" class="btn btn-outline" data-ledger-export>CSV</button>
+      </div>
+      <div class="official-form-downloads" aria-label="원본 HWPX 서식">
+        <strong>원본 HWPX 서식</strong>
+        <a class="btn btn-outline" download href="/forms/거주숙소제공확인서(한글-영문).hwpx">거주/숙소제공확인서</a>
+        <a class="btn btn-outline" download href="/forms/[별지 제34호서식] 통합신청서 (신고서) APPLICATION FORM (REPORT FORM)(출입국관리법 시행규칙).hwpx">통합신청서(신고서)</a>
+        <a class="btn btn-outline" download href="/forms/[별지 제21호서식] 사증발급인정신청서 APPLICATION FOR CERTIFICATE OF VISA ELIGIBILITY(출입국관리법 시행규칙).hwpx">사증발급인정신청서</a>
       </div>
     </div>
     <div class="status-message" data-ledger-message aria-live="polite"></div>
@@ -304,17 +311,28 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       const today=()=>new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
 
       const fieldHtml=(field)=>{
-        if(field.section)return `<h3 class="foreign-section-title">${esc(field.section)}</h3>`;
         const req=field.required?' required':'';
         const wide=field.wide?' form-field--wide':'';
-        if(field.type==='textarea')return `<div class="form-field${wide}"><label>${esc(field.label)}${field.required?' <b>*</b>':''}</label><textarea name="${esc(field.name)}" rows="3"${req}></textarea></div>`;
-        if(field.type==='select')return `<div class="form-field${wide}"><label>${esc(field.label)}${field.required?' <b>*</b>':''}</label><select name="${esc(field.name)}"${req}><option value="">선택</option>${field.options.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></div>`;
-        if(field.type==='checks')return `<div class="form-field${wide}"><span class="field-label">${esc(field.label)}</span><div class="check-grid">${field.options.map(o=>`<label><input type="checkbox" name="${esc(field.name)}" value="${esc(o)}"/> ${esc(o)}</label>`).join('')}</div></div>`;
-        return `<div class="form-field${wide}"><label>${esc(field.label)}${field.required?' <b>*</b>':''}</label><input name="${esc(field.name)}" type="${esc(field.type||'text')}"${req}/></div>`;
+        const marker=field.required?' <b>*</b>':'';
+        if(field.type==='textarea')return `<div class="form-field${wide}"><label>${esc(field.label)}${marker}</label><textarea name="${esc(field.name)}" rows="3"${req}></textarea></div>`;
+        if(field.type==='select')return `<div class="form-field${wide}"><label>${esc(field.label)}${marker}</label><select name="${esc(field.name)}"${req}><option value="">선택</option>${field.options.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></div>`;
+        if(field.type==='checks')return `<div class="form-field${wide}"><span class="field-label">${esc(field.label)}</span><div class="check-grid">${field.options.map(o=>`<label><input type="checkbox" name="${esc(field.name)}" value="${esc(o)}"/> <span>${esc(o)}</span></label>`).join('')}</div></div>`;
+        return `<div class="form-field${wide}"><label>${esc(field.label)}${marker}</label><input name="${esc(field.name)}" type="${esc(field.type||'text')}"${req}/></div>`;
+      };
+      const sectionHeading=(title)=>{
+        const match=/^(\d+\.)\s*(.*)$/.exec(String(title||''));
+        if(!match)return `<h3 class="foreign-section-title"><span>${esc(title)}</span></h3>`;
+        return `<h3 class="foreign-section-title"><span class="foreign-section-number">${esc(match[1])}</span><span>${esc(match[2])}</span></h3>`;
       };
       const renderForm=(values={})=>{
         const host=$('[data-form-host]');
-        host.innerHTML=`<div class="form-grid foreign-form-grid">${schemas[formType].map(fieldHtml).join('')}</div>`;
+        const groups=[];let current=null;
+        for(const field of schemas[formType]){
+          if(field.section){current={title:field.section,fields:[]};groups.push(current);continue;}
+          if(!current){current={title:'',fields:[]};groups.push(current);}
+          current.fields.push(field);
+        }
+        host.innerHTML=`<div class="foreign-form-sections">${groups.map((group,index)=>`<section class="foreign-input-section" data-section-index="${index}">${group.title?sectionHeading(group.title):''}<div class="form-grid foreign-form-grid">${group.fields.map(fieldHtml).join('')}</div></section>`).join('')}</div>`;
         for(const [name,value] of Object.entries(values||{})){
           const inputs=$$(`[name="${CSS.escape(name)}"]`,host);
           if(!inputs.length)continue;
@@ -359,26 +377,138 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         renderForm(values);
       };
 
-      const printableSections=(values)=>{
-        const sections=[];let current={title:'',rows:[]};sections.push(current);
-        for(const field of schemas[formType]){
-          if(field.section){current={title:field.section,rows:[]};sections.push(current);continue;}
-          let value=values[field.name];
-          if(Array.isArray(value))value=value.length?`☑ ${value.join('\n☑ ')}`:'';
-          current.rows.push({label:field.label,value:value||''});
-        }
-        return sections.filter(s=>s.rows.length);
+      const mark=(selected,option)=>{
+        const list=Array.isArray(selected)?selected:[selected];
+        return list.some(value=>String(value||'').includes(option))?'☑':'☐';
       };
+      const val=(values,key,fallback='')=>esc(String(values?.[key]??fallback));
+      const valBr=(values,key)=>val(values,key).replace(/\n/g,'<br>');
+      const dateParts=(value)=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value||''));return m?{y:m[1],m:String(Number(m[2])),d:String(Number(m[3]))}:{y:'',m:'',d:''}};
+      const residenceDocument=(values)=>{
+        const start=dateParts(values.residenceStartDate),confirm=dateParts(values.confirmationDate);
+        return `<section class="official-page official-page--residence">
+          <div class="official-title"><h1>거주/숙소제공 확인서</h1><h2>(Confirmation of Residence/Accommodation)</h2></div>
+          ${recordNo?`<div class="paper-record-no">관리번호 ${esc(recordNo)}</div>`:''}
+          <table class="paper-table residence-table"><colgroup><col style="width:23%"><col style="width:27%"><col style="width:24%"><col style="width:26%"></colgroup>
+            <tr class="paper-section-row"><th colspan="4">1. 거주/숙소를 제공 받는 외국인 ( Foreign Tenant / Recipient )</th></tr>
+            <tr><th>국 적<br><small>(Nationality)</small></th><td>${val(values,'nationality')}</td><th>외국인등록(거소)번호<br><small>(Alien/Domestic Residence<br>Registration No.)</small></th><td>${val(values,'foreignResidentNo')}</td></tr>
+            <tr><th>성 명<br><small>(Full Name)</small></th><td>${val(values,'residentFullName')}</td><th class="paper-subcell">전화번호<br><small>(Telephone No.)</small><hr>휴대전화<br><small>(Cell phone No.)</small></th><td class="paper-subcell">${val(values,'residentTelephone')}<hr>${val(values,'residentCellPhone')}</td></tr>
+            <tr><th>주 소<br><small>(Address)</small></th><td colspan="3" class="paper-value-large">${valBr(values,'residenceAddress')}</td></tr>
+            <tr class="paper-spacer"><td colspan="4"></td></tr>
+            <tr class="paper-section-row"><th colspan="4">2. 거주/숙소 제공자 ( Landlord / Provider )</th></tr>
+            <tr><th>국 적<br><small>(Nationality)</small></th><td>${val(values,'providerNationality')}</td><th>주민/외국인등록번호<br><small>(Resident/Alien Registration No.)</small></th><td>${val(values,'providerRegistrationNo')}</td></tr>
+            <tr><th>성 명<br><small>(Full Name)</small></th><td colspan="3">${val(values,'providerName')}</td></tr>
+            <tr><th>외국인과의 관계<br><small>(Relationship)</small></th><td colspan="3" class="paper-options">${mark(values.relationship,'친척')} 친 척 (Relative)&nbsp;&nbsp;&nbsp; ${mark(values.relationship,'고용주')} 고 용 주 (Employer)&nbsp;&nbsp;&nbsp; ${mark(values.relationship,'기타')} 기 타 (Other) <span class="paper-inline-value">${val(values,'relationshipOther')}</span></td></tr>
+            <tr><th>소유형태<br><small>(Ownership Type)</small></th><td colspan="3" class="paper-options">${mark(values.ownership,'자가')} 자 가 (Own)&nbsp;&nbsp;&nbsp; ${mark(values.ownership,'임대')} 임 대 (Rent)&nbsp;&nbsp;&nbsp; ${mark(values.ownership,'기타')} 기 타 (Other) <span class="paper-inline-value">${val(values,'ownershipOther')}</span></td></tr>
+            <tr><th>주거형태<br><small>(Residence Type)</small></th><td colspan="3" class="paper-options residence-options">${mark(values.residenceType,'개인주택')} 개인주택 등 (Private Residence, etc.)&nbsp;&nbsp; ${mark(values.residenceType,'기숙사')} 기 숙 사 (Dormitory)<br>${mark(values.residenceType,'숙박시설')} 숙 박 시 설 (Accommodation)&nbsp;&nbsp; ${mark(values.residenceType,'기타')} 기 타 (Other) <span class="paper-inline-value">${val(values,'residenceTypeOther')}</span></td></tr>
+            <tr><th>거주/숙소 제공일<br><small>(Starting Date)</small></th><td colspan="3" class="paper-centered">${start.y}년(Year)&nbsp;&nbsp;&nbsp; ${start.m}월(Month)&nbsp;&nbsp;&nbsp; ${start.d}일(Date)</td></tr>
+            <tr><td colspan="4" class="residence-confirmation">위와 같이 거주/숙소를 제공하였음을 확인합니다.<br><small>(I, the undersigned, confirm the provision of accommodation to the abovementioned foreigner.)</small><div class="confirmation-date">${confirm.y}년(Year)&nbsp;&nbsp; ${confirm.m}월(Month)&nbsp;&nbsp; ${confirm.d}일(Date)</div><div class="signature-lines">성&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;명 (Name) : <b>${val(values,'confirmationName')}</b>&nbsp;&nbsp;&nbsp;&nbsp; (서명) (Signature)<br>업체명 (Company Name) : <b>${val(values,'companyName')}</b>&nbsp;&nbsp;&nbsp;&nbsp; (직인) (Official Seal)</div><strong class="office-destination">출입국관리사무소(출장소)장&nbsp;&nbsp;&nbsp; 귀하</strong></td></tr>
+            <tr><td colspan="4" class="residence-notes"><b>1. 외국인을 고용한 업체에서 기숙사 등을 제공하는 경우 작성방법</b><br>- 제공자란에는 고용주, 대표자 또는 법인의 대표자 인적사항 기재<br>- 확인란에는 대표자 성명과 서명 날인 또는 업체명과 직인 날인 중 택일<br><b>2. 숙소제공자가 외국인에게 제공해야 하는 서류</b><br><small>(Documents to be provided to the foreign tenant from the accommodation provider)</small><br>- 거주/숙소제공 확인서 (Confirmation of Residence/Accommodation)<br>- 제공하는 숙소가 본인 소유 또는 임차 물건임을 증빙할 수 있는 서류(등기부등본, 임대차계약서 등)<br><small>(Documents of evidence regarding ownership of the provided property: Certified Copy of Register, Residential Lease Agreement, etc.)</small><br>- 숙소제공자 신분증 사본 (Copy of accommodation provider ID Card)</td></tr>
+          </table><div class="paper-spec">210mm×297mm [백상지 80g/㎡(재활용품)]</div>
+        </section>`;
+      };
+      const integratedDocument=(values)=>{
+        const dob=dateParts(values.dateOfBirth),app=dateParts(values.applicationDate);
+        const apps=values.applicationTypes||[];
+        const option=(needle,label)=>`${mark(apps,needle)} ${label}`;
+        return `<section class="official-page official-page--integrated">
+          <div class="form-lawline">■ 출입국관리법 시행규칙 [별지 제34호서식] &lt;개정 2022. 4. 12.&gt;</div>
+          <div class="official-title compact"><h1>통합신청서 (신고서)</h1><h2>APPLICATION FORM (REPORT FORM)</h2></div>
+          <p class="form-instruction">※ 신청서는 한글 또는 영문으로 작성하시기 바랍니다. (Please complete this form in Korean or English.)</p>
+          <table class="paper-table integrated-table"><colgroup><col style="width:24%"><col style="width:28%"><col style="width:28%"><col style="width:20%"></colgroup>
+            <tr class="integrated-application-head"><th colspan="3">□ 신청/신고 선택 SELECT APPLICATION/REPORT</th><td rowspan="6" class="photo-box"><b>PHOTO</b><br>여권용 사진(35㎜×45㎜)<br><small>* 촬영일부터 6개월이 지나지 않아야 함<br>taken within last 6 months<br>* 외국인 등록 및 등록증 재발급 시에만 사진 부착</small></td></tr>
+            <tr><td>${option('외국인 등록','외국인 등록 / FOREIGN RESIDENT REGISTRATION')}</td><td colspan="2">${option('체류자격 외 활동허가','체류자격 외 활동허가 / ENGAGE IN ACTIVITIES NOT COVERED BY THE STATUS OF SOJOURN')}<br><small>Status to apply for ( ${val(values,'desiredStatusActivity')} )</small></td></tr>
+            <tr><td>${option('등록증 재발급','등록증 재발급 / REISSUANCE OF REGISTRATION CARD')}</td><td colspan="2">${option('근무처 변경','근무처 변경·추가허가 / 신고 / CHANGE OR ADDITION OF WORKPLACE')}</td></tr>
+            <tr><td>${option('체류기간 연장허가','체류기간 연장허가 / EXTENSION OF SOJOURN PERIOD')}</td><td colspan="2">${option('재입국허가','재입국허가 (단수, 복수) / REENTRY PERMIT (SINGLE, MULTIPLE)')}</td></tr>
+            <tr><td>${option('체류자격 변경허가','체류자격 변경허가 / CHANGE OF STATUS OF SOJOURN')}<br><small>Status to apply for ( ${val(values,'desiredStatusChange')} )</small></td><td colspan="2">${option('체류지 변경신고','체류지 변경신고 / ALTERATION OF RESIDENCE')}</td></tr>
+            <tr><td>${option('체류자격 부여','체류자격 부여 / GRANTING STATUS OF SOJOURN')}<br><small>Status to apply for ( ${val(values,'desiredStatusGrant')} )</small></td><td colspan="2">${option('등록사항 변경신고','등록사항 변경신고 / CHANGE OF INFORMATION ON REGISTRATION')}</td></tr>
+            <tr><th>성명<br><small>Name In Full</small></th><td>성 Surname<br><b>${val(values,'surname')}</b></td><td colspan="2">명 Given names<br><b>${val(values,'givenNames')}</b></td></tr>
+            <tr><th>생년월일<br><small>Date of Birth</small></th><td>${dob.y}년 yyyy&nbsp;&nbsp; ${dob.m}월 mm&nbsp;&nbsp; ${dob.d}일 dd</td><th>성별 Sex</th><td>${mark(values.sex,'남')} 남 M&nbsp;&nbsp; ${mark(values.sex,'여')} 여 F</td></tr>
+            <tr><th>국적<br><small>Nationality</small></th><td>${val(values,'nationality')}</td><th>외국인등록번호<br><small>Foreign Resident Registration No.</small></th><td>${val(values,'foreignResidentNo')}</td></tr>
+            <tr><th>여권번호<br><small>Passport No.</small></th><td>${val(values,'passportNo')}</td><th>여권 발급일자 / 유효기간</th><td>${val(values,'passportIssueDate')} / ${val(values,'passportExpiry')}</td></tr>
+            <tr><th>대한민국 내 주소<br><small>Address In Korea</small></th><td colspan="3">${valBr(values,'residenceAddress')}</td></tr>
+            <tr><th>전화번호<br><small>Telephone No.</small></th><td>${val(values,'telephone')}</td><th>휴대전화<br><small>Cell phone No.</small></th><td>${val(values,'cellPhone')}</td></tr>
+            <tr><th>본국 주소<br><small>Address In Home Country</small></th><td colspan="2">${valBr(values,'homeCountryAddress')}</td><td>전화번호 / Phone No.<br>${val(values,'homeCountryPhone')}</td></tr>
+            <tr><th>재학 여부<br><small>School Status</small></th><td>${val(values,'schoolStatus')}</td><th>학교 이름 / Name of School</th><td>${val(values,'schoolName')}<br><small>전화번호 ${val(values,'schoolPhone')}</small></td></tr>
+            <tr><th>학교 종류<br><small>Type of School</small></th><td colspan="3">${val(values,'schoolType')}</td></tr>
+            <tr><th rowspan="2">근무처<br><small>Workplace</small></th><td>원 근무처 / Current Workplace<br>${val(values,'currentWorkplace')}</td><td>사업자등록번호<br>${val(values,'currentBusinessNo')}</td><td>전화번호<br>${val(values,'currentWorkplacePhone')}</td></tr>
+            <tr><td>예정 근무처 / New Workplace<br>${val(values,'newWorkplace')}</td><td>사업자등록번호<br>${val(values,'newBusinessNo')}</td><td>전화번호<br>${val(values,'newWorkplacePhone')}</td></tr>
+            <tr><th>연 소득금액 / Annual Income Amount</th><td>${val(values,'annualIncome')} 만원</td><th>직업 / Occupation</th><td>${val(values,'occupation')}</td></tr>
+            <tr><th>재입국 신청 기간</th><td>${val(values,'reentryPeriod')}</td><th>전자우편 / E-Mail</th><td>${val(values,'email')}</td></tr>
+            <tr><th>반환용 계좌번호</th><td colspan="3">${val(values,'refundBankAccount')}</td></tr>
+            <tr><th>신청일<br><small>Date of application</small></th><td>${app.y}-${String(app.m).padStart(2,'0')}-${String(app.d).padStart(2,'0')}</td><th>신청인 서명 또는 인<br><small>Signature/Seal</small></th><td>${val(values,'signatureName')}</td></tr>
+            <tr><th>신청인 제출서류<br><small>Required documents for applicants</small></th><td colspan="3" class="fine-print">「출입국관리법 시행규칙」 별표 5의2의 체류자격별·신청구분별 첨부서류 참고<br>Please refer to the attached documents for each status of stay and each application type in Annex 5-2 of the Enforcement Rule of the Immigration Act.</td></tr>
+            <tr class="paper-grey"><th colspan="4">행정정보 공동이용 동의서 (Consent for sharing of administrative information)</th></tr>
+            <tr><td colspan="4" class="fine-print">본인은 이 건 업무처리와 관련하여 담당 공무원이 「전자정부법」 제36조에 따른 행정정보의 공동이용을 통하여 위의 담당 공무원 확인 사항을 확인하는 것에 동의합니다.<br>I, the undersigned, hereby consent to allow all documents and information required for the processing of this application to be viewed by the public servant in charge.</td></tr>
+            <tr><th>신청인 / Applicant</th><td>${mark(values.consentParties,'신청인')} 서명 또는 인</td><th>배우자 / Spouse</th><td>${mark(values.consentParties,'배우자')} 서명 또는 인</td></tr>
+            <tr><th>부 또는 모 / Father/Mother</th><td>${mark(values.consentParties,'부 또는 모')} 서명 또는 인</td><th colspan="2"></th></tr>
+            <tr class="paper-grey"><th colspan="4">공 용 란 (For Official Use Only)</th></tr>
+            <tr><th>기본 사항</th><td>최초입국일 __________</td><td>체류자격 __________</td><td>체류기간 __________</td></tr>
+            <tr><th>접수 사항</th><td>접수일자 __________</td><td>접수번호 __________</td><td></td></tr>
+            <tr><th>허가(신고) 사항</th><td>허가(신고) 일자 __________</td><td>허가번호 __________</td><td>체류자격/기간 __________</td></tr>
+            <tr><th>결 재</th><td>담 당</td><td>청장·소장</td><td>가 / 부</td></tr>
+          </table><div class="paper-footer-note">수입인지는 뒷면에 첨부(Revenue Stamp on the Backside) / 수수료 면제(exemption) ☐ (면제사유: ____________)</div><div class="paper-spec">210㎜×297㎜ [백상지(80g/㎡) 또는 중질지(80g/㎡)]</div>
+        </section>`;
+      };
+      const visaPageTitle=(page)=>`<div class="form-lawline">■ 출입국관리법 시행규칙 [별지 제21호서식] &lt;개정 2023. 12. 14.&gt;<span>(제${page}쪽 / Page${page})</span></div>`;
+      const visaSection=(number,title)=>`<tr class="visa-section"><th colspan="4">${number}. ${title}</th></tr>`;
+      const visaDocument=(values)=>{
+        const dob=dateParts(values.dateOfBirth),app=dateParts(values.applicationDate);
+        return `<div class="visa-pages">
+          <section class="official-page official-page--visa">${visaPageTitle(1)}<div class="official-title compact"><h1>사증발급인정신청서</h1><h2>APPLICATION FOR CERTIFICATE OF VISA ELIGIBILITY</h2></div>
+            <div class="visa-instructions"><b>&lt;신청서 작성방법&gt;</b><br>‣ 신청인은 사실에 근거하여 빠짐없이 정확하게 신청서를 작성하여야 합니다.<br>‣ 신청서상의 모든 질문에 대한 답변은 한글 또는 영문으로 기재하여야 합니다.<br>‣ 선택사항은 해당 칸[ ] 안에 √ 표시를 하시기 바랍니다.<br>‣ ‘기타’를 선택한 경우, 상세내용을 기재하시기 바랍니다.<br><b>&lt;How to fill out this form&gt;</b><br>‣ The applicant must fill out this form completely and correctly.<br>‣ The applicant must write in block letters either in English or Korean.<br>‣ For multiple-choice questions, the applicant must check [√] all that apply.<br>‣ If the applicant selects ‘Other’, please provide us with more information in the given space.</div>
+            <table class="paper-table visa-table"><colgroup><col style="width:25%"><col style="width:25%"><col style="width:25%"><col style="width:25%"></colgroup>${visaSection('1','인적사항 / PERSONAL DETAILS')}
+              <tr><td rowspan="3" class="photo-box visa-photo">여권용사진<br>(35㎜×45㎜)<br><small>A color photo taken within last 6 months</small></td><th colspan="3">1.1 여권에 기재된 영문 성명 Full Name in English (as shown in passport)</th></tr>
+              <tr><th>성 Family Name</th><td colspan="2">${val(values,'familyName')}</td></tr><tr><th>명 Given Names</th><td colspan="2">${val(values,'givenNames')}</td></tr>
+              <tr><th>1.2 한자성명 漢字姓名</th><td>${val(values,'nameHanja')}</td><th>1.3 성별 Sex</th><td>${mark(values.sex,'남성')} 남성/Male&nbsp;&nbsp;${mark(values.sex,'여성')} 여성/Female</td></tr>
+              <tr><th>1.4 생년월일 Date of Birth</th><td>${dob.y}/${String(dob.m).padStart(2,'0')}/${String(dob.d).padStart(2,'0')}</td><th>1.5 국적 Nationality</th><td>${val(values,'nationality')}</td></tr>
+              <tr><th>1.6 출생국가 Country of Birth</th><td>${val(values,'countryOfBirth')}</td><th>1.7 국가신분증번호 National Identity No.</th><td>${val(values,'nationalIdentityNo')}</td></tr>
+              <tr><th colspan="2">1.8 이전에 한국에 출입국하였을 때 다른 성명을 사용했는지 여부</th><td colspan="2">${mark(values.usedOtherName,'아니오')} No&nbsp;&nbsp; ${mark(values.usedOtherName,'예')} Yes<br>성 Family Name: ${val(values,'otherFamilyName')} / 명 Given Names: ${val(values,'otherGivenNames')}</td></tr>
+              <tr><th colspan="2">1.9 복수 국적 여부 / Is the applicant a citizen of more than one country?</th><td colspan="2">${mark(values.multipleNationality,'아니오')} No&nbsp;&nbsp; ${mark(values.multipleNationality,'예')} Yes &nbsp; ${val(values,'otherNationalities')}</td></tr>
+              ${visaSection('2','여권정보 / PASSPORT INFORMATION')}
+              <tr><th>2.1 여권종류 Passport Type</th><td colspan="3">${mark(values.passportType,'외교관')} 외교관 Diplomatic&nbsp;&nbsp; ${mark(values.passportType,'관용')} 관용 Official&nbsp;&nbsp; ${mark(values.passportType,'일반')} 일반 Regular&nbsp;&nbsp; ${mark(values.passportType,'기타')} 기타 Other (${val(values,'passportTypeOther')})</td></tr>
+              <tr><th>2.2 여권번호 Passport No.</th><td>${val(values,'passportNo')}</td><th>2.3 발급국가 Country of Passport</th><td>${val(values,'passportCountry')}</td></tr>
+              <tr><th>2.4 발급지 Place of Issue</th><td>${val(values,'passportPlace')}</td><th>2.5 발급일자 Date of Issue</th><td>${val(values,'passportIssueDate')}</td></tr>
+              <tr><th>2.6 기간만료일 Date of Expiry</th><td>${val(values,'passportExpiry')}</td><th>2.7 다른 여권 소지 여부</th><td>${mark(values.otherValidPassport,'아니오')} No&nbsp;&nbsp; ${mark(values.otherValidPassport,'예')} Yes</td></tr>
+              <tr><th>다른 여권 정보</th><td colspan="3">종류 ${val(values,'otherPassportType')} / 번호 ${val(values,'otherPassportNo')} / 발급국가 ${val(values,'otherPassportCountry')} / 만료일 ${val(values,'otherPassportExpiry')}</td></tr>
+            </table><div class="paper-spec">210㎜×297㎜ [백상지(80g/㎡) 또는 중질지(80g/㎡)]</div></section>
+          <section class="official-page official-page--visa">${visaPageTitle(2)}<table class="paper-table visa-table"><colgroup><col style="width:25%"><col style="width:25%"><col style="width:25%"><col style="width:25%"></colgroup>${visaSection('3','연락처 / CONTACT INFORMATION')}
+              <tr><th>3.1 본국 주소</th><td colspan="3">${valBr(values,'homeCountryAddress')}</td></tr><tr><th>3.2 현 거주지</th><td colspan="3">${valBr(values,'currentAddress')}</td></tr>
+              <tr><th>3.3 휴대전화</th><td>${val(values,'cellPhone')}</td><th>3.4 일반전화</th><td>${val(values,'telephone')}</td></tr><tr><th>3.5 이메일</th><td colspan="3">${val(values,'email')}</td></tr>
+              <tr><th>3.6 비상시 연락처</th><td>성명 ${val(values,'emergencyName')}</td><td>거주국가 ${val(values,'emergencyCountry')}</td><td>전화 ${val(values,'emergencyPhone')} / 관계 ${val(values,'emergencyRelationship')}</td></tr>
+              ${visaSection('4','혼인사항 및 가족사항 / MARITAL STATUS AND FAMILY DETAILS')}
+              <tr><th>4.1 현재 혼인사항</th><td colspan="3">${mark(values.maritalStatus,'기혼')} 기혼 Married&nbsp;&nbsp; ${mark(values.maritalStatus,'이혼')} 이혼 Divorced&nbsp;&nbsp; ${mark(values.maritalStatus,'미혼')} 미혼 Single</td></tr>
+              <tr><th>4.2 배우자 인적사항</th><td>성 ${val(values,'spouseFamilyName')} / 명 ${val(values,'spouseGivenNames')}</td><td>생년월일 ${val(values,'spouseDob')} / 국적 ${val(values,'spouseNationality')}</td><td>연락처 ${val(values,'spouseContact')}</td></tr><tr><th>배우자 거주지</th><td colspan="3">${valBr(values,'spouseAddress')}</td></tr>
+              <tr><th>4.3 자녀 유무</th><td colspan="3">${mark(values.hasChildren,'없음')} 없음 No&nbsp;&nbsp; ${mark(values.hasChildren,'있음')} 있음 Yes&nbsp;&nbsp; 자녀수 ${val(values,'childrenCount')}</td></tr>
+              ${visaSection('5','학력 / EDUCATION')}
+              <tr><th>5.1 최종학력</th><td colspan="3">${mark(values.educationLevel,'석사/박사')} 석사/박사&nbsp;&nbsp; ${mark(values.educationLevel,'대졸')} 대졸&nbsp;&nbsp; ${mark(values.educationLevel,'고졸')} 고졸&nbsp;&nbsp; ${mark(values.educationLevel,'기타')} 기타 (${val(values,'educationOther')})</td></tr><tr><th>5.2 학교명</th><td>${val(values,'schoolName')}</td><th>5.3 학교 소재지</th><td>${val(values,'schoolLocation')}</td></tr>
+              ${visaSection('6','직업 / EMPLOYMENT')}
+              <tr><th>6.1 직업</th><td colspan="3">${mark(values.employmentStatus,'사업가')} 사업가&nbsp; ${mark(values.employmentStatus,'자영업자')} 자영업&nbsp; ${mark(values.employmentStatus,'직장인')} 직장인&nbsp; ${mark(values.employmentStatus,'공무원')} 공무원&nbsp; ${mark(values.employmentStatus,'학생')} 학생&nbsp; ${mark(values.employmentStatus,'퇴직자')} 퇴직&nbsp; ${mark(values.employmentStatus,'무직')} 무직&nbsp; ${mark(values.employmentStatus,'기타')} 기타 (${val(values,'employmentOther')})</td></tr>
+              <tr><th>6.2 직업 상세정보</th><td>회사/기관/학교명 ${val(values,'organizationName')}</td><td>직위/과정 ${val(values,'positionCourse')}</td><td>전화번호 ${val(values,'organizationPhone')}</td></tr><tr><th>주소</th><td colspan="3">${valBr(values,'organizationAddress')}</td></tr>
+            </table><div class="paper-spec">210㎜×297㎜ [백상지(80g/㎡) 또는 중질지(80g/㎡)]</div></section>
+          <section class="official-page official-page--visa">${visaPageTitle(3)}<table class="paper-table visa-table"><colgroup><col style="width:25%"><col style="width:25%"><col style="width:25%"><col style="width:25%"></colgroup>${visaSection('7','방문정보 / DETAILS OF VISIT')}
+              <tr><th>7.1 입국목적</th><td colspan="3" class="paper-options visa-purpose">${['관광/통과','행사참석','의료관광','단기상용','유학/연수','취업활동','무역/투자/주재','가족 또는 친지방문','결혼이민','외교/공무','기타'].map(o=>`${mark(values.visitPurposes,o)} ${o}`).join('&nbsp;&nbsp;')}<br>기타: ${val(values,'visitPurposeOther')} / 직업코드 ${val(values,'occupationCode')} / 산업코드 ${val(values,'industryCode')}</td></tr>
+              <tr><th>7.2 체류예정기간</th><td>${val(values,'intendedStayPeriod')}</td><th>7.3 입국예정일</th><td>${val(values,'intendedEntryDate')}</td></tr><tr><th>7.4 체류예정지(호텔 포함)</th><td colspan="3">${valBr(values,'addressInKorea')}</td></tr><tr><th>7.5 한국 내 연락처</th><td colspan="3">${val(values,'contactInKorea')}</td></tr>
+              <tr><th>7.6 과거 5년간 한국 방문 경력</th><td colspan="3">${mark(values.visitedKorea5Years,'아니오')} 아니오 No&nbsp;&nbsp; ${mark(values.visitedKorea5Years,'예')} 예 Yes / ${val(values,'koreaVisitCount')}회 / 최근 방문목적 ${val(values,'recentKoreaVisitPurpose')}</td></tr>
+              <tr><th>7.7 한국 외 과거 5년 여행 국가</th><td colspan="3" class="paper-value-large">${valBr(values,'otherCountries5Years')}</td></tr>
+              <tr><th>7.8 국내 체류 가족</th><td colspan="3" class="paper-value-large">${valBr(values,'familyInKorea')}</td></tr><tr><th>7.9 동반입국 가족</th><td colspan="3" class="paper-value-large">${valBr(values,'accompanyingFamily')}</td></tr>
+            </table><div class="paper-spec">210㎜×297㎜ [백상지(80g/㎡) 또는 중질지(80g/㎡)]</div></section>
+          <section class="official-page official-page--visa">${visaPageTitle(4)}<table class="paper-table visa-table"><colgroup><col style="width:25%"><col style="width:25%"><col style="width:25%"><col style="width:25%"></colgroup>${visaSection('8','서류 작성 시 도움 여부 / ASSISTANCE WITH THIS FORM')}
+              <tr><th>8.1 다른 사람의 도움을 받았습니까?</th><td colspan="3">${mark(values.assistanceUsed,'아니오')} 아니오 No&nbsp;&nbsp; ${mark(values.assistanceUsed,'예')} 예 Yes</td></tr><tr><th>도움 제공자</th><td>성명 ${val(values,'assistantName')}</td><td>생년월일 ${val(values,'assistantDob')}</td><td>전화 ${val(values,'assistantPhone')} / 관계 ${val(values,'assistantRelationship')}</td></tr>
+              ${visaSection('9','초청 정보 / DETAILS OF INVITATION')}
+              <tr><th>9.1 초청인/초청회사</th><td colspan="3">${mark(values.invitationExists,'아니오')} 아니오 No&nbsp;&nbsp; ${mark(values.invitationExists,'예')} 예 Yes</td></tr><tr><th>초청인/회사명</th><td>${val(values,'inviterName')}</td><th>생년월일/사업자등록번호</th><td>${val(values,'inviterIdentityNo')}</td></tr><tr><th>관계</th><td>${val(values,'inviterRelationship')}</td><th>전화번호</th><td>${val(values,'inviterPhone')}</td></tr><tr><th>주소</th><td colspan="3">${valBr(values,'inviterAddress')}</td></tr>
+              <tr><td colspan="4" class="visa-declaration">「출입국관리법 시행규칙」 제17조제2항에 따라 위 외국인에 대한 사증발급인정서를 신청합니다.<br>I hereby apply for Certificate of Visa Eligibility for the applicant in accordance with Article 17(2) of the Enforcement Regulations of the Immigration Act.<br><br>신청일자 DATE OF APPLICATION: <b>${app.y}/${String(app.m).padStart(2,'0')}/${String(app.d).padStart(2,'0')}</b><br>신청인(초청인) 성명: <b>${val(values,'inviterSignatureName')}</b>&nbsp;&nbsp;&nbsp;&nbsp; 서명(인) ____________________</td></tr>
+              <tr class="paper-grey"><th colspan="4">행정정보 공동이용 동의서 / Consent for sharing of administrative information</th></tr><tr><td colspan="4" class="fine-print">[초청인용 Only for INVITING PERSON] 본인은 이 건 업무처리와 관련하여 담당 공무원이 「전자정부법」 제36조에 따른 행정정보의 공동이용을 통하여 담당 공무원 확인 사항을 확인하는 것에 ${val(values,'adminInfoConsent')} 합니다.<br>신청인 성명 NAME OF APPLICANT: <b>${val(values,'consentApplicantName')}</b>&nbsp;&nbsp;&nbsp; 서명(인) ____________________</td></tr>
+            </table><div class="paper-spec">210㎜×297㎜ [백상지(80g/㎡) 또는 중질지(80g/㎡)]</div></section>
+          <section class="official-page official-page--visa">${visaPageTitle(5)}<h3 class="visa-notice-title">유의사항 / Notice</h3><ol class="visa-notice-list"><li>위 기재사항과 관련하여 자세한 내용은 별지로 작성하거나 관련 서류를 추가로 제출할 수 있습니다.<br><small>If extra space is needed to complete any item, record on a separate sheet of paper or submit relevant documents which could support your application.</small></li><li>대한민국 사증을 승인받은 후 분실 또는 훼손 등의 사유로 여권을 새로 발급받은 경우에는 변경된 여권정보를 사증처리기관에 통보하여야 합니다.<br><small>If you received Korean visa approval and have a new passport issued thereafter, you must notify the concerned visa office of changes in your passport information.</small></li><li>「출입국관리법 시행규칙」 제9조제1항에 따라 C 계열 사증소지자는 입국 후에 체류자격을 변경할 수 없습니다.</li><li>사증심사에 필요한 관련 서류 제출 요구에 따르지 않는 경우, 사증심사가 지연되거나 신청이 불허될 수 있습니다.</li><li>사증발급인정서 발급의 신청 결과는 대한민국 비자포털에서 확인하여야 합니다.</li></ol><table class="paper-table visa-table"><colgroup><col style="width:25%"><col style="width:25%"><col style="width:25%"><col style="width:25%"></colgroup><tr class="paper-grey"><th colspan="4">공용란 / FOR OFFICIAL USE ONLY</th></tr><tr><th>기본사항</th><td>체류자격 __________</td><td>체류기간 __________</td><td>사증종류 __________</td></tr><tr><th>접수사항</th><td>접수일자 __________</td><td>접수번호 __________</td><td>처리과 __________</td></tr><tr><th>허가사항</th><td>허가일자 __________</td><td>인정번호 __________</td><td>고지사항 __________</td></tr><tr><th>결 재</th><td>담당자 __________</td><td>가 ☐ / 부 ☐</td><td>&lt;심사의견&gt;</td></tr><tr class="paper-grey"><th colspan="4">처리절차 / Procedure</th></tr><tr><td>인정신청서 작성<br>Application</td><td>접 수<br>Reception</td><td>심 사 / 결과통지<br>Assessment / Notification</td><td>사증신청 및 발급<br>Visa Application and Issuance</td></tr></table><div class="paper-spec">210㎜×297㎜ [백상지(80g/㎡) 또는 중질지(80g/㎡)]</div></section>
+        </div>`;
+      };
+      const documentBody=(values)=> formType==='거주숙소제공확인서'?residenceDocument(values):formType==='통합신청서신고서'?integratedDocument(values):visaDocument(values);
+      const printCss=`@page{size:A4 portrait;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;color:#111;font-family:Arial,"Noto Sans KR","Malgun Gothic",sans-serif}.official-document-stack{background:#fff}.official-page{position:relative;width:210mm;min-height:297mm;padding:12mm 18mm 9mm;margin:0 auto;background:#fff;break-after:page;page-break-after:always}.official-page:last-child{break-after:auto;page-break-after:auto}.official-title{text-align:center;margin:2mm 0 4mm}.official-title h1{font-size:19pt;margin:0;font-weight:800;letter-spacing:.04em}.official-title h2{font-size:12pt;margin:1mm 0 0;font-weight:700}.official-title.compact h1{font-size:17pt}.official-title.compact h2{font-size:11pt}.paper-record-no{text-align:right;font-size:8pt;margin:-2mm 0 1mm}.paper-table{width:100%;border-collapse:collapse;table-layout:fixed}.paper-table th,.paper-table td{border:0.65pt solid #111;padding:2.2mm 2mm;vertical-align:middle;font-size:8.5pt;line-height:1.25;word-break:keep-all;overflow-wrap:anywhere}.paper-table th{font-weight:600;text-align:center}.paper-table small{font-size:7.2pt;line-height:1.15}.paper-section-row th,.visa-section th{background:#e5e5e5;text-align:left;font-size:9.5pt;font-weight:800;padding:2mm}.paper-spacer td{height:2.2mm;padding:0;border-left:.65pt solid #111;border-right:.65pt solid #111}.paper-subcell{padding:0!important}.paper-subcell hr{border:0;border-top:.65pt solid #111;margin:1.5mm -2mm}.paper-value-large{height:12mm}.paper-options{line-height:1.55}.paper-inline-value{display:inline-block;min-width:22mm;border-bottom:.45pt solid #555;margin-left:2mm}.paper-centered{text-align:center}.residence-confirmation{text-align:center;padding:5mm 4mm!important;line-height:1.7!important}.confirmation-date{margin:4mm 0 3mm}.signature-lines{text-align:right;padding-right:9mm;line-height:2}.office-destination{display:block;margin-top:4mm;font-size:10pt}.residence-notes{font-size:7.2pt!important;line-height:1.45!important;text-align:left!important}.paper-spec{text-align:right;font-size:6.5pt;margin-top:1mm}.form-lawline{font-size:7.3pt;margin-bottom:2mm}.form-lawline span{float:right}.form-instruction{font-size:7.2pt;margin:0 0 1.5mm}.integrated-table th,.integrated-table td{font-size:6.8pt;padding:1.1mm 1.2mm;line-height:1.1}.integrated-table th{width:auto}.integrated-application-head th{text-align:left;font-size:8pt}.photo-box{text-align:center;vertical-align:top!important;width:25mm}.fine-print{font-size:6.3pt!important;line-height:1.2!important}.paper-grey th{background:#d7d7d7;font-weight:800}.paper-footer-note{font-size:6.3pt;border-bottom:.65pt solid #111;padding:1mm 0}.visa-instructions{border-top:.7pt solid #111;border-bottom:.7pt solid #111;padding:2mm 0;margin-bottom:2mm;font-size:7.2pt;line-height:1.35}.visa-table th,.visa-table td{font-size:7.4pt;padding:1.6mm 1.6mm;line-height:1.2}.visa-photo{height:32mm}.visa-declaration{text-align:center;line-height:1.55!important;padding:5mm!important}.visa-notice-title{font-size:11pt;margin:2mm 0 3mm}.visa-notice-list{font-size:8pt;line-height:1.45;padding-left:6mm;margin:0 0 5mm}.visa-notice-list li{margin-bottom:3mm}.visa-notice-list small{font-size:7pt}.visa-purpose{line-height:1.7!important}@media print{.official-page{box-shadow:none;margin:0}.official-page:last-child{break-after:auto}}`;
       const documentHtml=(values,withShell=true)=>{
-        const sections=printableSections(values);
-        const inner=`<article class="official-document">
-          <header><h1>${esc(typeTitles[formType])}</h1>${recordNo?`<p class="record-no">관리번호 ${esc(recordNo)}</p>`:''}</header>
-          ${sections.map(section=>`<section>${section.title?`<h2>${esc(section.title)}</h2>`:''}<table>${section.rows.map(row=>`<tr><th>${esc(row.label)}</th><td>${esc(String(row.value||'')).replace(/\n/g,'<br>')}</td></tr>`).join('')}</table></section>`).join('')}
-          <p class="print-note">본 문서는 종단관리시스템에서 작성·출력한 웹 작성본입니다. 제출 전 관할 출입국·외국인관서의 최신 서식 및 필수 첨부서류를 확인하십시오.</p>
-        </article>`;
+        const inner=`<div class="official-document-stack">${documentBody(values)}</div>`;
         if(!withShell)return inner;
-        return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(typeShort[formType])}</title><style>
-          @page{size:A4;margin:12mm}*{box-sizing:border-box}body{font-family:Arial,"Noto Sans KR",sans-serif;color:#111;margin:0}.official-document{max-width:186mm;margin:0 auto}.official-document header{text-align:center;margin-bottom:14px}.official-document h1{font-size:19px;margin:0 0 6px;line-height:1.35}.record-no{font-size:11px;text-align:right}.official-document h2{font-size:13px;background:#f1f3f5;border:1px solid #222;border-bottom:0;padding:6px;margin:10px 0 0}.official-document table{width:100%;border-collapse:collapse;table-layout:fixed}.official-document th,.official-document td{border:1px solid #222;padding:6px;vertical-align:top;font-size:11px;line-height:1.45}.official-document th{width:39%;background:#fafafa;text-align:left}.print-note{font-size:9px;color:#555;margin-top:10px}</style></head><body>${inner}</body></html>`;
+        return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(typeShort[formType])}</title><style>${printCss}</style></head><body>${inner}</body></html>`;
       };
       const eventForRecord=async(event)=>{
         if(!recordId)return;
@@ -483,7 +613,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         const rows=currentRows.map(r=>[r.record_no,r.created_at,typeShort[r.form_type]||r.form_type,r.subject_name,r.nationality,r.created_by_name,r.print_count,r.download_count,r.status]);
         const csvSafe=(value)=>{const text=String(value??'');return /^[\s]*[=+\-@]/.test(text)?`'${text}`:text;};
         const csv=[headers,...rows].map(row=>row.map(v=>`"${csvSafe(v).replaceAll('\"','\"\"')}"`).join(',')).join('\r\n');
-        const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='외국인신청서_작성대장.csv';a.click();URL.revokeObjectURL(url);
+        const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='출입국신청서_작성대장.csv';a.click();URL.revokeObjectURL(url);
       });
 
       renderForm({});
@@ -492,7 +622,11 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
   </script>
 
   <style>
-    .foreign-form-panel,.foreign-ledger{margin-bottom:1.2rem}.foreign-form-title{align-items:flex-start}.foreign-form-selector{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem;margin:1rem 0 1.15rem}.form-type-card{border:1px solid #cbd5e1;background:#fff;border-radius:6px;padding:.8rem;text-align:left;cursor:pointer;min-height:78px}.form-type-card strong,.form-type-card span{display:block}.form-type-card span{font-size:.74rem;color:#64748b;margin-top:.25rem;line-height:1.35}.form-type-card.active{border:2px solid var(--gov-accent);background:#eef4ff;color:var(--gov-accent)}.official-form-downloads{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin:-.25rem 0 1rem}.official-form-downloads strong{font-size:.78rem;color:#526174}.official-form-downloads .btn{padding:.4rem .55rem;font-size:.75rem}.record-banner{display:flex;gap:.7rem;align-items:center;border:1px solid #b8c8dd;background:#f4f7fb;padding:.6rem .75rem;margin-bottom:.8rem}.record-banner span{font-size:.78rem;color:#526174}.record-banner strong{font-size:.88rem}.record-banner em{font-style:normal;font-size:.74rem;background:#e8effe;padding:.18rem .45rem;border-radius:999px}.foreign-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.foreign-section-title{grid-column:1/-1;margin:.65rem 0 0;border-bottom:2px solid #345b8c;padding:.48rem .15rem;font-size:1rem;color:#24486f}.form-field--wide{grid-column:1/-1}.form-field b{color:#b42318}.form-field textarea{resize:vertical}.field-label{font-weight:700;font-size:.84rem;margin-bottom:.35rem}.check-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.35rem .7rem;padding:.65rem;border:1px solid var(--gov-border);background:#fafbfd}.check-grid label{display:flex;gap:.4rem;font-size:.82rem;align-items:flex-start}.foreign-actions{justify-content:flex-end;flex-wrap:wrap}.foreign-ledger-filters{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}.foreign-ledger-table{min-width:1120px}.foreign-ledger-table th,.foreign-ledger-table td{font-size:.78rem}.manage-cell{display:flex;gap:.25rem}.status-pill{display:inline-block;padding:.18rem .45rem;background:#e7f6ec;color:#1d6b36;border-radius:999px;font-size:.72rem}.status-pill--cancel{background:#fce8e6;color:#9b1c1c}.foreign-preview-modal{width:min(1000px,94vw);max-height:92vh;overflow:auto}.official-document{background:#fff;color:#111;padding:12mm;box-shadow:0 1px 7px rgba(0,0,0,.12);font-family:Arial,"Noto Sans KR",sans-serif}.official-document header{text-align:center;margin-bottom:14px}.official-document h1{font-size:19px;line-height:1.35}.official-document .record-no{text-align:right;font-size:11px}.official-document h2{font-size:13px;background:#f1f3f5;border:1px solid #222;border-bottom:0;padding:6px;margin:10px 0 0}.official-document table{width:100%;border-collapse:collapse;table-layout:fixed}.official-document th,.official-document td{border:1px solid #222;padding:6px;vertical-align:top;font-size:11px;line-height:1.45}.official-document th{width:39%;background:#fafafa;text-align:left}.print-note{font-size:9px;color:#555;margin-top:10px}
-    @media(max-width:900px){.foreign-form-selector{grid-template-columns:1fr}.foreign-form-grid{grid-template-columns:1fr}.form-field--wide,.foreign-section-title{grid-column:1}.check-grid{grid-template-columns:1fr}}
+    .foreign-form-panel,.foreign-ledger{margin-bottom:1.2rem}.foreign-form-title{align-items:flex-start}.foreign-form-selector{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem;margin:1rem 0 .65rem}.form-type-card{border:1px solid #cbd5e1;background:#fff;border-radius:7px;padding:.9rem;text-align:left;cursor:pointer;min-height:82px;transition:border-color .15s ease,box-shadow .15s ease,background .15s ease}.form-type-card:hover{border-color:#7e9fc5;box-shadow:0 2px 8px #315f9f14}.form-type-card strong,.form-type-card span{display:block}.form-type-card span{font-size:.74rem;color:#64748b;margin-top:.28rem;line-height:1.35}.form-type-card.active{border:2px solid var(--gov-accent);background:#eef4ff;color:var(--gov-accent)}.form-selector-actions{display:flex;justify-content:flex-end;margin:0 0 1rem}.record-banner{display:flex;gap:.7rem;align-items:center;border:1px solid #b8c8dd;background:#f4f7fb;padding:.6rem .75rem;margin-bottom:.9rem}.record-banner span{font-size:.78rem;color:#526174}.record-banner strong{font-size:.88rem}.record-banner em{font-style:normal;font-size:.74rem;background:#e8effe;padding:.18rem .45rem;border-radius:999px}
+    .foreign-form-sections{display:grid;gap:1rem}.foreign-input-section{border:1px solid #ccd7e5;border-radius:8px;background:#fbfcfe;overflow:hidden}.foreign-section-title{display:flex;align-items:center;gap:.5rem;margin:0;padding:.72rem .85rem;border-bottom:1px solid #b9c8da;background:#edf3fa;font-size:1rem;color:#24486f}.foreign-section-number{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;border-radius:50%;background:#315f9f;color:#fff;font-size:.86rem}.foreign-form-grid{grid-template-columns:repeat(2,minmax(0,1fr));padding:.9rem;align-items:start}.form-field--wide{grid-column:1/-1}.form-field b{color:#b42318}.form-field textarea{resize:vertical}.field-label{font-weight:700;font-size:.84rem;margin-bottom:.35rem}.check-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.45rem .8rem;padding:.7rem;border:1px solid var(--gov-border);border-radius:5px;background:#fff}.check-grid label{display:flex;gap:.45rem;font-size:.82rem;align-items:flex-start;line-height:1.35}.check-grid input{min-height:0;margin-top:.12rem}.foreign-actions{display:flex;justify-content:flex-end;align-items:center;gap:.75rem;flex-wrap:wrap;margin-top:1rem}.foreign-actions .btn{min-width:110px}
+    .ledger-section-title{display:block;margin-bottom:.8rem}.ledger-controls{display:grid;gap:.75rem;margin-bottom:.8rem}.foreign-ledger-filters{display:flex;align-items:center;gap:.5rem;flex-wrap:nowrap;width:100%}.foreign-ledger-filters>select:first-child{min-width:155px}.foreign-ledger-filters>select:nth-child(2){min-width:110px}.foreign-ledger-filters>[data-ledger-query]{flex:1;min-width:220px}.foreign-ledger-filters>[data-ledger-size]{width:82px;flex:none}.filter-date-range{display:flex;align-items:center;gap:.35rem;white-space:nowrap}.filter-date-label{font-size:.78rem;font-weight:700;color:#526174}.filter-date-range input[type=date]{width:145px;min-width:145px}.filter-date-separator{color:#607086;font-weight:700}.official-form-downloads{display:flex;align-items:center;justify-content:flex-end;gap:.5rem;flex-wrap:wrap;margin-left:auto}.official-form-downloads strong{font-size:.78rem;color:#526174;margin-right:.1rem}.official-form-downloads .btn{padding:.42rem .62rem;font-size:.75rem}.foreign-ledger-table{min-width:1120px}.foreign-ledger-table th,.foreign-ledger-table td{font-size:.78rem}.manage-cell{display:flex;justify-content:center;gap:.3rem}.status-pill{display:inline-block;padding:.18rem .45rem;background:#e7f6ec;color:#1d6b36;border-radius:999px;font-size:.72rem}.status-pill--cancel{background:#fce8e6;color:#9b1c1c}
+    .foreign-preview-modal{width:min(1180px,96vw);max-height:94vh;overflow:auto}.foreign-preview-modal .modal__body{background:#e5e9ef;padding:1.3rem;overflow:auto}.foreign-preview-modal .official-document-stack{display:grid;gap:1.2rem;justify-content:center}.official-page{position:relative;width:210mm;min-height:297mm;padding:12mm 18mm 9mm;margin:0 auto;background:#fff;color:#111;box-shadow:0 3px 16px rgba(0,0,0,.18);font-family:Arial,"Noto Sans KR","Malgun Gothic",sans-serif}.official-title{text-align:center;margin:2mm 0 4mm}.official-title h1{font-size:19pt;margin:0;font-weight:800;letter-spacing:.04em}.official-title h2{font-size:12pt;margin:1mm 0 0;font-weight:700}.official-title.compact h1{font-size:17pt}.official-title.compact h2{font-size:11pt}.paper-record-no{text-align:right;font-size:8pt;margin:-2mm 0 1mm}.paper-table{width:100%;border-collapse:collapse;table-layout:fixed}.paper-table th,.paper-table td{border:0.65pt solid #111;padding:2.2mm 2mm;vertical-align:middle;font-size:8.5pt;line-height:1.25;word-break:keep-all;overflow-wrap:anywhere}.paper-table th{font-weight:600;text-align:center}.paper-table small{font-size:7.2pt;line-height:1.15}.paper-section-row th,.visa-section th{background:#e5e5e5;text-align:left;font-size:9.5pt;font-weight:800;padding:2mm}.paper-spacer td{height:2.2mm;padding:0;border-left:.65pt solid #111;border-right:.65pt solid #111}.paper-subcell{padding:0!important}.paper-subcell hr{border:0;border-top:.65pt solid #111;margin:1.5mm -2mm}.paper-value-large{height:12mm}.paper-options{line-height:1.55}.paper-inline-value{display:inline-block;min-width:22mm;border-bottom:.45pt solid #555;margin-left:2mm}.paper-centered{text-align:center}.residence-confirmation{text-align:center;padding:5mm 4mm!important;line-height:1.7!important}.confirmation-date{margin:4mm 0 3mm}.signature-lines{text-align:right;padding-right:9mm;line-height:2}.office-destination{display:block;margin-top:4mm;font-size:10pt}.residence-notes{font-size:7.2pt!important;line-height:1.45!important;text-align:left!important}.paper-spec{text-align:right;font-size:6.5pt;margin-top:1mm}.form-lawline{font-size:7.3pt;margin-bottom:2mm}.form-lawline span{float:right}.form-instruction{font-size:7.2pt;margin:0 0 1.5mm}.integrated-table th,.integrated-table td{font-size:6.8pt;padding:1.1mm 1.2mm;line-height:1.1}.integrated-table th{width:auto}.integrated-application-head th{text-align:left;font-size:8pt}.photo-box{text-align:center;vertical-align:top!important;width:25mm}.fine-print{font-size:6.3pt!important;line-height:1.2!important}.paper-grey th{background:#d7d7d7;font-weight:800}.paper-footer-note{font-size:6.3pt;border-bottom:.65pt solid #111;padding:1mm 0}.visa-instructions{border-top:.7pt solid #111;border-bottom:.7pt solid #111;padding:2mm 0;margin-bottom:2mm;font-size:7.2pt;line-height:1.35}.visa-table th,.visa-table td{font-size:7.4pt;padding:1.6mm 1.6mm;line-height:1.2}.visa-photo{height:32mm}.visa-declaration{text-align:center;line-height:1.55!important;padding:5mm!important}.visa-notice-title{font-size:11pt;margin:2mm 0 3mm}.visa-notice-list{font-size:8pt;line-height:1.45;padding-left:6mm;margin:0 0 5mm}.visa-notice-list li{margin-bottom:3mm}.visa-notice-list small{font-size:7pt}.visa-purpose{line-height:1.7!important}
+    @media(max-width:1200px){.foreign-ledger-filters{flex-wrap:wrap}.foreign-ledger-filters>[data-ledger-query]{min-width:260px;flex:1}.official-form-downloads{justify-content:flex-end}.filter-date-range{order:3}.foreign-ledger-filters>[data-ledger-query]{order:4}.foreign-ledger-filters>[data-ledger-size],.foreign-ledger-filters>[data-ledger-search],.foreign-ledger-filters>[data-ledger-export]{order:5}}
+    @media(max-width:900px){.foreign-form-selector{grid-template-columns:1fr}.foreign-form-grid{grid-template-columns:1fr}.form-field--wide{grid-column:1}.check-grid{grid-template-columns:1fr}.foreign-actions{gap:.5rem}.foreign-actions .btn{flex:1;min-width:145px}.foreign-ledger-filters{display:grid;grid-template-columns:1fr 1fr}.foreign-ledger-filters>*{width:100%!important;min-width:0!important}.filter-date-range{grid-column:1/-1}.foreign-ledger-filters>[data-ledger-query]{grid-column:1/-1}.official-form-downloads{justify-content:flex-end}.official-page{transform-origin:top center;zoom:.78}}
   </style>
 </ManagementLayout>
