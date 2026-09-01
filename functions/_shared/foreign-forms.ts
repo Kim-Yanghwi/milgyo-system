@@ -17,8 +17,10 @@ export const FOREIGN_FORM_TITLES: Record<ForeignFormType, string> = {
 export const isForeignFormType = (value: string): value is ForeignFormType =>
   FOREIGN_FORM_TYPES.includes(value as ForeignFormType);
 
-const normalizeDateLikeValue = (value: string) =>
-  /^(\d{4}-\d{2}-\d{2})(?:\s*\([^)]*\))?$/.test(value) ? value.replace(/\s*\([^)]*\)\s*$/, '') : value;
+const normalizeDateLikeValue = (value: string) => {
+  const match = /^(\d{4}-\d{2}-\d{2})(?:\s*\([^)]*\)|0)?$/.exec(value);
+  return match ? match[1] : value;
+};
 
 const sanitizeScalar = (value: unknown, maxLength = 3000) => {
   if (typeof value === 'boolean') return value;
