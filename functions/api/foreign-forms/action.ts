@@ -31,8 +31,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const snapshotJson = JSON.stringify(snapshot);
     if (snapshotJson.length > 120_000) return json({ ok: false, message: '작성 내용이 너무 큽니다.' }, 413);
 
-    const subjectName = deriveForeignSubject(formType, snapshot);
-    if (!subjectName) return json({ ok: false, message: '신청인 또는 외국인 성명을 입력해 주세요.' }, 400);
+    const subjectName = deriveForeignSubject(formType, snapshot) || '';
     const nationality = deriveForeignNationality(snapshot);
     const existingId = clean(body.id, 80);
     const now = new Date().toISOString();
