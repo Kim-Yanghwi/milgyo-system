@@ -3,7 +3,7 @@ import GovLayout from '../layouts/GovLayout.astro';
 import AccountingHeader from '../components/AccountingHeader.astro';
 ---
 <GovLayout title="회계 첨부파일 운영·점검·정책 | 대한불교밀교종">
-  <div class="file-admin" data-app data-accounting-files-ui-version="2026-08-21-v81-integrated-stabilization" hidden>
+  <div class="file-admin" data-app data-accounting-files-ui-version="2026-09-01-v91-7-immigration-reset-integration" hidden>
     <AccountingHeader current="governance" title="회계관리시스템" homeHref="/accounting-files/?domain=governance" />
     <main>
       <div class="notice" data-notice hidden></div>
@@ -42,12 +42,12 @@ import AccountingHeader from '../components/AccountingHeader.astro';
 
 
       <section class="card reset-card">
-        <div class="card-head"><div><h2>테스트자료 일괄 초기화</h2><p>전자문서·대장·증명서와 회계·예산·결산, 자금·거래관리, 기부·자산·기관회계, 계약·조달·준법, 세무·신고 자료 및 관련 번호·로그까지 현행 기능 기준으로 한 번에 정리합니다.</p></div><span class="badge danger-badge">최고관리자 전용</span></div>
+        <div class="card-head"><div><h2>테스트자료 일괄 초기화</h2><p>전자문서·대장·증명서·출입국 신청서와 회계·예산·결산, 자금·거래관리, 기부·자산·기관회계, 계약·조달·준법, 세무·신고 자료 및 관련 번호·로그까지 현행 기능 기준으로 한 번에 정리합니다.</p></div><span class="badge danger-badge">최고관리자 전용</span></div>
         <div class="reset-warning" role="note" aria-label="테스트자료 초기화 주의사항">
           <b class="reset-warning-label">주의:</b>
           <div class="reset-warning-lines">
             <p>운영자료가 포함된 상태에서는 실행하면 안 됩니다. 사용자·권한·로그인 세션, 전자문서 기본서식, 종단 설정, 회계연도, 기본 계정과목·회계구분·재원·종단 본부, 첨부 운영정책은 보존됩니다.</p>
-            <p>D1·R2의 업무자료·세무 제출흔적·계약·조달·준법 자료·감사이력·첨부 작업기록·번호흔적은 삭제되지만 Cloudflare 플랫폼의 배포·접속 로그는 이 기능의 삭제 범위가 아닙니다.</p>
+            <p>출입국 신청서 3종(거주/숙소제공확인서, 통합신청서(신고서), 사증발급인정신청서)의 작성이력도 삭제 대상에 포함됩니다. D1·R2의 업무자료·세무 제출흔적·계약·조달·준법 자료·감사이력·첨부 작업기록·번호흔적은 삭제되지만 Cloudflare 플랫폼의 배포·접속 로그는 이 기능의 삭제 범위가 아닙니다.</p>
           </div>
         </div>
         <div class="actions reset-preview-actions"><button class="btn" type="button" data-preview-test-reset>삭제 대상 미리보기</button></div>
@@ -102,7 +102,7 @@ import AccountingHeader from '../components/AccountingHeader.astro';
         const metric=(label,value,unit='건')=>`<span class="reset-metric"><span>${esc(label)}</span><b>${Number(value||0).toLocaleString()}${esc(unit)}</b></span>`;
         const group=(title,tone,items)=>`<section class="reset-preview-row ${tone}"><h3>${esc(title)}</h3><div class="reset-metrics">${items.join('')}</div></section>`;
         const groups=[
-          group('전자문서·대장·증명서','main',[metric('기안문서',main.documents),metric('접수·발송대장',main.receivedDocuments),metric('전자문서 첨부',main.attachments),metric('대장 신청',main.registers),metric('대장 첨부',main.registerAttachments),metric('재직증명서',main.employmentCertificates),metric('수계증서',main.ordinationCertificates),metric('임직원 추가정보',main.employeeProfiles),metric('R2',main.r2Objects,'개')]),
+          group('전자문서·대장·증명서·출입국','main',[metric('기안문서',main.documents),metric('접수·발송대장',main.receivedDocuments),metric('전자문서 첨부',main.attachments),metric('대장 신청',main.registers),metric('대장 첨부',main.registerAttachments),metric('재직증명서',main.employmentCertificates),metric('수계증서',main.ordinationCertificates),metric('거주/숙소제공확인서',main.foreignResidenceForms),metric('통합신청서(신고서)',main.foreignIntegratedForms),metric('사증발급인정신청서',main.foreignVisaEligibilityForms),metric('임직원 추가정보',main.employeeProfiles),metric('R2',main.r2Objects,'개')]),
           group('회계·예산·결산','core',[metric('결의',accounting.resolutions),metric('전표',accounting.journals),metric('예산변경·버전',Number(accounting.budgetChanges||0)+Number(accounting.budgetVersions||0)),metric('회계조직',accounting.customEntities),metric('재원',accounting.customFunds),metric('회계구분',accounting.customBookTypes),metric('사용자 계정과목',accounting.customAccounts)]),
           group('자금·거래관리','cash',[metric('대사계좌·가져오기',Number(accounting.bankAccounts||0)+Number(accounting.importBatches||0)+Number(accounting.importTransactions||0)),metric('자동분류·월대사',Number(accounting.matchingRules||0)+Number(accounting.reconciliations||0)),metric('법인카드·사용내역',Number(accounting.cards||0)+Number(accounting.cardTransactions||0)),metric('카드대금 지급',accounting.cardPayments)]),
           group('기부·자산·기관회계','giving',[metric('기부',accounting.donations),metric('후원자',accounting.donors),metric('자산',accounting.assets),metric('취합',accounting.branchReports),metric('증명원',accounting.certificates)]),
@@ -116,7 +116,7 @@ import AccountingHeader from '../components/AccountingHeader.astro';
       const updateResetButton=()=>{$('[data-execute-test-reset]').disabled=!testResetPreviewLoaded||me.role!=='admin'||permissions.audit||!$('[data-reset-backup-confirm]').checked||$('[data-reset-confirmation]').value.trim()!==TEST_RESET_CONFIRMATION;};
       $('[data-preview-test-reset]').addEventListener('click',async()=>{const button=$('[data-preview-test-reset]');button.disabled=true;try{const data=await api({action:'test-reset-preview'});const preview=$('[data-test-reset-preview]');preview.innerHTML=formatResetPreview(data.preview||{});preview.hidden=false;testResetPreviewLoaded=true;notice('삭제 대상 미리보기를 불러왔습니다.');updateResetButton();}catch(error){notice(error.message,'error');}finally{button.disabled=me.role!=='admin'||permissions.audit;}});
       $('[data-reset-backup-confirm]').addEventListener('change',updateResetButton);$('[data-reset-confirmation]').addEventListener('input',updateResetButton);
-      $('[data-execute-test-reset]').addEventListener('click',async()=>{if(!confirm('미리보기에 표시된 전자문서와 회계·예산·결산, 자금·거래관리, 기부·자산·기관회계, 계약·조달·준법, 세무·신고 테스트자료, 로그·감사이력, 첨부파일을 모두 삭제하고 번호를 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.'))return;const button=$('[data-execute-test-reset]');button.disabled=true;try{const data=await api({action:'test-reset-execute',backupConfirmed:$('[data-reset-backup-confirm]').checked,confirmation:$('[data-reset-confirmation]').value.trim()});const result=data.result||{};notice(data.message,result.verified===false?'error':'ok');testResetPreviewLoaded=false;$('[data-reset-backup-confirm]').checked=false;$('[data-reset-confirmation]').value='';$('[data-test-reset-preview]').innerHTML=result.verified===false?`<div class="reset-result warning"><b>초기화 후 잔여자료 확인 필요</b><span>삭제 대상 ${Number(result.remainingRecords||0).toLocaleString()}건이 남아 있습니다. 미리보기를 다시 실행해 확인해 주세요.</span></div>`:'<div class="reset-result complete"><b>초기화 및 검증 완료</b><span>업무자료·로그·감사이력·번호 카운터·R2 파일의 잔여 0건을 확인했습니다.</span></div>';await Promise.all([loadIssues(),loadOperations()]);}catch(error){notice(error.message,'error');}finally{updateResetButton();}});
+      $('[data-execute-test-reset]').addEventListener('click',async()=>{if(!confirm('미리보기에 표시된 전자문서·대장·증명서·출입국 신청서와 회계·예산·결산, 자금·거래관리, 기부·자산·기관회계, 계약·조달·준법, 세무·신고 테스트자료, 로그·감사이력, 첨부파일을 모두 삭제하고 번호를 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.'))return;const button=$('[data-execute-test-reset]');button.disabled=true;try{const data=await api({action:'test-reset-execute',backupConfirmed:$('[data-reset-backup-confirm]').checked,confirmation:$('[data-reset-confirmation]').value.trim()});const result=data.result||{};notice(data.message,result.verified===false?'error':'ok');testResetPreviewLoaded=false;$('[data-reset-backup-confirm]').checked=false;$('[data-reset-confirmation]').value='';$('[data-test-reset-preview]').innerHTML=result.verified===false?`<div class="reset-result warning"><b>초기화 후 잔여자료 확인 필요</b><span>삭제 대상 ${Number(result.remainingRecords||0).toLocaleString()}건이 남아 있습니다. 미리보기를 다시 실행해 확인해 주세요.</span></div>`:'<div class="reset-result complete"><b>초기화 및 검증 완료</b><span>업무자료·로그·감사이력·번호 카운터·R2 파일의 잔여 0건을 확인했습니다.</span></div>';await Promise.all([loadIssues(),loadOperations()]);}catch(error){notice(error.message,'error');}finally{updateResetButton();}});
 
       $('[data-load-issues]').addEventListener('click',loadIssues);$('[data-issue-status]').addEventListener('change',loadIssues);$('[data-load-operations]').addEventListener('click',loadOperations);$('[data-operation-status]').addEventListener('change',loadOperations);
       loadPolicy().then(()=>Promise.all([loadIssues(),loadOperations()])).then(()=>{$('[data-app]').hidden=false;}).catch((error)=>{notice(error.message,'error');$('[data-app]').hidden=false;});
