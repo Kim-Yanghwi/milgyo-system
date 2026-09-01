@@ -334,9 +334,9 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       const ensureSealAssets=()=>{
         if(sealAssetsPromise)return sealAssetsPromise;
         sealAssetsPromise=(async()=>{
-          const result=await api('/api/settings/get',{});
-          if(result?.ok&&typeof result.sealImage==='string'&&result.sealImage.startsWith('data:image/')) organizationSealSource=result.sealImage;
-          organizationSealSource=await toEmbeddedImage(organizationSealSource);
+          // V91.11: 출입국 서식의 종단 직인은 public의 교체 파일만 사용한다.
+          // 종단설정 DB의 seal_image로 덮어쓰지 않으며, 버전 쿼리로 이전 이미지 캐시를 피한다.
+          organizationSealSource=await toEmbeddedImage('/organization-seal-official.png?v=20260901-v9111');
           await Promise.all(signatureSealOptions.map(async(item)=>{signatureSealSources.set(item.key,await toEmbeddedImage(item.src));}));
         })();
         return sealAssetsPromise;
