@@ -39,10 +39,13 @@ const ensureAwardTable = async (db: D1Database) => {
   await db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_appointment_award_type_serial ON appointment_award_certificates(document_type, serial_no)').run();
 };
 
-const serialYear2 = () => {
+const currentKstGregorianYear = () => {
   const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  return now.getUTCFullYear() % 100;
+  return now.getUTCFullYear();
 };
+
+const serialYear2 = () => currentKstGregorianYear() % 100;
+const currentBuddhistYear = () => currentKstGregorianYear() + 544;
 
 const serialSequence = (serial: unknown, year2: number) => {
   const normalized = String(serial ?? '').replace(/\s+/g, '');
@@ -80,16 +83,41 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       getNextSerial(env.DB, '임명장'),
       getNextSerial(env.DB, '표창장'),
     ]);
-    return json({ ok: true, me: auth.user, canManage, canReadLedger, nextSerials: { '임명장': appointmentSerial, '표창장': commendationSerial } });
+    return json({
+      ok: true,
+      me: auth.user,
+      canManage,
+      canReadLedger,
+      currentGregorianYear: currentKstGregorianYear(),
+      currentBuddhistYear: currentBuddhistYear(),
+      nextSerials: { '임명장': appointmentSerial, '표창장': commendationSerial },
+    });
   }
 
   if (operation === 'nextSerial') {
     const documentType = clean(payload.documentType, 20);
     if (!allowedTypes.has(documentType)) return json({ ok: false, message: '발급 종류를 확인해 주세요.' }, 400);
-    return json({ ok: true, serialNo: await getNextSerial(env.DB, documentType) });
+    return json({
+      ok: true,
+      serialNo: await getNextSerial(env.DB, documentType),
+      currentGregorianYear: currentKstGregorianYear(),
+      currentBuddhistYear: currentBuddhistYear(),
+    });
   }
 
   if (!canReadLedger) return json({ ok: false, message: '임명장·표창장 발급대장 열람 권한이 없습니다.' }, 403);
+
+  if (operation === 'recent') {
+    const documentType = clean(payload.documentType, 20);
+    if (!allowedTypes.has(documentType)) return json({ ok: false, message: '발급 종류를 확인해 주세요.' }, 400);
+    const row = await env.DB.prepare(`
+      SELECT * FROM appointment_award_certificates
+      WHERE document_type=?
+      ORDER BY created_at DESC
+      LIMIT 1
+    `).bind(documentType).first<any>();
+    return json({ ok: true, row: row || null, me: auth.user, canManage });
+  }
 
   if (operation === 'detail') {
     const id = clean(payload.id, 80);

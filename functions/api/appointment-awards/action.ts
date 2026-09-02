@@ -86,10 +86,13 @@ const validMonthDay = (month: number, day: number) => {
   return date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 };
 
-const serialYear2 = () => {
+const currentKstGregorianYear = () => {
   const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  return now.getUTCFullYear() % 100;
+  return now.getUTCFullYear();
 };
+
+const serialYear2 = () => currentKstGregorianYear() % 100;
+const currentBuddhistYear = () => currentKstGregorianYear() + 544;
 
 const serialSequence = (serial: unknown, year2: number) => {
   const normalized = String(serial ?? '').replace(/\s+/g, '');
@@ -141,7 +144,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const bodyOrganization = clean(payload.bodyOrganization, 20);
     const appointmentPosition = clean(payload.appointmentPosition, 80);
     const commendationText = clean(payload.commendationText, 1600);
-    const buddhistYear = Number(payload.buddhistYear);
+    const buddhistYear = currentBuddhistYear();
     const issueMonth = Number(payload.issueMonth);
     const issueDay = Number(payload.issueDay);
     const issuerType = clean(payload.issuerType, 20);
