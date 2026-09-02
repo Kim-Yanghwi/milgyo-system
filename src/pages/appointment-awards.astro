@@ -2,7 +2,7 @@
 import ManagementLayout from '../layouts/ManagementLayout.astro';
 ---
 <ManagementLayout title="임명장·표창장 발급·대장" active="appointmentAwards">
-  <div data-appointment-award-version="2026-09-02-v92.2-layout" hidden></div>
+  <div data-appointment-award-version="2026-09-02-v92.3-layout" hidden></div>
   <div class="page-heading">
     <div>
       <p class="page-heading__kicker">APPOINTMENT · COMMENDATION CERTIFICATES</p>
@@ -156,18 +156,18 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         /* 원본 HWPX/JPG 기준 고정 좌표. 상장용지 794x1123(A4 비율)에 맞춘 값 */
         .award-serial{position:absolute;left:129px;top:169px;font-size:14pt;line-height:1.2;font-weight:400;white-space:nowrap}
         .award-title{position:absolute;left:0;right:0;top:218px;text-align:center;font-size:53pt;line-height:1;font-weight:400;letter-spacing:.22em;text-indent:.22em;white-space:nowrap}
-        .award-person{position:absolute;left:154px;top:350px;width:340px;font-size:29pt;line-height:1.30;font-weight:400}
-        .award-person-row{display:grid;grid-template-columns:84px minmax(0,1fr);align-items:baseline;column-gap:12px;min-height:50px}
+        .award-person{position:absolute;left:154px;top:350px;width:390px;font-size:29pt;line-height:1.30;font-weight:400}
+        .award-person-row{display:grid;grid-template-columns:92px minmax(0,1fr);align-items:baseline;column-gap:18px;min-height:50px}
         .award-person-label{text-align:left;white-space:nowrap;letter-spacing:0}
         .award-person-value{text-align:left;white-space:nowrap;letter-spacing:0;min-width:0}
-        .award-body{position:absolute;left:120px;right:120px;text-align:center;white-space:pre-line;font-size:29pt;line-height:1.61;font-weight:400;word-break:keep-all;overflow-wrap:normal}
+        .award-body{position:absolute;left:72px;right:72px;text-align:center;white-space:pre;font-size:29pt;line-height:1.55;font-weight:400;word-break:keep-all;overflow-wrap:normal}
         .award-body--appointment{top:517px}
         .award-body--commendation{top:500px;bottom:238px;display:flex;align-items:center;justify-content:center;overflow:hidden}
-        .award-date{position:absolute;left:0;right:0;top:884px;text-align:center;font-family:"ShinMyeongGungseo","신명궁서","Gungsuh","궁서",serif;font-size:25pt;line-height:1.2;font-weight:400;white-space:nowrap}
-        .award-issuer{position:absolute;left:0;right:0;top:936px;text-align:center;font-size:25pt;line-height:1.35;font-weight:400;white-space:nowrap}
+        .award-date{position:absolute;left:0;right:0;top:888px;text-align:center;font-family:"ShinMyeongGungseo","신명궁서","Gungsuh","궁서",serif;font-size:25pt;line-height:1.2;font-weight:400;white-space:nowrap}
+        .award-issuer{position:absolute;left:0;right:0;top:942px;text-align:center;font-size:25pt;line-height:1.35;font-weight:400;white-space:nowrap}.award-seal{position:absolute;left:calc(50% + 126px);top:-14px;width:66px;height:66px;object-fit:contain;pointer-events:none}
         @media print{.award-paper-root{background:#fff;padding:0}.award-paper{margin:0}@page{size:A4 portrait;margin:0}}
       `;
-      const previewMarkup=(r)=>{const type=String(r.document_type??r.documentType??'임명장');const serial=String(r.serial_no??r.serialNo??'제00 - 00000호');const recipientName=String(r.recipient_name??r.recipientName??'');const dharmaName=String(r.dharma_name??r.dharmaName??'');const bodyClass=type==='표창장'?'award-body award-body--commendation':'award-body award-body--appointment';return `<div class="award-paper-root"><article class="award-paper"><img class="award-paper-bg" src="/certificates/appointment-award-paper.png" alt=""/><div class="award-paper-content"><div class="award-serial">${esc(serial)}</div><div class="award-title">${esc(type)}</div><div class="award-person"><div class="award-person-row"><span class="award-person-label">성명 :</span><span class="award-person-value">${esc(recipientName)}</span></div><div class="award-person-row"><span class="award-person-label">불명 :</span><span class="award-person-value">${esc(dharmaName)}</span></div></div><div class="${bodyClass}">${esc(displayBody(r))}</div><div class="award-date">${displayDate(r)}</div><div class="award-issuer">${esc(issuerText(r))}</div></div></article></div>`;};
+      const previewMarkup=(r)=>{const type=String(r.document_type??r.documentType??'임명장');const serial=String(r.serial_no??r.serialNo??'제00 - 00000호');const recipientName=String(r.recipient_name??r.recipientName??'');const dharmaName=String(r.dharma_name??r.dharmaName??'');const bodyClass=type==='표창장'?'award-body award-body--commendation':'award-body award-body--appointment';return `<div class="award-paper-root"><article class="award-paper"><img class="award-paper-bg" src="/certificates/appointment-award-paper.png" alt=""/><div class="award-paper-content"><div class="award-serial">${esc(serial)}</div><div class="award-title">${esc(type)}</div><div class="award-person"><div class="award-person-row"><span class="award-person-label">성명:</span><span class="award-person-value">${esc(recipientName)}</span></div><div class="award-person-row"><span class="award-person-label">불명:</span><span class="award-person-value">${esc(dharmaName)}</span></div></div><div class="${bodyClass}">${esc(displayBody(r))}</div><div class="award-date">${displayDate(r)}</div><div class="award-issuer"><span>${esc(issuerText(r))}</span><img class="award-seal" src="/organization-seal-official.png?v=20260902-v923" alt="직인"/></div></div></article></div>`;};
       const openPreview=(record)=>{lastPreview=record;$('[data-preview-container]').innerHTML=`<style>${previewCss}</style>${previewMarkup(record)}`;$('[data-preview-modal]').hidden=false;};
       const printRecord=(record)=>{const win=window.open('','_blank');if(!win){alert('팝업 차단을 해제해 주세요.');return;}win.document.open();win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(record.document_type??record.documentType??'임명장·표창장')}</title><style>html,body{margin:0;padding:0;background:#fff}${previewCss}</style></head><body>${previewMarkup(record)}<script>addEventListener('load',()=>setTimeout(()=>print(),250));<\/script></body></html>`);win.document.close();};
       const validateIssue=(values)=>{if(!values.serialNo)return '연번을 입력해 주세요.';if(!values.recipientName)return '성명을 입력해 주세요.';if(!values.buddhistYear||!values.issueMonth||!values.issueDay)return '불기 연도와 월·일을 입력해 주세요.';if(values.issueMonth<1||values.issueMonth>12||values.issueDay<1||values.issueDay>31)return '발급 월·일이 올바르지 않습니다.';if(values.documentType==='임명장'&&!values.appointmentPosition)return '임명 직위명을 입력해 주세요.';if(values.documentType==='표창장'&&!values.commendationText)return '표창장 본문을 입력해 주세요.';return '';};
