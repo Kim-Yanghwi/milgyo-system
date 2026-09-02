@@ -2,7 +2,7 @@
 import ManagementLayout from '../layouts/ManagementLayout.astro';
 ---
 <ManagementLayout title="임명장·표창장 발급·대장" active="appointmentAwards">
-  <div data-appointment-award-version="2026-09-02-v92.5-year-layout-recent" hidden></div>
+  <div data-appointment-award-version="2026-09-02-v92.7-preview-scroll-body-safe" hidden></div>
   <div class="page-heading">
     <div>
       <p class="page-heading__kicker">APPOINTMENT · COMMENDATION CERTIFICATES</p>
@@ -155,7 +155,13 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       const buddhistYearFromGregorian=(year)=>Number(year||0)+544;
       const setMessage=(selector,message,type='')=>{const el=$(selector);if(!el)return;el.textContent=message||'';el.className=`status-message ${type}`;};
       const documentType=()=>String($('[name=documentType]').value||'임명장');
-      const defaultCommendationText='위 불자는 평소 三寶에 귀의하는 신심이 지극하고 호국불교 이념을 실천하여 포교와 중생 구제에 헌신한 공로가 크므로, 이에 그 공로를 치하하여 이 표창장을 드립니다.';
+      const defaultCommendationText=`위 불자는 평소 三寶에
+귀의하는 신심이 지극하고
+호국불교 이념을 실천하여
+포교와 중생 구제에
+헌신한 공로가 크므로,
+그 공로를 치하하여
+이 표창장을 드립니다.`;
       const appointmentBody=(values)=>`위 불자는 평소 三寶를 위하는
 신심이 지극하며 호국불교 포교와
 부처님의 가르침에 깊은 관심을
@@ -192,7 +198,7 @@ ${esc(values.appointmentPosition||'○ ○ ○')}에 임명함`;
         .award-person-value{text-align:left;white-space:nowrap;letter-spacing:0;min-width:0}
         .award-body{position:absolute;left:72px;right:72px;text-align:center;white-space:pre;font-size:29pt;line-height:1.55;font-weight:400;word-break:keep-all;overflow-wrap:normal}
         .award-body--appointment{top:517px}
-        .award-body--commendation{top:472px;bottom:255px;display:flex;align-items:flex-start;justify-content:center;overflow:hidden;white-space:pre-wrap}
+        .award-body--commendation{left:104px;right:104px;top:455px;bottom:255px;display:flex;align-items:flex-start;justify-content:center;overflow:hidden;white-space:pre-wrap;line-height:1.32;word-break:keep-all;overflow-wrap:anywhere}
         .award-sambo{font-weight:900;text-shadow:.3px 0 currentColor,-.3px 0 currentColor}
         .award-date{position:absolute;left:0;right:0;top:856px;text-align:center;font-family:"ShinMyeongGungseo","신명궁서","Gungsuh","궁서",serif;font-size:25pt;line-height:1.2;font-weight:400;white-space:nowrap}
         .award-issuer{position:absolute;left:0;right:0;top:938px;text-align:center;font-size:25pt;line-height:1.35;font-weight:400;white-space:nowrap}
@@ -232,7 +238,7 @@ ${esc(values.appointmentPosition||'○ ○ ○')}에 임명함`;
   </script>
 
   <style is:global>
-    .award-issue-panel,.award-ledger{margin-bottom:1.2rem}.section-title{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:.9rem}.section-title h2{margin:0;font-size:1.13rem}.section-title p{margin:.25rem 0 0;color:var(--gov-muted);font-size:.82rem}.award-form-grid{align-items:start}.award-field-row{grid-column:1/-1;display:grid;gap:.8rem;align-items:start}.award-field-row--three{grid-template-columns:repeat(3,minmax(0,1fr))}.award-date-row [name="buddhistYear"][readonly]{background:#f5f7fa;color:#334155;font-weight:700}.appointment-body-preview>div{padding:.8rem 1rem;border:1px dashed #b8c8dd;border-radius:6px;background:#f7f9fc;white-space:pre-line;line-height:1.75;text-align:center;font-family:"Gungsuh","궁서",Batang,serif}.appointment-body-preview small,.field-help{color:var(--gov-muted);font-size:.74rem}.appointment-body-preview .award-sambo{font-weight:900;text-shadow:.2px 0 currentColor,-.2px 0 currentColor}[name="serialNo"][readonly]{background:#f5f7fa;color:#334155;font-weight:700}.award-actions{display:flex;justify-content:flex-end;gap:.6rem;flex-wrap:wrap;margin-top:.75rem}.award-ledger .section-title{align-items:flex-end}.award-ledger-filters{justify-content:flex-end}.award-ledger-filters input[type=search]{width:260px}.award-ledger [data-ledger-message]{text-align:right;margin-left:auto}.award-ledger-table{min-width:1260px;border-collapse:collapse!important;border-spacing:0!important}.award-ledger-table th,.award-ledger-table td{border:1px solid #aebed1!important;text-align:center!important;vertical-align:middle!important}.award-ledger-table th:nth-child(1){width:145px}.award-ledger-table th:nth-child(2){width:80px}.award-ledger-table th:nth-child(3),.award-ledger-table th:nth-child(4){width:105px}.award-ledger-table th:nth-child(5){width:120px}.award-ledger-table th:nth-child(6){width:145px}.award-ledger-table th:nth-child(7){width:95px}.award-ledger-table th:nth-child(8){width:95px}.award-ledger-table th:nth-child(9){width:70px}.award-ledger-table th:nth-child(10){width:225px}.award-manage{display:flex;justify-content:center;gap:.3rem;flex-wrap:wrap}.award-preview-modal{width:min(1050px,96vw);max-height:95vh;overflow:auto}.award-preview-modal .modal__body{padding:0;background:#e2e7ed}.award-preview-actions{position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:.6rem;padding:.75rem 1rem;border-top:1px solid var(--gov-border);background:#fff;z-index:3}.award-paper-root{min-width:830px}.award-paper{box-shadow:0 4px 18px rgba(15,28,48,.18)}
+    .award-issue-panel,.award-ledger{margin-bottom:1.2rem}.section-title{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:.9rem}.section-title h2{margin:0;font-size:1.13rem}.section-title p{margin:.25rem 0 0;color:var(--gov-muted);font-size:.82rem}.award-form-grid{align-items:start}.award-field-row{grid-column:1/-1;display:grid;gap:.8rem;align-items:start}.award-field-row--three{grid-template-columns:repeat(3,minmax(0,1fr))}.award-date-row [name="buddhistYear"][readonly]{background:#f5f7fa;color:#334155;font-weight:700}.appointment-body-preview>div{padding:.8rem 1rem;border:1px dashed #b8c8dd;border-radius:6px;background:#f7f9fc;white-space:pre-line;line-height:1.75;text-align:center;font-family:"Gungsuh","궁서",Batang,serif}.appointment-body-preview small,.field-help{color:var(--gov-muted);font-size:.74rem}.appointment-body-preview .award-sambo{font-weight:900;text-shadow:.2px 0 currentColor,-.2px 0 currentColor}[name="serialNo"][readonly]{background:#f5f7fa;color:#334155;font-weight:700}.award-actions{display:flex;justify-content:flex-end;gap:.6rem;flex-wrap:wrap;margin-top:.75rem}.award-ledger .section-title{align-items:flex-end}.award-ledger-filters{justify-content:flex-end}.award-ledger-filters input[type=search]{width:260px}.award-ledger [data-ledger-message]{text-align:right;margin-left:auto}.award-ledger-table{min-width:1260px;border-collapse:collapse!important;border-spacing:0!important}.award-ledger-table th,.award-ledger-table td{border:1px solid #aebed1!important;text-align:center!important;vertical-align:middle!important}.award-ledger-table th:nth-child(1){width:145px}.award-ledger-table th:nth-child(2){width:80px}.award-ledger-table th:nth-child(3),.award-ledger-table th:nth-child(4){width:105px}.award-ledger-table th:nth-child(5){width:120px}.award-ledger-table th:nth-child(6){width:145px}.award-ledger-table th:nth-child(7){width:95px}.award-ledger-table th:nth-child(8){width:95px}.award-ledger-table th:nth-child(9){width:70px}.award-ledger-table th:nth-child(10){width:225px}.award-manage{display:flex;justify-content:center;gap:.3rem;flex-wrap:wrap}.award-preview-modal{width:min(1050px,96vw);height:min(95vh,980px);max-height:95vh;overflow:hidden;display:flex;flex-direction:column}.award-preview-modal .modal__header{position:relative;z-index:30;flex:0 0 auto;background:#fff}.award-preview-modal .modal__body{padding:0;background:#e2e7ed;overflow:auto;flex:1 1 auto;min-height:0;position:relative;z-index:1}.award-preview-actions{position:relative;flex:0 0 auto;display:flex;justify-content:flex-end;gap:.6rem;padding:.75rem 1rem;border-top:1px solid var(--gov-border);background:#fff;z-index:30}.award-paper-root{min-width:830px}.award-paper{box-shadow:0 4px 18px rgba(15,28,48,.18)}
     @media(max-width:1100px){.award-ledger .section-title{align-items:flex-start;flex-direction:column}.award-ledger-filters{justify-content:flex-start;width:100%}.award-ledger-filters input[type=search]{width:min(100%,320px)}}
     @media(max-width:700px){.award-actions .btn{flex:1}.award-field-row--three{grid-template-columns:1fr}}
   </style>
