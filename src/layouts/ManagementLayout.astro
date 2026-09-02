@@ -2,7 +2,7 @@
 import GovLayout from './GovLayout.astro';
 export interface Props {
   title: string;
-  active: 'registers' | 'vehicle' | 'employment' | 'ordination' | 'foreignForms';
+  active: 'registers' | 'vehicle' | 'employment' | 'ordination' | 'foreignForms' | 'appointmentAwards';
   showCurrentUser?: boolean;
 }
 const { title, active, showCurrentUser = true } = Astro.props;
@@ -32,7 +32,6 @@ const { title, active, showCurrentUser = true } = Astro.props;
         <button type="button" class="btn btn-ghost" data-logout>로그아웃</button>
       </div>
     </header>
-
     <div class="app-body">
       <aside class="app-sidebar" id="management-sidebar">
         {showCurrentUser && (
@@ -44,12 +43,10 @@ const { title, active, showCurrentUser = true } = Astro.props;
           </section>
         )}
         <a class="btn btn-primary btn-block sidebar-compose" href="/?compose=1">+ 문서작성</a>
-
         <div class="sidebar-group" data-accounting-access-section hidden>
           <p class="sidebar-group__title">회계</p>
           <a class="sidebar-link sidebar-external-link" href="/accounting">예산·결의·장부·결산·계약</a>
         </div>
-
         <div class="sidebar-group">
           <p class="sidebar-group__title">전자문서</p>
           <a class="sidebar-link sidebar-external-link" href="/?view=임시저장">임시저장함</a>
@@ -72,6 +69,7 @@ const { title, active, showCurrentUser = true } = Astro.props;
           <p class="sidebar-group__title">증명서·신청서 발급·대장</p>
           <a class:list={["sidebar-link","sidebar-external-link", active === 'employment' && 'active']} href="/employee-certificates">재직증명서 발급·대장</a>
           <a class:list={["sidebar-link","sidebar-external-link", active === 'ordination' && 'active']} href="/ordination-certificates">수계증서 발급·대장</a>
+          <a class:list={["sidebar-link","sidebar-external-link", active === 'appointmentAwards' && 'active']} href="/appointment-awards">임명장·표창장 발급·대장</a>
           <a class:list={["sidebar-link","sidebar-external-link", active === 'foreignForms' && 'active']} href="/foreign-applications">출입국 신청서 작성·대장</a>
         </div>
         <div class="sidebar-group">
@@ -84,7 +82,6 @@ const { title, active, showCurrentUser = true } = Astro.props;
       <main class="app-main"><slot /></main>
     </div>
   </div>
-
   <script is:inline>
     (() => {
       const key='milgyo-system-session';
@@ -97,50 +94,14 @@ const { title, active, showCurrentUser = true } = Astro.props;
       const topLevelDepartments=new Set(['이사장','이사회','감사','종정','사무처','총무원','교육·포교원','소속기관·교구','위원회·신도단체']);
       const legacyOfficeDepartment=(name,position='')=>{if(name==='재정·회계')return '재정국';if(name==='준법·윤리')return '준법윤리국';if(name==='대외협력·사회공헌')return /사회공헌/.test(position)?'사회공헌국':'국제교류국';if(name==='문화·홍보')return '문화홍보국';return name;};
       const resolveDepartment=(value,position='')=>{let text=String(value||'').trim();if(!text&&topLevelDepartments.has(String(position||'').trim()))text=String(position||'').trim();if(!text)return{primary:'-',secondary:''};text=text.replace(/\s*[–—]\s*/g,' - ');const parenthesized=/^(.+?)\s*\(([^()]+)\)\s*$/.exec(text);if(parenthesized)text=`${parenthesized[1].trim()} - ${parenthesized[2].trim()}`;const parts=text.split(/\s+-\s+/).map(v=>v.trim()).filter(Boolean);let primary=parts[0]||'',secondary=parts.slice(1).join(' - ');if(primary==='사무국')primary='사무처';if(secondary)secondary=legacyOfficeDepartment(secondary,position);if(!secondary){const mapped=legacyOfficeDepartment(primary,position);if(mapped!==primary||officeDepartments.has(mapped)){primary='사무처';secondary=mapped;}}return{primary:primary||'-',secondary};};
-      const renderProfile=(nextUser)=>{
-        user=nextUser||user;
-        set('[data-me-name]',user.name); set('[data-me-position]',user.position||user.grade);
-        const department=resolveDepartment(user.department,user.position||'');
-        set('[data-me-department-primary]',department.primary);
-        set('[data-me-department-secondary]',department.secondary||'-');
-        const secondaryRow=document.querySelector('[data-me-department-secondary-row]');if(secondaryRow)secondaryRow.hidden=!department.secondary;
-        const accounting= user.role==='admin'||!!user.canAccounting||Number(user.can_accounting||0)===1;
-        document.querySelectorAll('[data-accounting-access-link],[data-accounting-access-section]').forEach((el)=>el.hidden=!accounting);
-        document.querySelectorAll('[data-admin-link]').forEach((el)=>el.hidden=user.role!=='admin');
-      };
-      const syncManagedDates=(root=document)=>window.__MILGYO_SYNC_DATE_INPUTS__?.(root);
-      window.__MILGYO_SYNC_MANAGED_DATES__=syncManagedDates;
-      window.addEventListener('milgyo:date-inputs-ready',()=>syncManagedDates(document));
-      syncManagedDates(document);
-      renderProfile(user);
-
-      const managementShell=document.querySelector('[data-management-shell]');
-      const sidebarToggle=document.querySelector('[data-toggle-sidebar]');
-      const setSidebarCollapsed=(collapsed)=>{
-        managementShell?.classList.toggle('sidebar-collapsed',!!collapsed);
-        if(sidebarToggle){sidebarToggle.setAttribute('aria-expanded',String(!collapsed));sidebarToggle.setAttribute('aria-label',collapsed?'메뉴 펼치기':'메뉴 접기');}
-      };
-      sidebarToggle?.addEventListener('click',()=>setSidebarCollapsed(!managementShell?.classList.contains('sidebar-collapsed')));
-      document.querySelector('[data-logout]')?.addEventListener('click',async()=>{
-        try{await fetch('/api/auth/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:session.token})});}catch{}
-        localStorage.removeItem(key);location.replace('/');
-      });
-      fetch('/api/auth/session',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({token:session.token})})
-        .then(async(r)=>({status:r.status,data:await r.json().catch(()=>({ok:false}))}))
-        .then(({status,data})=>{
-          if(status===401||(!data.ok&&/로그인|만료/.test(data.message||''))){localStorage.removeItem(key);location.replace('/');return;}
-          if(data.ok&&data.user){
-            const fresh={...user,...data.user,canApprove:data.user.canApprove??!!data.user.can_approve,canAccounting:data.user.canAccounting??(data.user.role==='admin'||!!data.user.can_accounting)};
-            session={...session,user:fresh,savedAt:Date.now()};
-            localStorage.setItem(key,JSON.stringify(session));
-            renderProfile(fresh);
-          }
-        })
-        .catch(()=>{});
+      const renderProfile=(nextUser)=>{user=nextUser||user;set('[data-me-name]',user.name);set('[data-me-position]',user.position||user.grade);const department=resolveDepartment(user.department,user.position||'');set('[data-me-department-primary]',department.primary);set('[data-me-department-secondary]',department.secondary||'-');const secondaryRow=document.querySelector('[data-me-department-secondary-row]');if(secondaryRow)secondaryRow.hidden=!department.secondary;const accounting=user.role==='admin'||!!user.canAccounting||Number(user.can_accounting||0)===1;document.querySelectorAll('[data-accounting-access-link],[data-accounting-access-section]').forEach((el)=>el.hidden=!accounting);document.querySelectorAll('[data-admin-link]').forEach((el)=>el.hidden=user.role!=='admin');};
+      const syncManagedDates=(root=document)=>window.__MILGYO_SYNC_DATE_INPUTS__?.(root);window.__MILGYO_SYNC_MANAGED_DATES__=syncManagedDates;window.addEventListener('milgyo:date-inputs-ready',()=>syncManagedDates(document));syncManagedDates(document);renderProfile(user);
+      const managementShell=document.querySelector('[data-management-shell]');const sidebarToggle=document.querySelector('[data-toggle-sidebar]');const setSidebarCollapsed=(collapsed)=>{managementShell?.classList.toggle('sidebar-collapsed',!!collapsed);if(sidebarToggle){sidebarToggle.setAttribute('aria-expanded',String(!collapsed));sidebarToggle.setAttribute('aria-label',collapsed?'메뉴 펼치기':'메뉴 접기');}};sidebarToggle?.addEventListener('click',()=>setSidebarCollapsed(!managementShell?.classList.contains('sidebar-collapsed')));
+      document.querySelector('[data-logout]')?.addEventListener('click',async()=>{try{await fetch('/api/auth/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:session.token})});}catch{}localStorage.removeItem(key);location.replace('/');});
+      fetch('/api/auth/session',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({token:session.token})}).then(async(r)=>({status:r.status,data:await r.json().catch(()=>({ok:false}))})).then(({status,data})=>{if(status===401||(!data.ok&&/로그인|만료/.test(data.message||''))){localStorage.removeItem(key);location.replace('/');return;}if(data.ok&&data.user){const fresh={...user,...data.user,canApprove:data.user.canApprove??!!data.user.can_approve,canAccounting:data.user.canAccounting??(data.user.role==='admin'||!!data.user.can_accounting)};session={...session,user:fresh,savedAt:Date.now()};localStorage.setItem(key,JSON.stringify(session));renderProfile(fresh);}}).catch(()=>{});
       window.__MILGYO_SESSION__=session;
     })();
   </script>
-
   <style is:global>
     [hidden]{display:none!important}.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;border:1px solid transparent;border-radius:3px;padding:.55rem 1rem;font-size:.92rem;font-weight:600}.btn-primary{background:var(--gov-accent);color:#fff}.btn-outline{background:#fff;border-color:var(--gov-border);color:var(--gov-text)}.btn-ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.4)}.btn-block{width:100%}.btn-sm{padding:.35rem .65rem;font-size:.78rem}
     .app-topbar{min-height:58px;background:linear-gradient(180deg,var(--gov-navy),var(--gov-navy-dark));color:#fff;display:flex;align-items:center;gap:.72rem;padding:.55rem 1rem}.app-topbar__menu-toggle{border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;border-radius:6px;width:36px;height:34px}.app-topbar__brand{display:flex;align-items:center;gap:.5rem;margin-right:auto;color:#fff;text-decoration:none;font-weight:700;min-width:0}.app-topbar__logo{width:26px;height:26px;object-fit:contain}.app-topbar__brand-title{display:flex;align-items:center;gap:.48rem;min-width:0}.app-topbar__wordmark{width:158px;max-height:25px;object-fit:contain;filter:brightness(0) invert(1)}.app-topbar__system-name{font-family:"Noto Serif KR","Nanum Myeongjo",Batang,serif;font-size:.98rem;white-space:nowrap}.app-topbar__menu,.app-topbar__right{display:flex;align-items:center;gap:.3rem;flex-shrink:0}.app-topbar__link{color:rgba(255,255,255,.78);text-decoration:none;padding:.4rem .7rem;border-radius:6px;font-size:.88rem}.app-topbar__link:hover{color:#fff;background:rgba(255,255,255,.08)}
