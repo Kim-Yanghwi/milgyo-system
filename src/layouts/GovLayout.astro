@@ -38,6 +38,28 @@ const { title = '대한불교밀교종 종단관리시스템' } = Astro.props;
 </head>
 <body>
   <slot />
+  <script is:inline>
+    (() => {
+      const ensureAppointmentAwardsMenu = () => {
+        document.querySelectorAll('.sidebar-group').forEach((group) => {
+          const heading = group.querySelector('.sidebar-group__title');
+          if (heading?.textContent?.trim() !== '증명서·신청서 발급·대장') return;
+          if (group.querySelector('a[href="/appointment-awards"]')) return;
+
+          const link = document.createElement('a');
+          link.className = 'sidebar-link sidebar-external-link';
+          link.href = '/appointment-awards';
+          link.textContent = '임명장·표창장 발급·대장';
+
+          const foreignForms = group.querySelector('a[href="/foreign-applications"]');
+          if (foreignForms) group.insertBefore(link, foreignForms);
+          else group.appendChild(link);
+        });
+      };
+
+      ensureAppointmentAwardsMenu();
+    })();
+  </script>
   <script is:inline src="/milgyo-date-input.js?v=90"></script>
   <style is:global>
     :root {
