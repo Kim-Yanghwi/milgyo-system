@@ -155,7 +155,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       const buddhistYearFromGregorian=(year)=>Number(year||0)+544;
       const setMessage=(selector,message,type='')=>{const el=$(selector);if(!el)return;el.textContent=message||'';el.className=`status-message ${type}`;};
       const documentType=()=>String($('[name=documentType]').value||'임명장');
-      const defaultCommendationText='위 불자는 평소 三寶를 귀의하는 신심이 지극하고, 호국불교의 이념을 몸소 실천하여 포교와 중생 구제에 헌신하였으며, 부처님의 가르침을 널리弘扬하는 데 앞장서 왔습니다. 이에 그 공로를 치하하여 이 표창장을 드립니다.';
+      const defaultCommendationText='위 불자는 평소 三寶에 귀의하는 신심이 지극하고 호국불교 이념을 실천하여 포교와 중생 구제에 헌신한 공로가 크므로, 이에 그 공로를 치하하여 이 표창장을 드립니다.';
       const appointmentBody=(values)=>`위 불자는 평소 三寶를 위하는
 신심이 지극하며 호국불교 포교와
 부처님의 가르침에 깊은 관심을
@@ -192,13 +192,13 @@ ${esc(values.appointmentPosition||'○ ○ ○')}에 임명함`;
         .award-person-value{text-align:left;white-space:nowrap;letter-spacing:0;min-width:0}
         .award-body{position:absolute;left:72px;right:72px;text-align:center;white-space:pre;font-size:29pt;line-height:1.55;font-weight:400;word-break:keep-all;overflow-wrap:normal}
         .award-body--appointment{top:517px}
-        .award-body--commendation{top:500px;bottom:255px;display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:pre-wrap}
+        .award-body--commendation{top:472px;bottom:255px;display:flex;align-items:flex-start;justify-content:center;overflow:hidden;white-space:pre-wrap}
         .award-sambo{font-weight:900;text-shadow:.3px 0 currentColor,-.3px 0 currentColor}
         .award-date{position:absolute;left:0;right:0;top:856px;text-align:center;font-family:"ShinMyeongGungseo","신명궁서","Gungsuh","궁서",serif;font-size:25pt;line-height:1.2;font-weight:400;white-space:nowrap}
         .award-issuer{position:absolute;left:0;right:0;top:938px;text-align:center;font-size:25pt;line-height:1.35;font-weight:400;white-space:nowrap}
         .award-issuer-seal-anchor{position:relative;display:inline-block;z-index:2}
         .award-seal{position:absolute;left:calc(50% + 5px);top:50%;transform:translate(-50%,-50%);object-fit:contain;pointer-events:none;z-index:3}
-        .award-seal--organization{width:62px;height:62px}
+        .award-seal--organization{width:93px;height:93px}
         .award-seal--hyangcheonsa{width:66px;height:66px}
         @media print{.award-paper-root{background:#fff;padding:0}.award-paper{margin:0}@page{size:A4 portrait;margin:0}}
       `;
