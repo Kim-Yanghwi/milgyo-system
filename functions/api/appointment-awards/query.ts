@@ -3,6 +3,8 @@ import { authenticateSession, clean, ensureTables, json } from '../../_shared/he
 interface Env { DB: D1Database; }
 type Payload = { token?: string; operation?: string; id?: string; documentType?: string; status?: string; query?: string; page?: number; pageSize?: number; };
 
+const allowedTypes = new Set(['임명장', '표창장']);
+
 const ensureAwardTable = async (db: D1Database) => {
   await db.batch([
     db.prepare(`CREATE TABLE IF NOT EXISTS appointment_award_certificates (
@@ -10,14 +12,54 @@ const ensureAwardTable = async (db: D1Database) => {
       header_position TEXT NOT NULL DEFAULT '', recipient_name TEXT NOT NULL, dharma_name TEXT NOT NULL DEFAULT '',
       body_organization TEXT NOT NULL DEFAULT '', appointment_position TEXT NOT NULL DEFAULT '', commendation_text TEXT NOT NULL DEFAULT '',
       buddhist_year INTEGER NOT NULL, issue_month INTEGER NOT NULL, issue_day INTEGER NOT NULL,
-      issuer_type TEXT NOT NULL, issuer_user_id TEXT NOT NULL, issuer_name TEXT NOT NULL, manager_name TEXT NOT NULL DEFAULT '',
-      status TEXT NOT NULL DEFAULT '발급', canceled_at TEXT, canceled_by_user_id TEXT, canceled_by_name TEXT, cancel_reason TEXT,
+      issuer_type TEXT NOT NULL, seal_type TEXT NOT NULL DEFAULT 'auto', issuer_user_id TEXT NOT NULL,
+      issuer_name TEXT NOT NULL, manager_name TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT '발급',
+      canceled_at TEXT, canceled_by_user_id TEXT, canceled_by_name TEXT, cancel_reason TEXT,
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     )`),
-    db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_appointment_award_serial_no ON appointment_award_certificates(serial_no)'),
+    db.prepare(`CREATE TABLE IF NOT EXISTS appointment_award_serial_counters (
+      document_type TEXT NOT NULL,
+      year2 INTEGER NOT NULL,
+      current_no INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY(document_type, year2)
+    )`),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_appointment_award_created_at ON appointment_award_certificates(created_at DESC)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_appointment_award_recipient ON appointment_award_certificates(recipient_name, dharma_name)'),
   ]);
+
+  const columns = await db.prepare('PRAGMA table_info(appointment_award_certificates)').all<any>();
+  if (!(columns.results || []).some((column: any) => column?.name === 'seal_type')) {
+    try {
+      await db.prepare("ALTER TABLE appointment_award_certificates ADD COLUMN seal_type TEXT NOT NULL DEFAULT 'auto'").run();
+    } catch (error) {
+      if (!/duplicate column/i.test(String((error as any)?.message || error || ''))) throw error;
+    }
+  }
+  await db.prepare('DROP INDEX IF EXISTS idx_appointment_award_serial_no').run();
+  await db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_appointment_award_type_serial ON appointment_award_certificates(document_type, serial_no)').run();
+};
+
+const serialYear2 = () => {
+  const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  return now.getUTCFullYear() % 100;
+};
+
+const serialSequence = (serial: unknown, year2: number) => {
+  const normalized = String(serial ?? '').replace(/\s+/g, '');
+  const match = normalized.match(/^제(\d{2})-(\d+)(?:호)?$/);
+  if (!match || Number(match[1]) !== year2) return 0;
+  return Number(match[2]) || 0;
+};
+
+const getNextSerial = async (db: D1Database, documentType: string) => {
+  const year2 = serialYear2();
+  const [counter, existing] = await Promise.all([
+    db.prepare('SELECT current_no FROM appointment_award_serial_counters WHERE document_type=? AND year2=?').bind(documentType, year2).first<any>(),
+    db.prepare('SELECT serial_no FROM appointment_award_certificates WHERE document_type=?').bind(documentType).all<any>(),
+  ]);
+  const maxExisting = Math.max(0, ...(existing.results || []).map((row: any) => serialSequence(row?.serial_no, year2)));
+  const current = Math.max(Number(counter?.current_no || 0), maxExisting);
+  return `제${String(year2).padStart(2, '0')}-${current + 1}`;
 };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -33,7 +75,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const canManage = auth.user.role === 'admin';
   const canReadLedger = auth.user.role === 'admin' || auth.user.role === 'audit';
 
-  if (operation === 'options') return json({ ok: true, me: auth.user, canManage, canReadLedger });
+  if (operation === 'options') {
+    const [appointmentSerial, commendationSerial] = await Promise.all([
+      getNextSerial(env.DB, '임명장'),
+      getNextSerial(env.DB, '표창장'),
+    ]);
+    return json({ ok: true, me: auth.user, canManage, canReadLedger, nextSerials: { '임명장': appointmentSerial, '표창장': commendationSerial } });
+  }
+
+  if (operation === 'nextSerial') {
+    const documentType = clean(payload.documentType, 20);
+    if (!allowedTypes.has(documentType)) return json({ ok: false, message: '발급 종류를 확인해 주세요.' }, 400);
+    return json({ ok: true, serialNo: await getNextSerial(env.DB, documentType) });
+  }
+
   if (!canReadLedger) return json({ ok: false, message: '임명장·표창장 발급대장 열람 권한이 없습니다.' }, 403);
 
   if (operation === 'detail') {
