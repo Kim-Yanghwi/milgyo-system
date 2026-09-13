@@ -11,8 +11,8 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     const all=auth.user.role==='admin';
     // D1 prepared statements cannot be selected dynamically through string interpolation; execute explicitly.
     const result=all
-      ? await env.DB.prepare(`SELECT CAST(u.id AS TEXT) AS id,u.name,u.position,u.grade,u.department,u.role,u.active,p.name_hanja,p.birth_or_registration,p.address,p.employment_start_date,p.contact FROM system_users u LEFT JOIN employee_profiles p ON p.user_id=CAST(u.id AS TEXT) WHERE u.active=1 ORDER BY u.name`).all()
-      : await env.DB.prepare(`SELECT CAST(u.id AS TEXT) AS id,u.name,u.position,u.grade,u.department,u.role,u.active,p.name_hanja,p.birth_or_registration,p.address,p.employment_start_date,p.contact FROM system_users u LEFT JOIN employee_profiles p ON p.user_id=CAST(u.id AS TEXT) WHERE u.active=1 AND CAST(u.id AS TEXT)=? ORDER BY u.name`).bind(auth.user.id).all();
+      ? await env.DB.prepare(`SELECT CAST(u.id AS TEXT) AS id,u.name,u.position,u.grade,u.department,u.role,u.active,p.name_hanja,p.birth_or_registration,p.address,p.employment_start_date,p.contact FROM system_users u LEFT JOIN employee_profiles p ON p.user_id=CAST(u.id AS TEXT) WHERE u.active=1 ORDER BY CASE WHEN u.name='조화연' THEN 0 WHEN u.name='김양휘' THEN 1 ELSE 2 END,u.name`).all()
+      : await env.DB.prepare(`SELECT CAST(u.id AS TEXT) AS id,u.name,u.position,u.grade,u.department,u.role,u.active,p.name_hanja,p.birth_or_registration,p.address,p.employment_start_date,p.contact FROM system_users u LEFT JOIN employee_profiles p ON p.user_id=CAST(u.id AS TEXT) WHERE u.active=1 AND CAST(u.id AS TEXT)=? ORDER BY CASE WHEN u.name='조화연' THEN 0 WHEN u.name='김양휘' THEN 1 ELSE 2 END,u.name`).bind(auth.user.id).all();
     return json({ok:true,users:result.results||[],me:auth.user,canManage:auth.user.role==='admin',canIssue:auth.user.role==='admin'});
   }
   if(op==='detail'){

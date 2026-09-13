@@ -133,7 +133,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
           @page{size:A4;margin:0}
         }
       `;
-      const certificateMarkup=(r)=>{const period=employmentPeriodInfo(r.employment_start_date,r.issue_date);const signatoryTitle=String(r.signatory_title||'이사장').trim();const signatoryName=displaySignatoryName(r.signatory_name||'김양휘');const topLogoMarkup=Number(r.include_logo_sq_seal||0)===1?'<img class="employment-certificate-top-logo" src="/certificates/logo-sq.png" alt="" />':'';return `<div class="employment-certificate-preview-root"><article class="employment-certificate-paper">
+      const certificateMarkup=(r)=>{const period=employmentPeriodInfo(r.employment_start_date,r.issue_date);const signatoryTitle=String(r.signatory_title||'이사장').trim();const signatoryName=displaySignatoryName(r.signatory_name||'조화연');const topLogoMarkup=Number(r.include_logo_sq_seal||0)===1?'<img class="employment-certificate-top-logo" src="/certificates/logo-sq.png" alt="" />':'';return `<div class="employment-certificate-preview-root"><article class="employment-certificate-paper">
         ${topLogoMarkup}
         <div class="employment-certificate-title">재 직 증 명 서</div>
         <div class="employment-certificate-head">

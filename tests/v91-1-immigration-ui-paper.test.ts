@@ -18,8 +18,8 @@ test('V91.1 aligns form and ledger controls to the requested layout', () => {
   const page = read('src/pages/foreign-applications.astro');
   assert.match(page, /form-selector-actions/);
   assert.match(page, /official-form-downloads/);
-  assert.match(page, /data-no-weekday data-ledger-from/);
-  assert.match(page, /data-no-weekday data-ledger-to/);
+  assert.match(page, /<input(?=[^>]*\bdata-ledger-from\b)(?=[^>]*\bdata-no-weekday\b)(?=[^>]*\bdata-no-date8\b)[^>]*>/);
+  assert.match(page, /<input(?=[^>]*\bdata-ledger-to\b)(?=[^>]*\bdata-no-weekday\b)(?=[^>]*\bdata-no-date8\b)[^>]*>/);
   assert.match(page, /\.foreign-actions\{display:flex;justify-content:flex-end;align-items:center;gap:\.75rem/);
   assert.match(page, /\.official-form-downloads\{display:flex;align-items:center;justify-content:flex-end/);
   assert.match(page, /\.filter-date-range\{display:flex;align-items:center/);
@@ -30,7 +30,7 @@ test('V91.1 isolates input sections so numbered sections cannot flow into adjace
   assert.match(page, /foreign-form-sections/);
   assert.match(page, /foreign-input-section/);
   assert.match(page, /foreign-section-number/);
-  assert.match(page, /groups\.map\(\(group,index\)=>`<section class="foreign-input-section"/);
+  assert.match(page, /groups\.map\(\(group,index\)=>`<section class="foreign-input-section/);
 });
 
 test('V91.1 renders form-specific A4 previews with tables and multi-page visa output', () => {

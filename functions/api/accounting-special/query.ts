@@ -72,7 +72,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         ]),
         env.DB.prepare(`SELECT CAST(id AS TEXT) AS id,name,position,department
           FROM system_users WHERE active=1 AND (COALESCE(position,'') LIKE '%이사장%' OR COALESCE(department,'') LIKE '%이사장%')
-          ORDER BY name`).all(),
+          ORDER BY CASE WHEN name='조화연' THEN 0 WHEN name='김양휘' THEN 1 ELSE 2 END, name`).all(),
       ]);
       const [summary, fiscalYears, accounts] = accountingResults;
       return json({

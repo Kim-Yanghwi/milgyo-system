@@ -26,7 +26,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       SELECT CAST(id AS TEXT) AS id, name, username, position, grade, department, role, can_approve, can_accounting, active, created_at
       FROM system_users
       ${includeInactive ? '' : 'WHERE active = 1'}
-      ORDER BY created_at ASC, name ASC
+      ORDER BY
+        CASE WHEN name IN ('조화연','김양휘') THEN COALESCE(
+          (SELECT MIN(created_at) FROM system_users pair_users WHERE pair_users.name IN ('조화연','김양휘') AND pair_users.active=1),
+          created_at
+        ) ELSE created_at END ASC,
+        CASE WHEN name='조화연' THEN 0 WHEN name='김양휘' THEN 1 ELSE 2 END ASC,
+        created_at ASC, name ASC
     `).all();
     const normalizedRows = (rows.results ?? []).map((row: Record<string, unknown>) => {
       const position = normalizePositionValue(row.position);

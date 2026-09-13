@@ -1,0 +1,26 @@
+Milgyo OS V93 FINAL patch
+- No wrangler.toml
+- No D1 data migration
+- No R2 configuration changes
+- No historical migration rewrites
+
+Runtime files:
+functions/_shared/helpers.ts
+functions/api/accounting-special/query.ts
+functions/api/employment/query.ts
+functions/api/users/list.ts
+src/pages/employee-certificates.astro
+
+Tests:
+tests/v93-chairman-handover.test.ts
+tests/v91-1-immigration-ui-paper.test.ts
+
+Validation:
+scripts/check-v93-final.mjs
+
+Docs:
+docs/V93_FINAL_20260913.md
+V93_FINAL_APPLY_GUIDE.md
+
+tests/v91-1-immigration-ui-paper.test.ts  # FINAL R1: attribute-order-independent date filter regression check
+docs/V93_FINAL_R1_20260913.md
