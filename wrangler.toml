@@ -37,7 +37,7 @@ migrations_dir = "migrations/main"
 [[env.preview.d1_databases]]
 binding = "ACCOUNTING_DB"
 database_name = "milgyo-accounting-db-preview"
-database_id = "3d8a61bf-5a77-4140-aa75-9c472d8c5156"
+database_id = "ca43cb81-3eba-451e-bee9-8e4c7301d4f4"
 migrations_dir = "migrations/accounting"
 
 [[env.preview.r2_buckets]]
