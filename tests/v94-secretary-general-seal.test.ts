@@ -24,7 +24,7 @@ test('사무처의 담당부서장 직책 표시가 사무총장일 때만 전�
 
 test('사무총장 직인은 장 글자 쪽에 겹쳐 보이도록 미리보기와 인쇄 CSS에 포함된다', () => {
   const page = read('src/pages/index.astro');
-  assert.match(page, /\.secretary-general-seal \{[\s\S]*width: 42px; height: 42px; right: -1\.02rem; top: 50%;/);
-  assert.match(page, /\.secretary-general-seal\{position:absolute;z-index:3;width:46px;height:46px;right:-20px;top:50%;/);
+  assert.match(page, /\.secretary-general-seal \{[\s\S]*width: 42px; height: 42px; right: -1\.38rem; top: 50%;/);
+  assert.match(page, /\.secretary-general-seal\{position:absolute;z-index:3;width:46px;height:46px;right:-28px;top:50%;/);
   assert.match(page, /mix-blend-mode:multiply/);
 });
