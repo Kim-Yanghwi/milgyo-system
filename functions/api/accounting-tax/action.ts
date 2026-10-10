@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json, randomHex } from '../../_shared/helpers';
+import { authenticateSession, getSessionToken, clean, ensureTables, json, randomHex } from '../../_shared/helpers';
 import { ensureAccountingTables, hasAccountingAccess, isAccountingManager, parseMoney } from '../../_shared/accounting';
 import { validateDimensions } from '../../_shared/accounting-dimensions';
 import {
@@ -86,8 +86,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let payload: Payload;
   try { payload = await request.json(); } catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
   await ensureTables(env.DB);
-  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+  const auth = await authenticateSession(env.DB, getSessionToken(request));
+  if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
   if (!hasAccountingAccess(auth.user)) return json({ ok: false, message: '세무·신고자료 접속 권한이 없습니다.' }, 403);
   if (!isAccountingManager(auth.user) || auth.user.role === 'audit') return json({ ok: false, message: '세무자료 등록·수정은 회계담당자 또는 관리자만 할 수 있습니다.' }, 403);
   try {

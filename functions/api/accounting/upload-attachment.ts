@@ -1,5 +1,5 @@
 import {
-  authenticateSession,
+  authenticateSession, getSessionToken,
   clean,
   ensureTables,
   json,
@@ -53,6 +53,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     if (requestContentType.includes('multipart/form-data')) {
       const form = await request.formData();
+      for (const key of ['file','token','referenceType','referenceId','fileCategory','fileName','mimeType']) {
+        if (form.getAll(key).length > 1) return json({ ok: false, code: 'DUPLICATE_FORM_FIELD', message: '\uc911\ubcf5\ub41c \uc5c5\ub85c\ub4dc \ud544\ub4dc\ub294 \ud5c8\uc6a9\ub418\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.' }, 400);
+      }
       const filePart = form.get('file');
       uploadedFile = filePart && typeof filePart !== 'string' && typeof filePart.arrayBuffer === 'function'
         ? filePart as File
@@ -73,15 +76,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   await ensureTables(env.DB);
-  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-  if ('message' in auth) return json({ ok: false, message: auth.message }, auth.status);
+  const auth = await authenticateSession(env.DB, getSessionToken(request));
+  if ('message' in auth) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
   await ensureAccountingTables(env.ACCOUNTING_DB);
 
   const referenceType = normalizeAccountingReferenceType(payload.referenceType);
   const referenceId = clean(payload.referenceId, 100);
   const fileCategory = normalizeAccountingFileCategory(payload.fileCategory);
   const originalFilename = clean(payload.fileName, 220);
-  const contentType = clean(payload.mimeType, 140) || 'application/octet-stream';
+  let contentType = 'application/octet-stream'; // Never trust the multipart/client MIME declaration.
   const dataBase64 = typeof payload.dataBase64 === 'string' ? payload.dataBase64 : '';
 
   if (!referenceType || !referenceId || !originalFilename || (!uploadedFile && !dataBase64)) {
@@ -99,6 +102,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const policy = await getAccountingAttachmentPolicy(env.ACCOUNTING_DB);
   const inspection = inspectAccountingAttachment(originalFilename, bytes, policy);
   if (!inspection.ok) return json({ ok: false, message: inspection.message }, 400);
+  const canonicalMime: Record<string,string> = { pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',hwp:'application/x-hwp',doc:'application/msword',xls:'application/vnd.ms-excel',hwpx:'application/vnd.hancom.hwpx',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',csv:'text/csv',txt:'text/plain' };
+  contentType = canonicalMime[inspection.extension] || 'application/octet-stream';
 
   const usage = await env.ACCOUNTING_DB.prepare(`
     SELECT COUNT(*) AS count, COALESCE(SUM(size_bytes),0) AS total_bytes
@@ -141,13 +146,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         (reference_type,reference_id,file_category,original_filename,stored_filename,object_key,
          content_type,size_bytes,checksum_sha256,uploaded_by,uploaded_at,retention_until,
          scan_status,scan_message,delete_status,last_checked_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'active',?)
+      SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'active',?
+      WHERE (SELECT COUNT(*) FROM accounting_attachments WHERE reference_type=? AND reference_id=? AND deleted_at IS NULL) < ?
+        AND (SELECT COALESCE(SUM(size_bytes),0) FROM accounting_attachments WHERE reference_type=? AND reference_id=? AND deleted_at IS NULL) + ? <= ?
       RETURNING id
     `).bind(
       referenceType, referenceId, fileCategory, originalFilename, storedFilename, objectKey,
       contentType, bytes.byteLength, checksumSha256, auth.user.id, now,
       retentionDate(now, policy.retentionDays), inspection.scanStatus, inspection.scanMessage, now,
+      referenceType, referenceId, policy.maxFilesPerReference, referenceType, referenceId, bytes.byteLength, policy.maxTotalBytesPerReference,
     ).first<{ id: number }>();
+
+    if (!result) throw Object.assign(new Error('Attachment quota changed during upload'), { code: 'ATTACHMENT_QUOTA_CONFLICT' });
 
     await accountingAttachmentAuditStatement(
       env.ACCOUNTING_DB,
@@ -183,6 +193,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         operationType: 'compensation_delete', objectKey, referenceType, referenceId, error: cleanupError,
       }).catch(() => undefined);
     }
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ATTACHMENT_QUOTA_CONFLICT') return json({ ok: false, code: 'ATTACHMENT_QUOTA_CONFLICT', message: '\ub3d9\uc2dc \uc5c5\ub85c\ub4dc\ub85c \ucca8\ubd80 \ud55c\ub3c4\uc5d0 \ub3c4\ub2ec\ud558\uc5ec \ud30c\uc77c\uc744 \ucd94\uac00\ud558\uc9c0 \uc54a\uc558\uc2b5\ub2c8\ub2e4.' }, 409);
     console.error('accounting attachment metadata insert failed', error);
     return json({ ok: false, message: '회계 첨부파일 메타데이터 저장 중 오류가 발생했습니다.' }, 500);
   }

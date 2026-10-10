@@ -1,4 +1,4 @@
-import { ALL_CATEGORIES, authenticateSession, clean, ensureTables, json, randomHex, TemplateField } from '../../_shared/helpers';
+import { ALL_CATEGORIES, authenticateSession, getSessionToken, clean, ensureTables, json, randomHex, TemplateField } from '../../_shared/helpers';
 
 interface Env { DB: D1Database; }
 type Payload = {
@@ -39,8 +39,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let payload: Payload;
   try { payload = await request.json(); } catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
   await ensureTables(env.DB);
-  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+  const auth = await authenticateSession(env.DB, getSessionToken(request));
+  if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
   if (auth.user.role !== 'admin') return json({ ok: false, message: '서식 관리는 관리자만 할 수 있습니다.' }, 403);
 
   const id = clean(payload.id, 60) || `TPL-${randomHex(20)}`;

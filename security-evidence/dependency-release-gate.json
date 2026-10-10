@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-01",
+  "astro": "7.1.6",
+  "sharp": [
+    {
+      "path": "node_modules/sharp",
+      "version": "0.35.0"
+    }
+  ],
+  "ok": false,
+  "issues": [
+    "Astro 7.1.6: known advisory requires >=7.2.8.",
+    "node_modules/sharp 0.35.0: known advisory requires >=0.35.4.",
+    "The Sharp override 0.35.0 also needs updating."
+  ],
+  "advisory": "https://github.com/withastro/astro/security/advisories/GHSA-26w7-cxv4-gfx2"
+}

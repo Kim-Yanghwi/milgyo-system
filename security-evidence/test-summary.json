@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-01",
+  "scope": "Selected local tests only; not a production certification",
+  "nodeTests": {
+    "passed": 142,
+    "failed": 0,
+    "skippedWithinSelectedSet": 0,
+    "existing": 79,
+    "newRuntimeSqlite": 46,
+    "newClientVm": 17,
+    "excludedFile": "tests/tax-accounting-regression.test.ts",
+    "excludedReason": "fflate dependency not installed"
+  },
+  "syntax": {
+    "units": 166,
+    "errors": 0,
+    "compiler": "TypeScript 5.8.3",
+    "astroTemplateBuild": false
+  },
+  "securityTypecheck": "passed; tsconfig.security.json only",
+  "fullTypecheck": "blocked by missing fflate and associated three callback type errors, also present in baseline",
+  "fullBuild": "not completed; Astro package unavailable",
+  "packageInstall": "not completed; registry DNS failure and missing offline cache",
+  "dependencyAudit": "not completed; npm registry DNS failure",
+  "knownDependencyReleaseGate": "blocked intentionally until Astro/Sharp update and lockfile validation",
+  "nativeBrowserE2E": "not completed; managed browser policy denies navigation; no policy bypass attempted",
+  "liveCloudflareTest": "not performed",
+  "productionChanges": "none",
+  "evidenceFiles": [
+    "node-regression-final.txt",
+    "syntax.json",
+    "typecheck-security.txt",
+    "typecheck-full.txt",
+    "migrations.json",
+    "build-attempt.txt",
+    "npm-audit-attempt.txt",
+    "npm-ci-offline.txt",
+    "browser-session-tests.stderr",
+    "dependency-release-gate.json"
+  ]
+}

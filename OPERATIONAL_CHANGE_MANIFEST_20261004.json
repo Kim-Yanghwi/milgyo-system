@@ -1,0 +1,109 @@
+{
+  "date": "2026-10-04",
+  "changed_files": [
+    {
+      "path": ".github/workflows/verify-release.yml",
+      "change": "added",
+      "sha256": "327f923428a705f67881818172956c6bdde57d3562a78c14168478a9255ccfe9"
+    },
+    {
+      "path": "APPLY_OPERATIONAL_RECHECK_20261004.md",
+      "change": "added",
+      "sha256": "bd23f8fe93c2a9e5433f05ef5699fa5be74b8d29cd487140688d7ec2f4b336f1"
+    },
+    {
+      "path": "OPERATIONAL_RECHECK_20261004.md",
+      "change": "added",
+      "sha256": "599c0f0ab380940e7f5bb9f101cb53a30e65679aa138fbe456acefd652fda0fd"
+    },
+    {
+      "path": "SECURITY_AUDIT_EXCEPTION_20261004.md",
+      "change": "added",
+      "sha256": "5b1d9a7010a230a0275e34d930705e9d4606d20dc444bd50fa76da011b58e9db"
+    },
+    {
+      "path": "SECURITY_READ_FIRST.md",
+      "change": "modified",
+      "sha256": "89b7b4b6fd08ddb99ac94db56081768ed9c326210dab59a450dbe3133794e0a1",
+      "original_sha256": "4cbfec6d68b026bb2dd82e845ff99a41019bcd1161a4b33f6cf65f2ab8a4c959"
+    },
+    {
+      "path": "functions/api/health.ts",
+      "change": "modified",
+      "sha256": "4c77029416487963bac109e3d6a1cccca426406f8e179f6de3510c436bd16879",
+      "original_sha256": "bb85809d3291ce73c5aa0c9ea2cca45e0c916e02526fe9956192ead0ff6c61a2"
+    },
+    {
+      "path": "package.json",
+      "change": "modified",
+      "sha256": "10fd54d11f8f3ff8f7819e6dddbab41600ab0bfea1df296c4001f899f5ff6819",
+      "original_sha256": "29976f2d7c5c9ff6e7a9d3aa87dd22e48d58cf64c52229bb4f2da90469c1531e"
+    },
+    {
+      "path": "public/_routes.json",
+      "change": "modified",
+      "sha256": "92508e0bcf36f9c327dea983657f5d132b20fb28e777591bb18c78046bbd2346",
+      "original_sha256": "681a11dea21db27454abb43420956f4024990cf0d1ba1801165fc285757db6af"
+    },
+    {
+      "path": "public/system-session.js",
+      "change": "modified",
+      "sha256": "f872b8d2ed6cc7b1dda4c47717d7db0af19803211b32856f655925a79fed1a4e",
+      "original_sha256": "ce0a3f7054aa85b188e160251b8f540556e0bb03cf0f96d590dac45bb741e126"
+    },
+    {
+      "path": "scripts/operations/check-config.mjs",
+      "change": "added",
+      "sha256": "d60eb5dfc09b0dfa1015aae58fffa12196a14a9ab771806618fe3ecb49ca0348"
+    },
+    {
+      "path": "scripts/security/audit-release.mjs",
+      "change": "added",
+      "sha256": "dfc0212bd15c5c9dc7db84c27ff5c69d4a360226765a8b4e500920dbd85c3b9b"
+    },
+    {
+      "path": "scripts/security/check-release.mjs",
+      "change": "modified",
+      "sha256": "78020e88a324e1197f0b5f3f2d91bf684a67f91370387fa84c5b58589e86e851",
+      "original_sha256": "fca436415e045aa2351e8d07f4e875dc53b590cee2bcf3b7c9fde1bb0b1af42a"
+    },
+    {
+      "path": "scripts/security/upgrade-dependencies.mjs",
+      "change": "modified",
+      "sha256": "86460810b6258018253fce1963bd8022bdc83411fad2123ba6938c5b461658b6",
+      "original_sha256": "8a0d27eb420a3275d8c6032c6962f62aabbe6ba2597771970e37f5ec069840c4"
+    },
+    {
+      "path": "security-evidence/recheck-migrations-20261004.json",
+      "change": "added",
+      "sha256": "ea7da5ce5c43e24dbd2d0a39049e930379ebe5eb9953181672e060498696451c"
+    },
+    {
+      "path": "security-evidence/recheck-tests-20261004.tap",
+      "change": "added",
+      "sha256": "3caf05ef9774c950039e7f5b715b7f7372db05d9252d02eef754198248250612"
+    },
+    {
+      "path": "src/lib/xlsxArchiveGuard.mjs",
+      "change": "added",
+      "sha256": "ef43f6b21faac5bf440259d1cf171c271627a0130c5b98221684c12e437b2c2b"
+    },
+    {
+      "path": "src/pages/accounting-operations.astro",
+      "change": "modified",
+      "sha256": "4a68789a455f7e44ae013a541d8e0daa31e26c791140d5ab71c652d55581243c",
+      "original_sha256": "ec6b7a34452f7b94792598bfa0fcefdd49cbc8da28e6a5614b9f8401639d6f26"
+    },
+    {
+      "path": "tests/v97-session-client.test.ts",
+      "change": "modified",
+      "sha256": "7ae73220002a2551fef174f1c2a3c3f1a00a8fd64adb01f45fd69f5180831be6",
+      "original_sha256": "022fcaf16253c6abd707b599e109932f34a7a156e744ce9819e70abb1c8ceb2e"
+    },
+    {
+      "path": "tests/v98-operational-hardening.test.ts",
+      "change": "added",
+      "sha256": "f417f1a1486eb2035367526764878946d7b7394935866e458aa6f8563b6f15fe"
+    }
+  ]
+}

@@ -214,13 +214,13 @@ import AccountingHeader from '../components/AccountingHeader.astro';
   </div>
 
   <script is:inline src="/accounting-domain-api.js"></script>
-  <script is:inline src="/accounting-api-client.js"></script>
+  <script is:inline src="/accounting-api-client.js?v=97"></script>
   <script is:inline src="/accounting-domain-ui.js"></script>
   <script is:inline>
-    (()=>{
+    (async () => {
       'use strict';
       const STORAGE_KEY='milgyo-system-session';
-      const session=(()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')}catch{return null}})();
+      const session = await window.MilgyoSession.ready();
       if(!session?.token||!session?.user){location.replace('/');return;}
       const token=session.token,me=session.user;
       const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>Array.from(r.querySelectorAll(s));
@@ -279,9 +279,9 @@ import AccountingHeader from '../components/AccountingHeader.astro';
       const renderFileQueue=(selector,files)=>{const list=$(selector);if(!list)return;list.innerHTML=files.length?files.map((file,index)=>`<li><span class="attachment-file-name">${esc(file.name)}</span><span class="attachment-file-meta">${bytesLabel(file.size)}</span><button type="button" class="mini-btn" data-file-remove="${index}" data-file-bucket="${selector.replace(/[^a-z0-9]/gi,'')}">제거</button></li>`).join(''):'<li class="attachment-empty">선택된 첨부파일이 없습니다.</li>';};
       const syncAttachmentQueues=()=>{renderFileQueue('[data-resolution-file-queue]',resolutionPendingFiles);renderFileQueue('[data-resolution-modal-file-queue]',resolutionModalFiles);};
       const removeQueuedFile=(bucketName,index)=>{const idx=Number(index);if(bucketName==='dataresolutionfilequeue')resolutionPendingFiles=resolutionPendingFiles.filter((_,i)=>i!==idx);if(bucketName==='dataresolutionmodalfilequeue')resolutionModalFiles=resolutionModalFiles.filter((_,i)=>i!==idx);syncAttachmentQueues();};
-      const uploadAccountingAttachment=async(referenceType,referenceId,file,fileCategory='evidence')=>{const form=new FormData();form.append('token',token);form.append('referenceType',referenceType);form.append('referenceId',referenceId);form.append('fileCategory',fileCategory);form.append('file',file,file.name);const res=await fetch('/api/accounting/upload-attachment',{method:'POST',body:form});const text=await res.text();let data;try{data=JSON.parse(text)}catch{data={ok:false,message:`서버 응답 오류(HTTP ${res.status})`}}if(!data.ok)throw Object.assign(new Error(data.message||'첨부파일 등록 중 오류가 발생했습니다.'),{data,status:res.status});return data;};
+      const uploadAccountingAttachment=async(referenceType,referenceId,file,fileCategory='evidence')=>{const form=new FormData();form.append('token',token);form.append('referenceType',referenceType);form.append('referenceId',referenceId);form.append('fileCategory',fileCategory);form.append('file',file,file.name);const res=await window.MilgyoSession.fetch('/api/accounting/upload-attachment',{method:'POST',body:form});const text=await res.text();let data;try{data=JSON.parse(text)}catch{data={ok:false,message:`서버 응답 오류(HTTP ${res.status})`}}if(!data.ok)throw Object.assign(new Error(data.message||'첨부파일 등록 중 오류가 발생했습니다.'),{data,status:res.status});return data;};
       const listResolutionAttachments=async(referenceId)=>api('/api/accounting/list-attachments',{referenceType:'resolution',referenceId});
-      const downloadAccountingAttachment=async(attachmentId)=>{const res=await fetch('/api/accounting/attachment-data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,attachmentId,binary:true})});if(!res.ok){const text=await res.text();let data;try{data=JSON.parse(text)}catch{data={message:`서버 응답 오류(HTTP ${res.status})`}}throw new Error(data.message||'첨부파일을 내려받지 못했습니다.');}const blob=await res.blob();let fileName='attachment';const encoded=res.headers.get('X-File-Name');if(encoded){try{fileName=decodeURIComponent(encoded)}catch{fileName=encoded}}const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=fileName;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+      const downloadAccountingAttachment=async(attachmentId)=>{const res=await window.MilgyoSession.fetch('/api/accounting/attachment-data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,attachmentId,binary:true})});if(!res.ok){const text=await res.text();let data;try{data=JSON.parse(text)}catch{data={message:`서버 응답 오류(HTTP ${res.status})`}}throw new Error(data.message||'첨부파일을 내려받지 못했습니다.');}const blob=await res.blob();let fileName='attachment';const encoded=res.headers.get('X-File-Name');if(encoded){try{fileName=decodeURIComponent(encoded)}catch{fileName=encoded}}const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=fileName;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);};
       const renderResolutionAttachmentRows=(rows=[])=>{const body=$('[data-resolution-attachment-rows]');body.innerHTML=rows.length?rows.map((row)=>{const mine=String(row.uploaded_by||'')===String(me.id||'')||String(row.uploaded_by||'')===String(me.name||'');const canDelete=activeResolutionPermissions.canWrite&&(activeResolutionPermissions.manager||mine);return `<tr><td class="cell-center">${esc(row.original_filename)}</td><td class="cell-center">${esc(row.file_category||'-')}</td><td class="cell-center">${bytesLabel(row.size_bytes)}</td><td class="cell-center">${mine?'본인':esc(row.uploaded_by||'-')}</td><td class="cell-center">${esc(row.uploaded_at||'-')}</td><td class="cell-center"><div class="attachment-actions"><button type="button" class="mini-btn" data-attachment-download="${esc(row.id)}">다운로드</button>${canDelete?`<button type="button" class="mini-btn danger" data-attachment-delete="${esc(row.id)}">삭제</button>`:''}</div></td></tr>`}).join(''):'<tr><td colspan="6" class="empty">등록된 첨부파일이 없습니다.</td></tr>';};
       const applyResolutionPermissions=()=>{const uploadBox=$('[data-resolution-modal-upload-box]');if(uploadBox)uploadBox.hidden=!activeResolutionPermissions.canWrite;};
       const openResolutionAttachmentModal=async(referenceId,title)=>{activeResolutionAttachment={id:String(referenceId||''),title:String(title||'')};activeResolutionPermissions={canWrite:false,manager:false,audit:me.role==='audit',userId:String(me.id||'')};$('#resolution-attachment-title').textContent='결의서 첨부파일';$('[data-resolution-attachment-subtitle]').textContent=activeResolutionAttachment.title?`${activeResolutionAttachment.title} · 증빙자료`:'결의서 증빙자료를 조회합니다.';const modal=$('[data-resolution-attachment-modal]');modal.hidden=false;modal.setAttribute('aria-hidden','false');modal.classList.add('is-open');$('body').classList.add('modal-open');applyResolutionPermissions();resolutionModalFiles=[];syncAttachmentQueues();$('[data-resolution-attachment-rows]').innerHTML='<tr><td colspan="6" class="empty">첨부파일을 불러오는 중입니다.</td></tr>';try{await refreshResolutionAttachmentModal();}catch(error){renderResolutionAttachmentRows([]);notice(error.message,'error');}};
@@ -295,7 +295,6 @@ import AccountingHeader from '../components/AccountingHeader.astro';
       $$('.acc-nav').forEach((b)=>b.addEventListener('click',()=>showTab(b.dataset.tab)));$$('[data-go-tab]').forEach((b)=>b.addEventListener('click',()=>showTab(b.dataset.goTab)));
       window.addEventListener('popstate',()=>showTab(accountingTabFromUrl(),{historyMode:'none'}));
       $$('[data-toggle-form]').forEach((b)=>b.addEventListener('click',()=>{const f=$(`[data-form="${b.dataset.toggleForm}"]`);f.hidden=!f.hidden}));$$('[data-close-form]').forEach((b)=>b.addEventListener('click',()=>{$(`[data-form="${b.dataset.closeForm}"]`).hidden=true}));
-      $('[data-logout]').addEventListener('click',async()=>{try{await fetch('/api/auth/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})})}catch{}localStorage.removeItem(STORAGE_KEY);location.replace('/')});
       $('[data-user-label]').textContent=`${me.name} · ${me.position||'구성원'}`;
       document.addEventListener('click',(event)=>{const target=event.target.closest('[data-file-remove]');if(!target||target.closest('[data-resolution-attachment-modal]'))return;removeQueuedFile(target.dataset.fileBucket,target.dataset.fileRemove);});
       renderYearOptions();
@@ -527,7 +526,7 @@ import AccountingHeader from '../components/AccountingHeader.astro';
     })();
   </script>
 
-  <script src="/accounting-generic-attachments.js" defer></script>
+  <script src="/accounting-generic-attachments.js?v=97" defer></script>
 
   <style>
     .accounting-app{min-height:100vh;background:#eef2f7;color:#20252c}

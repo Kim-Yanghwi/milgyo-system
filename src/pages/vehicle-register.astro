@@ -78,12 +78,12 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
   </div>
 
   <script is:inline src="/accounting-domain-api.js"></script>
-  <script is:inline src="/accounting-api-client.js"></script>
+  <script is:inline src="/accounting-api-client.js?v=97"></script>
   <script is:inline>
-    (()=>{
+    (async () => {
       'use strict';
       const STORAGE_KEY='milgyo-system-session';
-      const session=(()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')}catch{return null}})();
+      const session = await window.MilgyoSession.ready();
       if(!session?.token||!session?.user){location.replace('/');return}
       const token=session.token,me=session.user;
       const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>Array.from(r.querySelectorAll(s));

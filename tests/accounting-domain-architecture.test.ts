@@ -184,7 +184,7 @@ test('all accounting workspaces load the domain router and shared API client bef
 });
 
 
-test('shared accounting API client applies canonical routing, token injection, and uniform errors', async () => {
+test('shared accounting API client applies canonical routing, cookie transport delegation, and uniform errors', async () => {
   const routerCode = fs.readFileSync('public/accounting-domain-api.js','utf8');
   const clientCode = fs.readFileSync('public/accounting-api-client.js','utf8');
   const calls:any[]=[];
@@ -195,6 +195,7 @@ test('shared accounting API client applies canonical routing, token injection, a
       return {ok:true,status:200,text:async()=>JSON.stringify({ok:true,result:'ok'})};
     },
   };
+  sandbox.window.MilgyoSession={fetch:(...args:any[])=>sandbox.fetch(...args)};
   vm.runInNewContext(routerCode,sandbox,{filename:'accounting-domain-api.js'});
   vm.runInNewContext(clientCode,sandbox,{filename:'accounting-api-client.js'});
   const data=await sandbox.window.AccountingApiClient.post('/api/accounting-special/action',{action:'save-donation',marker:1},'TOKEN-1');
@@ -212,7 +213,7 @@ test('shared accounting API client applies canonical routing, token injection, a
 test('auxiliary vehicle workflows also route accounting business calls through governance', () => {
   const vehicle = fs.readFileSync('src/pages/vehicle-register.astro','utf8');
   assert.match(vehicle,/src="\/accounting-domain-api\.js"/);
-  assert.match(vehicle,/src="\/accounting-api-client\.js"/);
+  assert.match(vehicle,/src="\/accounting-api-client\.js(?:\?v=97)?"/);
   assert.match(vehicle,/AccountingApiClient\.post/);
   const home = fs.readFileSync('src/pages/index.astro','utf8');
   assert.match(home,/\/api\/accounting-domains\/governance\/query/);

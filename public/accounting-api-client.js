@@ -4,7 +4,7 @@
     const input=body&&typeof body==='object'?body:{};
     const routed=window.AccountingDomainApi?.route(path,input)||{path,body:input};
     const payload=token?{...routed.body,token}:routed.body;
-    const response=await fetch(routed.path,{
+    const response=await window.MilgyoSession.fetch(routed.path,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(payload),

@@ -1,4 +1,4 @@
-import { authenticateSession, canReadDocument, clean, ensureTables, json } from '../../_shared/helpers';
+import { authenticateSession, getSessionToken, canReadDocument, clean, ensureTables, json } from '../../_shared/helpers';
 interface Env { DB: D1Database; }
 type DetailPayload = { token?: string; id?: string };
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -6,15 +6,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let payload: DetailPayload;
   try { payload = await request.json(); } catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
   await ensureTables(env.DB);
-  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+  const auth = await authenticateSession(env.DB, getSessionToken(request));
+  if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
   const id = clean(payload.id, 60);
   if (!id) return json({ ok: false, message: '문서번호가 필요합니다.' }, 400);
   try {
     const document = await env.DB.prepare(`SELECT * FROM documents WHERE id = ?`).bind(id).first<Record<string, unknown>>();
     if (!document) return json({ ok: false, message: '해당 문서를 찾을 수 없습니다.' }, 404);
     let readable = canReadDocument(auth.user, document);
-    if (!readable && document.access_scope === '관련자') {
+    if (!readable && document.status !== '임시저장' && document.access_scope === '관련자') {
       const related = await env.DB.prepare(`SELECT 1 AS allowed FROM document_approval_lines WHERE document_id = ? AND user_id = ? LIMIT 1`)
         .bind(id, auth.user.id).first<{ allowed: number }>();
       readable = !!related;

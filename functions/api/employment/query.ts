@@ -1,11 +1,11 @@
-import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
+import { authenticateSession, getSessionToken, clean, ensureTables, json } from '../../_shared/helpers';
 interface Env { DB:D1Database; }
 type Payload={token?:string;operation?:string;query?:string;status?:string;page?:number;pageSize?:number;employeeUserId?:string;id?:string};
 const maskIdentity=(value:unknown)=>{const raw=String(value||'');if(!raw)return '';if(raw.length<=6)return raw.slice(0,2)+'***';return raw.slice(0,6)+'-'+raw.slice(6).replace(/./g,'*');};
 export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   if(!env.DB)return json({ok:false,message:'DB가 연결되지 않았습니다.'},500);
   let p:Payload;try{p=await request.json();}catch{return json({ok:false,message:'요청 형식이 올바르지 않습니다.'},400);}
-  await ensureTables(env.DB);const auth=await authenticateSession(env.DB,clean(p.token,200));if(!auth.ok)return json({ok:false,message:auth.message},auth.status);
+  await ensureTables(env.DB);const auth=await authenticateSession(env.DB, getSessionToken(request));if(!auth.ok)return json({ok:false,code: auth.code, message: auth.message},auth.status);
   const op=clean(p.operation,20)||'list';
   if(op==='options'){
     const all=auth.user.role==='admin';

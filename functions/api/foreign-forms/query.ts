@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
+import { authenticateSession, getSessionToken, clean, ensureTables, json } from '../../_shared/helpers';
 import { ensureForeignFormTables, isForeignFormType } from '../../_shared/foreign-forms';
 
 interface Env { DB: D1Database; }
@@ -15,8 +15,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   await ensureForeignFormTables(env.DB);
 
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
-  const auth = await authenticateSession(env.DB, clean(body.token, 160));
-  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+  const auth = await authenticateSession(env.DB, getSessionToken(request));
+  if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
   const user = auth.user;
 
   const mode = clean(body.mode, 20) || 'list';

@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, isValidIsoDate, json, randomHex, normalizeDepartmentValue } from '../../_shared/helpers';
+import { authenticateSession, getSessionToken, clean, ensureTables, isValidIsoDate, json, randomHex, normalizeDepartmentValue } from '../../_shared/helpers';
 import {
   ensureAccountingTables,
   hasAccountingAccess,
@@ -151,8 +151,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const accountingDb=env.ACCOUNTING_DB;
   await ensureTables(env.DB);
-  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+  const auth = await authenticateSession(env.DB, getSessionToken(request));
+  if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
   if (!hasAccountingAccess(auth.user)) return json({ ok: false, message: '종단 회계관리 접속 권한이 없습니다. 관리자에게 회계권한 부여를 요청해 주세요.' }, 403);
   await ensureAccountingTables(accountingDb);
   await ensureAccountingDomainTables(accountingDb);

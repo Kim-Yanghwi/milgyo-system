@@ -9,7 +9,7 @@ type D1Database = {
   prepare: (sql: string) => D1PreparedStatement;
   batch: (statements: D1PreparedStatement[]) => Promise<any[]>;
 };
-type PagesFunction<Env = unknown> = (context: { request: Request; env: Env; next: () => Promise<Response> }) => Promise<Response> | Response;
+type PagesFunction<Env = unknown> = (context: { request: Request; env: Env; next: (input?: Request | string, init?: RequestInit) => Promise<Response> }) => Promise<Response> | Response;
 
 type R2ObjectBody = {
   body: ReadableStream<Uint8Array>;

@@ -1,5 +1,5 @@
 import {
-  authenticateSession,
+  authenticateSession, getSessionToken,
   clean,
   ensureTables,
   json,
@@ -25,8 +25,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     await ensureTables(env.DB);
-    const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-    if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+    const auth = await authenticateSession(env.DB, getSessionToken(request));
+    if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
 
     const id = clean(payload.id, 60);
     const sentMethod = clean(payload.sentMethod, 80);

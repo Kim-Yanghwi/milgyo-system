@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json, randomHex, normalizeDepartmentValue } from '../../_shared/helpers';
+import { authenticateSession, getSessionToken, clean, ensureTables, json, randomHex, normalizeDepartmentValue } from '../../_shared/helpers';
 import { ensureAccountingTables, hasAccountingAccess, isAccountingManager, parseMoney } from '../../_shared/accounting';
 import { validateDimensions } from '../../_shared/accounting-dimensions';
 import { nextSpecialNumber, reserveSpecialNumberBlock } from '../../_shared/accounting-numbering';
@@ -174,8 +174,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let payload: Payload;
   try { payload = await request.json(); } catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
   await ensureTables(env.DB);
-  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+  const auth = await authenticateSession(env.DB, getSessionToken(request));
+  if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
   if (!hasAccountingAccess(auth.user)) return json({ ok: false, message: '회계관리 접속 권한이 없습니다.' }, 403);
   await ensureAccountingTables(env.ACCOUNTING_DB);
   await ensureAccountingOperationsTables(env.ACCOUNTING_DB);

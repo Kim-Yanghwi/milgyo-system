@@ -1,4 +1,4 @@
-import { authenticateSession, claimDocumentTransition, clean, documentTransitionReleaseStatement, ensureTables, json, releaseDocumentTransition } from '../../_shared/helpers';
+import { authenticateSession, getSessionToken, claimDocumentTransition, clean, documentTransitionReleaseStatement, ensureTables, json, releaseDocumentTransition } from '../../_shared/helpers';
 import { accountingEventStatement, ensureAccountingIntegrationSchema, processAccountingOutbox } from '../../_shared/accounting-integration';
 interface Env { DB:D1Database; ACCOUNTING_DB?:D1Database; }
 type DecidePayload={token?:string;id?:string;action?:string;memo?:string};
@@ -13,7 +13,7 @@ const processIntegration=async(env:Env,enqueued:boolean)=>{if(!enqueued)return {
 const conflict=(e:unknown)=>/UNIQUE constraint failed:\s*document_approvals\.id|accounting_outbox\.event_key/i.test(e instanceof Error?e.message:String(e));
 export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
   if(!env.DB)return json({ok:false,message:'DB가 연결되지 않았습니다.'},500);let payload:DecidePayload;try{payload=await request.json()}catch{return json({ok:false,message:'요청 형식이 올바르지 않습니다.'},400)}
-  await ensureTables(env.DB);await ensureAccountingIntegrationSchema(env.DB);const auth=await authenticateSession(env.DB,clean(payload.token,200));if(!auth.ok)return json({ok:false,message:auth.message},auth.status);
+  await ensureTables(env.DB);await ensureAccountingIntegrationSchema(env.DB);const auth=await authenticateSession(env.DB, getSessionToken(request));if(!auth.ok)return json({ok:false,code: auth.code, message: auth.message},auth.status);
   const me=auth.user,id=clean(payload.id,60),action=clean(payload.action,20),memo=clean(payload.memo,2000);if(!id)return json({ok:false,message:'문서번호가 필요합니다.'},400);if(!VALID_ACTIONS.includes(action))return json({ok:false,message:'처리 구분이 올바르지 않습니다.'},400);
   let lockToken='';
   try{

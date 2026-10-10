@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json, normalizeDepartmentValue, normalizePositionValue } from '../../_shared/helpers';
+import { authenticateSession, getSessionToken, clean, ensureTables, json, normalizeDepartmentValue, normalizePositionValue } from '../../_shared/helpers';
 
 interface Env {
   DB: D1Database;
@@ -18,8 +18,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     await ensureTables(env.DB);
-    const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-    if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+    const auth = await authenticateSession(env.DB, getSessionToken(request));
+    if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
 
     const includeInactive = !!payload.includeInactive && auth.user.role === 'admin';
     const rows = await env.DB.prepare(`

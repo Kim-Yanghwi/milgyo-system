@@ -38,6 +38,6 @@ test('current user department refreshes from D1-backed session data without relo
   assert.match(page, /replaceSessionUser\(data\.user\)/);
   assert.match(page, /editedCurrentUser[\s\S]*refreshCurrentSessionUser\(\)/);
   assert.match(page, /me\.department\s*\|\|\s*\(departmentTree\.some/);
-  assert.match(management, /if\(data\.ok&&data\.user\)/);
-  assert.match(management, /renderProfile\(fresh\)/);
+  assert.match(management, /await window\.MilgyoSession\.ready\(\)/);
+  assert.match(management, /renderProfile\(user\)/);
 });

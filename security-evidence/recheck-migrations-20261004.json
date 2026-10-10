@@ -1,0 +1,18 @@
+{
+  "main": {
+    "ok": true,
+    "files": 13,
+    "last": "0012_v97_security_sessions.sql",
+    "integrity": "ok",
+    "tables": 25,
+    "triggers": 2
+  },
+  "accounting": {
+    "ok": true,
+    "files": 16,
+    "last": "0018_v85_reconciliation_integrity.sql",
+    "integrity": "ok",
+    "tables": 62,
+    "triggers": 63
+  }
+}

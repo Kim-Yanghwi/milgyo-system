@@ -1,5 +1,5 @@
 import {
-  authenticateSession,
+  authenticateSession, getSessionToken,
   clean,
   ensureTables,
   hashPassword,
@@ -66,13 +66,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     await ensureTables(env.DB);
-    const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-    if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+    const auth = await authenticateSession(env.DB, getSessionToken(request));
+    if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
     if (auth.user.role !== 'admin') return json({ ok: false, message: '계정 관리는 관리자만 할 수 있습니다.' }, 403);
 
     const name = clean(payload.name, 40);
     const username = clean(payload.username, 60);
-    const password = typeof payload.password === 'string' ? payload.password.slice(0, 200) : '';
+    const password = typeof payload.password === 'string' ? payload.password : '';
+    if (password.length > 200) return json({ ok: false, code: 'PASSWORD_TOO_LONG', message: '\ube44\ubc00\ubc88\ud638\ub294 200\uc790 \uc774\ud558\ub85c \uc785\ub825\ud574 \uc8fc\uc138\uc694.' }, 400);
     const position = normalizePositionValue(payload.position);
     const grade = clean(payload.grade, 20);
     const department = normalizeDepartmentValue(payload.department, position);

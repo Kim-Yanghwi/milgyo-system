@@ -1,4 +1,4 @@
-import { authenticateSession, canReadDocument, clean, ensureTables, json } from '../../_shared/helpers';
+import { authenticateSession, getSessionToken, canReadDocument, clean, ensureTables, json } from '../../_shared/helpers';
 interface Env { DB: D1Database; FILES?: R2Bucket; }
 type Payload = { token?: string; attachmentId?: string; binary?: boolean };
 
@@ -27,8 +27,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
   let payload: Payload; try { payload = await request.json(); } catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
   await ensureTables(env.DB);
-  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+  const auth = await authenticateSession(env.DB, getSessionToken(request));
+  if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
   const attachment = await env.DB.prepare(`
     SELECT id,document_id,file_name,mime_type,size_bytes,data_base64,storage_type,r2_key
     FROM document_attachments WHERE id=?
@@ -37,7 +37,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const doc = await env.DB.prepare('SELECT * FROM documents WHERE id=?').bind(attachment.document_id).first<Record<string, unknown>>();
   if (!doc) return json({ ok: false, message: '첨부파일 열람 권한이 없습니다.' }, 403);
   let readable = canReadDocument(auth.user, doc);
-  if (!readable && doc.access_scope === '관련자') {
+  if (!readable && doc.status !== '임시저장' && doc.access_scope === '관련자') {
     const related = await env.DB.prepare('SELECT 1 AS allowed FROM document_approval_lines WHERE document_id=? AND user_id=? LIMIT 1')
       .bind(attachment.document_id, auth.user.id).first<{ allowed: number }>();
     readable = !!related;
