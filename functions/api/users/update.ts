@@ -1,5 +1,5 @@
 import {
-  authenticateSession,
+  authenticateSession, getSessionToken,
   clean,
   ensureTables,
   hashPassword,
@@ -38,8 +38,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     await ensureTables(env.DB);
-    const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-    if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+    const auth = await authenticateSession(env.DB, getSessionToken(request));
+    if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
     if (auth.user.role !== 'admin') return json({ ok: false, message: '계정 관리는 관리자만 할 수 있습니다.' }, 403);
 
     const id = clean(payload.id, 60);
@@ -59,7 +59,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const canApprove = !!payload.canApprove || role === 'admin';
     const canAccounting = !!payload.canAccounting || role === 'admin';
     const active = payload.active === undefined ? true : !!payload.active;
-    const newPassword = typeof payload.newPassword === 'string' ? payload.newPassword.slice(0, 200) : '';
+    const newPassword = typeof payload.newPassword === 'string' ? payload.newPassword : '';
+    if (newPassword.length > 200) return json({ ok: false, code: 'PASSWORD_TOO_LONG', message: '\ube44\ubc00\ubc88\ud638\ub294 200\uc790 \uc774\ud558\ub85c \uc785\ub825\ud574 \uc8fc\uc138\uc694.' }, 400);
 
     if (!name) return json({ ok: false, message: '성명을 입력해 주세요.' }, 400);
     if (newPassword && newPassword.length < 8) {
@@ -78,18 +79,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       }
     }
 
+    const passwordHash = newPassword ? await hashPassword(newPassword) : null;
     const updateResult=await env.DB.prepare(`
-      UPDATE system_users SET name=?,position=?,grade=?,department=?,role=?,can_approve=?,can_accounting=?,active=?
+      UPDATE system_users SET name=?,position=?,grade=?,department=?,role=?,can_approve=?,can_accounting=?,active=?,password_hash=COALESCE(?,password_hash)
       WHERE CAST(id AS TEXT)=? AND NOT (role='admin' AND active=1 AND (?<>'admin' OR ?=0)
         AND NOT EXISTS(SELECT 1 FROM system_users other WHERE other.role='admin' AND other.active=1 AND CAST(other.id AS TEXT)<>CAST(system_users.id AS TEXT)))
-    `).bind(name,position||null,grade||null,department||null,role,canApprove?1:0,canAccounting?1:0,active?1:0,id,role,active?1:0).run();
+    `).bind(name,position||null,grade||null,department||null,role,canApprove?1:0,canAccounting?1:0,active?1:0,passwordHash,id,role,active?1:0).run();
     if(Number(updateResult.meta?.changes||0)!==1)return json({ok:false,message:'동시 변경으로 인해 마지막 활성 관리자 계정을 보호했습니다. 계정 목록을 새로고침해 주세요.'},409);
 
-    if (newPassword) {
-      const passwordHash = await hashPassword(newPassword);
-      await env.DB.prepare(`UPDATE system_users SET password_hash = ? WHERE CAST(id AS TEXT) = ?`)
-        .bind(passwordHash, id).run();
-    }
 
     return json({ ok: true, message: '계정 정보가 수정되었습니다.' });
   } catch (error) {

@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "include": [
+    "/*"
+  ],
+  "exclude": [
+    "/_astro/*",
+    "/accounting-api-client.js",
+    "/accounting-domain-api.js",
+    "/accounting-domain-ui.js",
+    "/accounting-generic-attachments.js",
+    "/brand-logo-transparent.png",
+    "/brand-wordmark-symbol.svg",
+    "/brand-wordmark.png",
+    "/favicon.png",
+    "/forms/*",
+    "/login-logo-transparent.png",
+    "/login-lotus-pattern.png",
+    "/login-pattern.svg",
+    "/login-wave.svg",
+    "/logo.png",
+    "/milgyo-date-input.js",
+    "/robots.txt",
+    "/system-session.js",
+    "/certificates/appointment-award-paper.png",
+    "/certificates/logo-sq.png",
+    "/certificates/ordination/background.jpg",
+    "/certificates/ordination/bodhisattva.png"
+  ]
+}

@@ -1,0 +1,192 @@
+{
+  "date": "2026-10-01",
+  "originalFiles": 223,
+  "deletedFiles": [],
+  "protectedAssets": 24,
+  "protectedAssetsUnchanged": true,
+  "existingMigrationsUnchanged": true,
+  "existingMigrationsCount": 28,
+  "originalPackageLockUnchanged": true,
+  "allAstroStyleBlocksUnchanged": true,
+  "styles": [
+    {
+      "path": "src/components/AccountingHeader.astro",
+      "styleBlocks": 3,
+      "unchanged": true
+    },
+    {
+      "path": "src/layouts/GovLayout.astro",
+      "styleBlocks": 1,
+      "unchanged": true
+    },
+    {
+      "path": "src/layouts/ManagementLayout.astro",
+      "styleBlocks": 1,
+      "unchanged": true
+    },
+    {
+      "path": "src/pages/accounting-compliance.astro",
+      "styleBlocks": 1,
+      "unchanged": true
+    },
+    {
+      "path": "src/pages/accounting-files.astro",
+      "styleBlocks": 1,
+      "unchanged": true
+    },
+    {
+      "path": "src/pages/accounting-operations.astro",
+      "styleBlocks": 1,
+      "unchanged": true
+    },
+    {
+      "path": "src/pages/accounting-special.astro",
+      "styleBlocks": 4,
+      "unchanged": true
+    },
+    {
+      "path": "src/pages/accounting-tax.astro",
+      "styleBlocks": 1,
+      "unchanged": true
+    },
+    {
+      "path": "src/pages/accounting.astro",
+      "styleBlocks": 1,
+      "unchanged": true
+    },
+    {
+      "path": "src/pages/appointment-awards.astro",
+      "styleBlocks": 3,
+      "unchanged": true
+    },
+    {
+      "path": "src/pages/employee-certificates.astro",
+      "styleBlocks": 3,
+      "unchanged": true
+    },
+    {
+      "path": "src/pages/foreign-applications.astro",
+      "styleBlocks": 2,
+      "unchanged": true
+    },
+    {
+      "path": "src/pages/index.astro",
+      "styleBlocks": 2,
+      "unchanged": true
+    },
+    {
+      "path": "src/pages/ordination-certificates.astro",
+      "styleBlocks": 3,
+      "unchanged": true
+    },
+    {
+      "path": "src/pages/register-management.astro",
+      "styleBlocks": 2,
+      "unchanged": true
+    },
+    {
+      "path": "src/pages/vehicle-register.astro",
+      "styleBlocks": 1,
+      "unchanged": true
+    }
+  ],
+  "assets": [
+    {
+      "path": "public/brand-logo-transparent.png",
+      "sha256": "1edde270ba644b9cc4ea97fb8975aae04f1131fd15ff3d407c03667ee9cd8c85"
+    },
+    {
+      "path": "public/brand-wordmark-symbol.svg",
+      "sha256": "09d713a054fc2b02bb6c36e9db4d6fffe5de9806edf21321d1231c336b30e666"
+    },
+    {
+      "path": "public/brand-wordmark.png",
+      "sha256": "e43e255f7f60f75ddd3a305ea7dd641199ebeda112fcd9c3a4ad10ed1cbffe30"
+    },
+    {
+      "path": "public/certificates/appointment-award-paper.png",
+      "sha256": "ce01c0eef43884667398ad3b9a5a18f049a97b0de8e16a4fbe2f78f3018a60f5"
+    },
+    {
+      "path": "public/certificates/logo-sq.png",
+      "sha256": "a5297f1f42a7170b0a79bb6829c78884150e7e281feee09a6f58ce740b0f722f"
+    },
+    {
+      "path": "public/certificates/ordination/background.jpg",
+      "sha256": "30c813fa73b86987f0ffb863e963a759b2700164653b6b1a9577dbf65189837f"
+    },
+    {
+      "path": "public/certificates/ordination/bodhisattva.png",
+      "sha256": "7c3eb3bb25aedc61cadc0d8653ebd0df426982e39caeb7a4e090f271e1e07852"
+    },
+    {
+      "path": "public/certificates/ordination/organization-seal.png",
+      "sha256": "aab94096bfadc9f7e57a8a90e1e79f5efbd61f6a264063e0ab2e48a90f2287af"
+    },
+    {
+      "path": "public/certificates/ordination/top-seal.png",
+      "sha256": "b940634c5642fc7f30f8315e27905bed26de40cd4a0ff3c259e14fbdea07b3a6"
+    },
+    {
+      "path": "public/favicon.png",
+      "sha256": "e8c73d5a736e996a0c1537fedc17f544fc4698873419feee084c95ddc9b2c838"
+    },
+    {
+      "path": "public/forms/[별지 제21호서식] 사증발급인정신청서 APPLICATION FOR CERTIFICATE OF VISA ELIGIBILITY(출입국관리법 시행규칙).hwpx",
+      "sha256": "4128721a0806fc603cbc942f1ffbbe6788d0277fcb15ddb853abef40fe6c9d29"
+    },
+    {
+      "path": "public/forms/[별지 제34호서식] 통합신청서 (신고서) APPLICATION FORM (REPORT FORM)(출입국관리법 시행규칙).hwpx",
+      "sha256": "5efd4a8e94e521e76f99473ce74e68c97981afb86e918e68f7bbff721356fb66"
+    },
+    {
+      "path": "public/forms/거주숙소제공확인서(한글-영문).hwpx",
+      "sha256": "af949dabe97f4ebaf21b03bb970258fa9b36d912e918f29ca58b64cd9ffdf6d0"
+    },
+    {
+      "path": "public/login-logo-transparent.png",
+      "sha256": "ee7ca45436d0eaaa1b05f0141dfff29e157e7079b3d547f3f952001eb92ff960"
+    },
+    {
+      "path": "public/login-lotus-pattern.png",
+      "sha256": "661f4f6508b4b4ada7fcb4159af06817edf712043499f288acda6611eea9c174"
+    },
+    {
+      "path": "public/login-pattern.svg",
+      "sha256": "ac995789e5ecdfd90a91dbfeb19c54e0787107a08ae05592ae6d4f7998b41c73"
+    },
+    {
+      "path": "public/login-wave.svg",
+      "sha256": "925094ad486c21ed0f3c0a1a98dfcc8965ba04700ed6d1aaaa130fb575c494c5"
+    },
+    {
+      "path": "public/logo.png",
+      "sha256": "1edde270ba644b9cc4ea97fb8975aae04f1131fd15ff3d407c03667ee9cd8c85"
+    },
+    {
+      "path": "public/organization-seal-official.png",
+      "sha256": "917905dc801cb990863eb9ac0f7afc20c49e4f4b867543301082baccb26ffbf9"
+    },
+    {
+      "path": "public/organization-seal.png",
+      "sha256": "8afda4145d7974cc85b926fd048f2b13d967eaf799cb41707f77761999a836e5"
+    },
+    {
+      "path": "public/secretary_general.png",
+      "sha256": "dad5c9285b75e8d26c51083737e93c5d4e99ce9c783e7e1e479fbe02b060f91d"
+    },
+    {
+      "path": "public/signature-seals/hyangcheonsa-juji.png",
+      "sha256": "af0b3b4d17e35bf560ff679d49c719b005f36c060f8ecdf527f9da60a7939371"
+    },
+    {
+      "path": "public/signature-seals/jongjeong-beopmyeong.png",
+      "sha256": "78f797d36dd95d974ffc21755309721702e59a29cb68d8cbdae0b8488ef67cd8"
+    },
+    {
+      "path": "public/signature-seals/jongjeong-sokmyeong.png",
+      "sha256": "122fa5282d6b09b49211c19f7ce6709c2051f9780a8693aca468e74db607be42"
+    }
+  ],
+  "note": "Final file inventory and hashes are in SECURITY_CHANGE_MANIFEST.json; this file verifies original assets/styles/schema files."
+}

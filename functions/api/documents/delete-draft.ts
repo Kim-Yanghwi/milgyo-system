@@ -1,26 +1,32 @@
-import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
+import { authenticateSession, getSessionToken, clean, ensureTables, json } from '../../_shared/helpers';
+import { assertR2KeysWithinPrefixes } from '../../_shared/r2-scope-guard';
 interface Env { DB: D1Database; FILES?: R2Bucket; }
-type Payload = { token?: string; id?: string };
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
-  let payload: Payload; try { payload = await request.json(); } catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
+  if (!env.DB) return json({ ok: false, code: 'SERVICE_UNAVAILABLE' }, 503);
+  let payload: { id?: string };
+  try { payload = await request.json(); } catch { return json({ ok: false, code: 'INVALID_JSON' }, 400); }
   await ensureTables(env.DB);
-  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+  const auth = await authenticateSession(env.DB, getSessionToken(request));
+  if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
   const id = clean(payload.id, 60);
-  const doc = await env.DB.prepare(`SELECT status, drafter_user_id FROM documents WHERE id=?`).bind(id).first<{ status: string; drafter_user_id: string | null }>();
-  if (!doc) return json({ ok: false, message: '문서를 찾을 수 없습니다.' }, 404);
-  if (doc.status !== '임시저장') return json({ ok: false, message: '임시저장 문서만 삭제할 수 있습니다.' }, 400);
-  if (auth.user.role !== 'admin' && String(doc.drafter_user_id || '') !== auth.user.id) return json({ ok: false, message: '본인이 작성한 임시문서만 삭제할 수 있습니다.' }, 403);
-  const keys = await env.DB.prepare(`SELECT r2_key FROM document_attachments WHERE document_id=? AND storage_type='r2' AND r2_key IS NOT NULL`).bind(id).all<{ r2_key: string }>();
-  await env.DB.batch([
-    env.DB.prepare(`DELETE FROM document_attachments WHERE document_id=?`).bind(id),
-    env.DB.prepare(`DELETE FROM document_approvals WHERE document_id=?`).bind(id),
-    env.DB.prepare(`DELETE FROM document_approval_lines WHERE document_id=?`).bind(id),
-    env.DB.prepare(`DELETE FROM documents WHERE id=?`).bind(id),
+  if (!id) return json({ ok: false, code: 'DOCUMENT_ID_REQUIRED' }, 400);
+  // Each statement rechecks the parent inside one transaction. Submission may win, but then nothing is deleted.
+  const guard = `EXISTS(SELECT 1 FROM documents d WHERE d.id=? AND d.status='\uc784\uc2dc\uc800\uc7a5'
+    AND (?='admin' OR CAST(d.drafter_user_id AS TEXT)=?))`;
+  const bind = [id, auth.user.role, auth.user.id];
+  const results = await env.DB.batch([
+    env.DB.prepare(`SELECT r2_key FROM document_attachments WHERE document_id=? AND storage_type='r2' AND r2_key IS NOT NULL AND ${guard}`).bind(id, ...bind),
+    env.DB.prepare(`DELETE FROM document_attachments WHERE document_id=? AND ${guard}`).bind(id, ...bind),
+    env.DB.prepare(`DELETE FROM document_approvals WHERE document_id=? AND ${guard}`).bind(id, ...bind),
+    env.DB.prepare(`DELETE FROM document_approval_lines WHERE document_id=? AND ${guard}`).bind(id, ...bind),
+    env.DB.prepare(`DELETE FROM documents WHERE id=? AND status='\uc784\uc2dc\uc800\uc7a5' AND (?='admin' OR CAST(drafter_user_id AS TEXT)=?)`).bind(id, auth.user.role, auth.user.id),
   ]);
-  const r2Keys = (keys.results ?? []).map((row) => row.r2_key).filter(Boolean);
-  if (env.FILES && r2Keys.length) await env.FILES.delete(r2Keys).catch(() => undefined);
-  return json({ ok: true, message: '임시문서가 삭제되었습니다.' });
+  if (Number(results[4].meta?.changes) !== 1) return json({ ok: false, code: 'DOCUMENT_STATE_CONFLICT', message: '\ubcf8\uc778\uc758 \uc784\uc2dc\uc800\uc7a5 \ubb38\uc11c\ub9cc \uc0ad\uc81c\ud560 \uc218 \uc788\uc2b5\ub2c8\ub2e4. \ubaa9\ub85d\uc744 \uc0c8\ub85c\uace0\uce68\ud574 \uc8fc\uc138\uc694.' }, 409);
+  const keys = (results[0].results || []).map((row: { r2_key: string }) => row.r2_key);
+  if (env.FILES && keys.length) {
+    try { await env.FILES.delete(assertR2KeysWithinPrefixes(keys, [`documents/${id}/`], 'draft attachment cleanup')); }
+    catch { console.error('Draft deleted; private R2 orphan cleanup is required', { documentId: id }); }
+  }
+  return json({ ok: true, message: '\uc784\uc2dc\ubb38\uc11c\uac00 \uc0ad\uc81c\ub418\uc5c8\uc2b5\ub2c8\ub2e4.' });
 };
-export const onRequestGet: PagesFunction = async () => json({ ok: false, message: 'POST 방식으로 요청해 주세요.' }, 405);
+export const onRequestGet: PagesFunction = async () => json({ ok: false, code: 'METHOD_NOT_ALLOWED' }, 405);

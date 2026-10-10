@@ -141,13 +141,13 @@ import AccountingHeader from '../components/AccountingHeader.astro';
   </div>
 
   <script is:inline src="/accounting-domain-api.js"></script>
-  <script is:inline src="/accounting-api-client.js"></script>
+  <script is:inline src="/accounting-api-client.js?v=97"></script>
   <script is:inline src="/accounting-domain-ui.js"></script>
   <script is:inline>
-    (()=>{
+    (async () => {
       'use strict';
       const STORAGE_KEY='milgyo-system-session';
-      const session=(()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')}catch{return null}})();
+      const session = await window.MilgyoSession.ready();
       if(!session?.token||!session?.user){location.replace('/');return;}
       const token=session.token,me=session.user;
       const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>Array.from(r.querySelectorAll(s));
@@ -182,7 +182,6 @@ import AccountingHeader from '../components/AccountingHeader.astro';
       const setTab=(name,{historyMode='push',scroll=true}={})=>{if(!validTabs.has(name))name='overview';$$('.nav').forEach((b)=>b.classList.toggle('active',b.dataset.tab===name));$$('.panel').forEach((p)=>p.classList.toggle('active',p.dataset.panel===name));const url=new URL(location.href);if(name==='overview')url.searchParams.delete('tab');else url.searchParams.set('tab',name);if(historyMode==='push'&&url.href!==location.href)history.pushState({complianceTab:name},'',url);else if(historyMode==='replace')history.replaceState({complianceTab:name},'',url);loadTab(name).catch((e)=>notice(e.message,'error'));if(scroll)window.scrollTo({top:0,behavior:'auto'});if(name==='vehicle'&&new URLSearchParams(location.search).get('view')==='ledger')setTimeout(()=>document.querySelector('[data-vehicle-rows]')?.closest('.card')?.scrollIntoView({block:'start'}),40)};
       $$('.nav[data-tab]').forEach((b)=>b.addEventListener('click',()=>setTab(b.dataset.tab)));$$('[data-jump]').forEach((b)=>b.addEventListener('click',()=>setTab(b.dataset.jump)));
       window.addEventListener('popstate',()=>setTab(tabFromUrl(),{historyMode:'none',scroll:false}));
-      $('[data-logout]').addEventListener('click',async()=>{try{await fetch('/api/auth/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})})}catch{}localStorage.removeItem(STORAGE_KEY);location.replace('/')});
       const updateSummary=()=>{const s=state.summary||{};$('[data-summary-revenue]').textContent=`${Number(s.revenue_businesses||0)}건`;$('[data-summary-procurement]').textContent=`${Number(s.procurements||0)}건`;$('[data-summary-reserve]').textContent=won(s.reserve_balance);$('[data-summary-check]').textContent=`${Number(s.checks||0)+Number(s.incidents||0)}건`;$('[data-summary-vehicle]').textContent=`${Number(s.vehicles||0)}대`;$('[data-summary-guarantee]').textContent=`${Number(s.expiring_guarantees||0)}건`;};
       const renderMasterOptions=()=>{
         $('[data-fund-select]').innerHTML=state.funds.map((x)=>`<option value="${esc(x.id)}" ${x.id==='FUND-RESERVE'?'selected':''}>${esc(x.name)}</option>`).join('');
@@ -225,7 +224,7 @@ import AccountingHeader from '../components/AccountingHeader.astro';
       init().then(()=>{setTab(tabFromUrl(),{historyMode:'replace',scroll:false});syncComplianceDates();syncSmartDateTimes()}).catch((e)=>{alert(e.message);location.replace('/accounting/')});
     })();
   </script>
-  <script src="/accounting-generic-attachments.js" defer></script>
+  <script src="/accounting-generic-attachments.js?v=97" defer></script>
 
   <style is:global>
     [hidden]{display:none!important}

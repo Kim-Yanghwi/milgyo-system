@@ -1,0 +1,43 @@
+{
+  "main": {
+    "ok": true,
+    "files": [
+      "0000_v0_core_schema.sql",
+      "0001_v26_accounting_outbox.sql",
+      "0002_v48_registers_employment.sql",
+      "0003_v59_ordination_certificates.sql",
+      "0004_v60_ordination_seal_options.sql",
+      "0005_v61_employment_certificate_signatory.sql",
+      "0006_v70_department_reorganization.sql",
+      "0007_v85_session_expiry_index.sql",
+      "0008_v85_document_transition_locks.sql",
+      "0009_v86_bootstrap_finalize.sql",
+      "0010_v91_foreign_application_forms.sql",
+      "0011_v92_appointment_award_certificates.sql",
+      "0012_v97_security_sessions.sql"
+    ],
+    "integrity": "ok"
+  },
+  "accounting": {
+    "ok": true,
+    "files": [
+      "0000_v26_base_schema.sql",
+      "0004_v27_attachment_operations.sql",
+      "0005_v34_performance_indexes.sql",
+      "0006_v35_donation_receipt_form.sql",
+      "0007_v36_donation_receipt_items.sql",
+      "0008_v37_affiliation_certificates.sql",
+      "0009_v38_finance_operations.sql",
+      "0010_v39_operations_performance.sql",
+      "0011_v63_tax_accounting.sql",
+      "0012_v64_tax_accounting_hardening.sql",
+      "0013_v70_department_reorganization.sql",
+      "0014_v71_finance_regulation_compliance.sql",
+      "0015_v73_compliance_org_responsible.sql",
+      "0016_v81_integrated_stabilization.sql",
+      "0017_v83_preopen_performance_indexes.sql",
+      "0018_v85_reconciliation_integrity.sql"
+    ],
+    "integrity": "ok"
+  }
+}

@@ -36,7 +36,8 @@ test('electronic document filters keep date range next to existing search contro
 
 test('management subpages use cheap session validation instead of dashboard aggregation', () => {
   const layout = read('src/layouts/ManagementLayout.astro');
-  assert.match(layout, /fetch\('\/api\/auth\/session'/);
+  assert.match(layout, /MilgyoSession\.ready\(\)/);
+  assert.match(read('public/system-session.js'), /fetchApi\('\/api\/auth\/session'/);
   assert.doesNotMatch(layout, /fetch\('\/api\/dashboard\/summary'/);
   const endpoint = read('functions/api/auth/session.ts');
   assert.match(endpoint, /authenticateSession/);

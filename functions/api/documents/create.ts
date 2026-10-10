@@ -1,7 +1,7 @@
 import {
   ALL_CATEGORIES,
   IMPORTANT_CATEGORIES,
-  authenticateSession,
+  authenticateSession, getSessionToken,
   clean,
   normalizeDepartmentValue,
   resolveDepartmentHeadTitle,
@@ -86,8 +86,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try { payload = await request.json(); } catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
 
   await ensureTables(env.DB);
-  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+  const auth = await authenticateSession(env.DB, getSessionToken(request));
+  if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
   const me = auth.user;
 
   const saveAsDraft = !!payload.saveAsDraft;

@@ -1,6 +1,6 @@
 // 관인(도장)·로고 이미지를 저장/교체합니다. 관리자만 가능하며, 이후 모든 공문서 미리보기에 고정으로 재사용됩니다.
 import {
-  authenticateSession,
+  authenticateSession, getSessionToken,
   clean,
   ensureTables,
   json,
@@ -33,8 +33,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   await ensureTables(env.DB);
-  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+  const auth = await authenticateSession(env.DB, getSessionToken(request));
+  if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
   if (auth.user.role !== 'admin') {
     return json({ ok: false, message: '관인·로고 설정은 관리자만 변경할 수 있습니다.' }, 403);
   }

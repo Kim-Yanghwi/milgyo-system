@@ -67,13 +67,13 @@ import AccountingHeader from '../components/AccountingHeader.astro';
   </div>
 
   <script is:inline src="/accounting-domain-api.js"></script>
-  <script is:inline src="/accounting-api-client.js"></script>
+  <script is:inline src="/accounting-api-client.js?v=97"></script>
   <script is:inline src="/accounting-domain-ui.js"></script>
   <script is:inline>
-    (()=>{
+    (async () => {
       'use strict';
       const STORAGE_KEY='milgyo-system-session';
-      const session=(()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')}catch{return null}})();
+      const session = await window.MilgyoSession.ready();
       if(!session?.token||!session?.user){location.replace('/');return;}
       const token=session.token,me=session.user;
       const $=(selector,root=document)=>root.querySelector(selector),$$=(selector,root=document)=>Array.from(root.querySelectorAll(selector));
@@ -86,7 +86,6 @@ import AccountingHeader from '../components/AccountingHeader.astro';
       let testResetPreviewLoaded=false;
       const TEST_RESET_CONFIRMATION='테스트자료 전체삭제';
       $('[data-user-label]').textContent=`${me.name} · ${me.position||'구성원'}`;
-      $('[data-logout]')?.addEventListener('click',async()=>{try{await fetch('/api/auth/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})})}catch{}localStorage.removeItem(STORAGE_KEY);location.replace('/')});
 
       const loadPolicy=async()=>{const data=await api({action:'policy'});permissions=data.permissions||{};const p=data.policy||{};const form=$('[data-policy-form]');form.allowedExtensions.value=(p.allowedExtensions||[]).join(',');form.maxFileMb.value=Math.round(Number(p.maxFileBytes||0)/1024/1024);form.maxFiles.value=p.maxFilesPerReference||10;form.maxTotalMb.value=Math.round(Number(p.maxTotalBytesPerReference||0)/1024/1024);form.retentionDays.value=p.retentionDays||3650;form.requireDeleteReason.checked=!!p.requireDeleteReason;$('[data-mode-label]').textContent=permissions.audit?'감사 읽기 전용':permissions.manager?'관리자':'조회 전용';$$('.attachment-ops-only').forEach((el)=>{el.hidden=!(permissions.manager||permissions.audit);el.classList.toggle('is-current',permissions.manager||permissions.audit);if(permissions.manager||permissions.audit)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current')});$$('[data-save-policy],[data-scan]').forEach((button)=>button.disabled=!permissions.manager||permissions.audit);$('[data-preview-test-reset]').disabled=me.role!=='admin'||permissions.audit;$('[data-reset-backup-confirm]').disabled=me.role!=='admin'||permissions.audit;$('[data-reset-confirmation]').disabled=me.role!=='admin'||permissions.audit;if(!permissions.manager&&!permissions.audit){notice('첨부파일 운영화면은 회계관리자 또는 감사계정만 사용할 수 있습니다.','error');setTimeout(()=>location.replace('/accounting/'),1400);}};
       $('[data-policy-form]').addEventListener('submit',async(event)=>{event.preventDefault();const form=event.currentTarget;try{const data=await api({action:'save-policy',allowedExtensions:form.allowedExtensions.value,maxFileBytes:Number(form.maxFileMb.value)*1024*1024,maxFilesPerReference:Number(form.maxFiles.value),maxTotalBytesPerReference:Number(form.maxTotalMb.value)*1024*1024,retentionDays:Number(form.retentionDays.value),requireDeleteReason:form.requireDeleteReason.checked});notice(data.message);await loadPolicy();}catch(error){notice(error.message,'error');}});

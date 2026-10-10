@@ -1,0 +1,6 @@
+
+> milgyo-system@0.5.2 build
+> astro build
+
+sh: 1: astro: not found
+BUILD_EXIT=127

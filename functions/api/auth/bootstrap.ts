@@ -1,13 +1,11 @@
 import {
   checkAuthRateLimit,
   clean,
-  clearAuthFailures,
   ensureTables,
   hashPassword,
   insertSystemUser,
   isSchemaError,
   json,
-  recordAuthFailure,
   repairTables,
   verifyAdminToken,
 } from '../../_shared/helpers';
@@ -15,6 +13,7 @@ import {
 interface Env {
   DB: D1Database;
   ADMIN_TOKEN: string;
+  ENABLE_ADMIN_BOOTSTRAP?: string;
 }
 
 type BootstrapPayload = {
@@ -27,6 +26,8 @@ type BootstrapPayload = {
 
 // 최초 관리자 계정을 만들거나, ADMIN_TOKEN을 아는 관리자가 복구용 관리자 계정을 추가합니다.
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+  if (env.ENABLE_ADMIN_BOOTSTRAP !== 'true') return json({ ok: false, code: 'BOOTSTRAP_DISABLED', message: '\ucd08\uae30 \uad00\ub9ac\uc790 \uc0dd\uc131\uc774 \ube44\ud65c\uc131\ud654\ub418\uc5b4 \uc788\uc2b5\ub2c8\ub2e4.' }, 403);
+  if (!env.ADMIN_TOKEN || env.ADMIN_TOKEN.length < 32 || env.ADMIN_TOKEN.length > 256 || env.ADMIN_TOKEN.trim() !== env.ADMIN_TOKEN) return json({ ok: false, code: 'BOOTSTRAP_CONFIGURATION_ERROR', message: '\ubcf5\uad6c \ud0a4 \uc124\uc815\uc744 \ud655\uc778\ud574 \uc8fc\uc138\uc694.' }, 503);
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
   if (!env.ADMIN_TOKEN) return json({ ok: false, message: 'ADMIN_TOKEN이 설정되지 않았습니다.' }, 500);
 
@@ -40,19 +41,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let stage = 'rate-limit';
   try {
     const authRateLimit = await checkAuthRateLimit(env.DB, request, 'bootstrap');
-    if (!authRateLimit.ok) return json({ ok: false, message: authRateLimit.message }, 429);
+    if (!authRateLimit.ok) return json({ ok: false, code: 'AUTH_RATE_LIMITED', message: authRateLimit.message }, 429, { 'Retry-After': String(authRateLimit.retryAfter) });
 
     stage = 'admin-token';
     const adminToken = clean(payload.adminToken, 300);
     if (!(await verifyAdminToken(adminToken, env.ADMIN_TOKEN))) {
-      await recordAuthFailure(env.DB, authRateLimit.rateKey);
       return json({ ok: false, message: '마스터 인증값(ADMIN_TOKEN)이 올바르지 않습니다.' }, 401);
     }
-    await clearAuthFailures(env.DB, authRateLimit.rateKey);
 
     const name = clean(payload.name, 40);
     const username = clean(payload.username, 60);
-    const password = typeof payload.password === 'string' ? payload.password.slice(0, 200) : '';
+    const password = typeof payload.password === 'string' ? payload.password : '';
+    if (password.length > 200) return json({ ok: false, code: 'PASSWORD_TOO_LONG', message: '\ube44\ubc00\ubc88\ud638\ub294 200\uc790 \uc774\ud558\ub85c \uc785\ub825\ud574 \uc8fc\uc138\uc694.' }, 400);
     const position = clean(payload.position, 40);
 
     if (!name) return json({ ok: false, message: '성명을 입력해 주세요.' }, 400);

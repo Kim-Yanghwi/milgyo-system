@@ -143,14 +143,14 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
   </div>
 
   <script is:inline>
-    (()=>{
+    (async () => {
       const $=(selector,root=document)=>root.querySelector(selector);
       const $$=(selector,root=document)=>Array.from(root.querySelectorAll(selector));
       const esc=(value)=>String(value??'').replace(/[&<>"']/g,(char)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-      const session=(()=>{try{return JSON.parse(localStorage.getItem('milgyo-system-session')||'null')}catch{return null}})();
+      const session = await window.MilgyoSession.ready();
       if(!session?.token)return;
       let page=1,pages=1,currentRows=[],lastPreview=null,canManage=false;
-      const api=async(url,payload)=>{const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:session.token,...payload})});const data=await response.json().catch(()=>({ok:false,message:'응답을 읽을 수 없습니다.'}));if(!data.ok&&response.status===401){localStorage.removeItem('milgyo-system-session');location.replace('/');throw new Error(data.message||'로그인이 필요합니다.')}return data;};
+      const api=async(url,payload)=>{const response=await window.MilgyoSession.fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:session.token,...payload})});const data=await response.json().catch(()=>({ok:false,message:'응답을 읽을 수 없습니다.'}));if(!data.ok&&response.status===401&&window.MilgyoSession.isAuthFailure(data)){throw new Error(data.message||'로그인이 필요합니다.')}return data;};
       const todayParts=()=>{const now=new Date(Date.now()+9*60*60*1000);return {year:now.getUTCFullYear(),month:now.getUTCMonth()+1,day:now.getUTCDate()};};
       const buddhistYearFromGregorian=(year)=>Number(year||0)+544;
       const setMessage=(selector,message,type='')=>{const el=$(selector);if(!el)return;el.textContent=message||'';el.className=`status-message ${type}`;};

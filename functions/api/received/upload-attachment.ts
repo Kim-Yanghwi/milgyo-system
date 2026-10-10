@@ -1,4 +1,5 @@
-import { authenticateSession, clean, ensureTables, json, randomHex } from '../../_shared/helpers';
+import { decodeUploadBase64, inspectMainAttachment } from '../../_shared/security/attachments';
+import { authenticateSession, getSessionToken, clean, ensureTables, json, randomHex } from '../../_shared/helpers';
 
 interface Env { DB: D1Database; FILES?: R2Bucket; }
 type Payload = { token?: string; receivedDocumentId?: string; fileName?: string; mimeType?: string; dataBase64?: string };
@@ -6,10 +7,6 @@ type Payload = { token?: string; receivedDocumentId?: string; fileName?: string;
 const MAX_FILE_BYTES = 4 * 1024 * 1024;
 const MAX_D1_FALLBACK_BYTES = 1250 * 1024;
 const BLOCKED_EXTENSIONS = /\.(html?|js|mjs|svg|exe|dll|bat|cmd|com|ps1|sh|php|jsp|asp|aspx)$/i;
-const decodeBase64 = (value: string) => {
-  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(value) || value.length % 4 === 1) return null;
-  try { const binary = atob(value); return Uint8Array.from(binary, (char) => char.charCodeAt(0)); } catch { return null; }
-};
 const safeKeyName = (name: string) => name.replace(/[^0-9A-Za-z._-]+/g, '_').slice(-120) || 'attachment.bin';
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -17,17 +14,21 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let payload: Payload;
   try { payload = await request.json(); } catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
   await ensureTables(env.DB);
-  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+  const auth = await authenticateSession(env.DB, getSessionToken(request));
+  if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
 
   const receivedDocumentId = clean(payload.receivedDocumentId, 60);
   const fileName = clean(payload.fileName, 200);
-  const mimeType = clean(payload.mimeType, 120) || 'application/octet-stream';
+  let mimeType = clean(payload.mimeType, 120) || 'application/octet-stream';
   const dataBase64 = typeof payload.dataBase64 === 'string' ? payload.dataBase64 : '';
-  const bytes = decodeBase64(dataBase64);
+  const bytes = decodeUploadBase64(dataBase64);
   if (!receivedDocumentId || !fileName || !bytes) return json({ ok: false, message: '첨부파일 정보가 부족하거나 인코딩이 올바르지 않습니다.' }, 400);
   if (BLOCKED_EXTENSIONS.test(fileName)) return json({ ok: false, message: '보안상 등록할 수 없는 파일 형식입니다.' }, 400);
   if (bytes.byteLength > MAX_FILE_BYTES) return json({ ok: false, message: '첨부파일은 4MB 이하만 등록할 수 있습니다.' }, 400);
+
+  const inspection = inspectMainAttachment(fileName, bytes);
+  if (!inspection.ok) return json({ ok: false, message: inspection.message }, 400);
+  mimeType = inspection.mimeType;
 
   const record = await env.DB.prepare('SELECT id,handled_by_user_id FROM received_documents WHERE id=?').bind(receivedDocumentId)
     .first<{ id: string; handled_by_user_id: string | null }>();
@@ -50,11 +51,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   try {
-    await env.DB.prepare(`
+    const inserted = await env.DB.prepare(`
       INSERT INTO received_attachments
         (id,received_document_id,file_name,mime_type,size_bytes,data_base64,storage_type,r2_key,created_at)
-      VALUES(?,?,?,?,?,?,?,?,?)
-    `).bind(id, receivedDocumentId, fileName, mimeType, bytes.byteLength, storedBase64, storageType, r2Key, new Date().toISOString()).run();
+      SELECT ?,?,?,?,?,?,?,?,?
+      WHERE EXISTS(SELECT 1 FROM received_documents WHERE id=? AND (?='admin' OR CAST(handled_by_user_id AS TEXT)=?))
+      AND (SELECT COUNT(*) FROM received_attachments WHERE received_document_id=?)<10
+    `).bind(id, receivedDocumentId, fileName, mimeType, bytes.byteLength, storedBase64, storageType, r2Key, new Date().toISOString(), receivedDocumentId, auth.user.role, auth.user.id, receivedDocumentId).run();
+    if (Number(inserted.meta?.changes) !== 1) {
+      if (r2Key && env.FILES) await env.FILES.delete(r2Key).catch(() => undefined);
+      return json({ ok: false, code: 'ATTACHMENT_STATE_CONFLICT', message: '\ub300\uc7a5 \uc0c1\ud0dc \ub610\ub294 \ucca8\ubd80 \ud55c\ub3c4\uac00 \ubcc0\uacbd\ub418\uc5b4 \ub4f1\ub85d\ud558\uc9c0 \uc54a\uc558\uc2b5\ub2c8\ub2e4.' }, 409);
+    }
     return json({ ok: true, id, storageType, message: '첨부파일이 등록되었습니다.' });
   } catch {
     if (r2Key && env.FILES) await env.FILES.delete(r2Key).catch(() => undefined);

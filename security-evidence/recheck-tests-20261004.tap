@@ -1,0 +1,927 @@
+TAP version 13
+# Subtest: every legacy accounting business operation has exactly one canonical domain owner
+ok 1 - every legacy accounting business operation has exactly one canonical domain owner
+  ---
+  duration_ms: 7.113796
+  type: 'test'
+  ...
+# Subtest: browser API router sends every mapped action to its canonical domain endpoint
+ok 2 - browser API router sends every mapped action to its canonical domain endpoint
+  ---
+  duration_ms: 2.862825
+  type: 'test'
+  ...
+# Subtest: accounting navigation exposes five business domains and keeps attachment operations in governance
+ok 3 - accounting navigation exposes five business domains and keeps attachment operations in governance
+  ---
+  duration_ms: 0.887047
+  type: 'test'
+  ...
+# Subtest: mixed legacy workspaces are explicitly partitioned by domain in the UI
+ok 4 - mixed legacy workspaces are explicitly partitioned by domain in the UI
+  ---
+  duration_ms: 2.278963
+  type: 'test'
+  ...
+# Subtest: mixed workspaces keep navigation domain-owned while cross-domain panels use canonical URL domains
+ok 5 - mixed workspaces keep navigation domain-owned while cross-domain panels use canonical URL domains
+  ---
+  duration_ms: 1.68766
+  type: 'test'
+  ...
+# Subtest: shared date input exposes the native segmented editor while an existing date is being edited
+ok 6 - shared date input exposes the native segmented editor while an existing date is being edited
+  ---
+  duration_ms: 0.354378
+  type: 'test'
+  ...
+# Subtest: shared accounting foundations are neutral and former special module is compatibility-only
+ok 7 - shared accounting foundations are neutral and former special module is compatibility-only
+  ---
+  duration_ms: 1.954678
+  type: 'test'
+  ...
+# Subtest: shared accounting header preserves hidden domain controls despite legacy page styles
+ok 8 - shared accounting header preserves hidden domain controls despite legacy page styles
+  ---
+  duration_ms: 0.167375
+  type: 'test'
+  ...
+# Subtest: all accounting workspaces load the domain router and shared API client before page logic
+ok 9 - all accounting workspaces load the domain router and shared API client before page logic
+  ---
+  duration_ms: 2.986502
+  type: 'test'
+  ...
+# Subtest: shared accounting API client applies canonical routing, cookie transport delegation, and uniform errors
+ok 10 - shared accounting API client applies canonical routing, cookie transport delegation, and uniform errors
+  ---
+  duration_ms: 1.553315
+  type: 'test'
+  ...
+# Subtest: auxiliary vehicle workflows also route accounting business calls through governance
+ok 11 - auxiliary vehicle workflows also route accounting business calls through governance
+  ---
+  duration_ms: 1.246709
+  type: 'test'
+  ...
+# Subtest: current UI has no direct network bypass to legacy accounting query/action endpoints
+ok 12 - current UI has no direct network bypass to legacy accounting query/action endpoints
+  ---
+  duration_ms: 5.97538
+  type: 'test'
+  ...
+# Subtest: domain-owned panels are fail-closed as well as their navigation controls
+ok 13 - domain-owned panels are fail-closed as well as their navigation controls
+  ---
+  duration_ms: 1.211667
+  type: 'test'
+  ...
+# Subtest: domain-owned hidden elements override shared display rules
+ok 14 - domain-owned hidden elements override shared display rules
+  ---
+  duration_ms: 0.288947
+  type: 'test'
+  ...
+# Subtest: shared date input is native-first and draft overlay is isolated
+ok 15 - shared date input is native-first and draft overlay is isolated
+  ---
+  duration_ms: 0.452355
+  type: 'test'
+  ...
+# Subtest: accounting overview cards collapse to one column at 150 percent desktop zoom
+ok 16 - accounting overview cards collapse to one column at 150 percent desktop zoom
+  ---
+  duration_ms: 0.29844
+  type: 'test'
+  ...
+# Subtest: tax header shows the organizational position instead of the internal auth role
+ok 17 - tax header shows the organizational position instead of the internal auth role
+  ---
+  duration_ms: 0.67513
+  type: 'test'
+  ...
+# Subtest: every accounting table uses solid internal gridlines and centered headings
+ok 18 - every accounting table uses solid internal gridlines and centered headings
+  ---
+  duration_ms: 0.272848
+  type: 'test'
+  ...
+# Subtest: accounting money headings stay centered while body and footer values align right
+ok 19 - accounting money headings stay centered while body and footer values align right
+  ---
+  duration_ms: 0.560484
+  type: 'test'
+  ...
+# Subtest: dynamic accounting rows inherit the shared monetary column contract
+ok 20 - dynamic accounting rows inherit the shared monetary column contract
+  ---
+  duration_ms: 0.150823
+  type: 'test'
+  ...
+# Subtest: the shared table contract is loaded by all 53 live accounting tables
+ok 21 - the shared table contract is loaded by all 53 live accounting tables
+  ---
+  duration_ms: 3.655485
+  type: 'test'
+  ...
+# Subtest: management date ranges stay grouped without changing the original shared layout
+ok 22 - management date ranges stay grouped without changing the original shared layout
+  ---
+  duration_ms: 5.532918
+  type: 'test'
+  ...
+# Subtest: electronic document filters keep date range next to existing search controls
+ok 23 - electronic document filters keep date range next to existing search controls
+  ---
+  duration_ms: 1.914618
+  type: 'test'
+  ...
+# Subtest: management subpages use cheap session validation instead of dashboard aggregation
+ok 24 - management subpages use cheap session validation instead of dashboard aggregation
+  ---
+  duration_ms: 0.426772
+  type: 'test'
+  ...
+# Subtest: document date filters are validated and interpreted in Korea time
+ok 25 - document date filters are validated and interpreted in Korea time
+  ---
+  duration_ms: 0.206983
+  type: 'test'
+  ...
+# Subtest: received and register date ranges reject malformed or reversed ranges
+ok 26 - received and register date ranges reject malformed or reversed ranges
+  ---
+  duration_ms: 0.293675
+  type: 'test'
+  ...
+# Subtest: document and received list refreshes ignore stale responses
+ok 27 - document and received list refreshes ignore stale responses
+  ---
+  duration_ms: 1.428468
+  type: 'test'
+  ...
+# Subtest: CSV exports defend against spreadsheet formulas even after leading whitespace
+ok 28 - CSV exports defend against spreadsheet formulas even after leading whitespace
+  ---
+  duration_ms: 2.280284
+  type: 'test'
+  ...
+# Subtest: transaction import uses bounded set-based D1 writes and remains race-safe
+ok 29 - transaction import uses bounded set-based D1 writes and remains race-safe
+  ---
+  duration_ms: 1.676975
+  type: 'test'
+  ...
+# Subtest: auto reconciliation loads and writes candidates set-wise
+ok 30 - auto reconciliation loads and writes candidates set-wise
+  ---
+  duration_ms: 0.566871
+  type: 'test'
+  ...
+# Subtest: auto reconciliation candidate lookups have supporting pre-open indexes
+ok 31 - auto reconciliation candidate lookups have supporting pre-open indexes
+  ---
+  duration_ms: 0.644559
+  type: 'test'
+  ...
+# Subtest: R2-backed management attachments use binary streaming in the current UI
+ok 32 - R2-backed management attachments use binary streaming in the current UI
+  ---
+  duration_ms: 1.793899
+  type: 'test'
+  ...
+# Subtest: fresh DB bootstrap migrations exist for both D1 databases
+ok 33 - fresh DB bootstrap migrations exist for both D1 databases
+  ---
+  duration_ms: 1.668945
+  type: 'test'
+  ...
+# Subtest: document decision and recall use transition protection
+ok 34 - document decision and recall use transition protection
+  ---
+  duration_ms: 0.572409
+  type: 'test'
+  ...
+# Subtest: batch decision is status-bound and deterministic
+ok 35 - batch decision is status-bound and deterministic
+  ---
+  duration_ms: 0.322179
+  type: 'test'
+  ...
+# Subtest: reconciliation target duplicate is blocked at DB layer
+ok 36 - reconciliation target duplicate is blocked at DB layer
+  ---
+  duration_ms: 0.274652
+  type: 'test'
+  ...
+# Subtest: password hashing has no salted SHA256 downgrade and supports upgrade
+ok 37 - password hashing has no salted SHA256 downgrade and supports upgrade
+  ---
+  duration_ms: 1.558489
+  type: 'test'
+  ...
+# Subtest: public health endpoint does not disclose operational counters
+ok 38 - public health endpoint does not disclose operational counters
+  ---
+  duration_ms: 0.305344
+  type: 'test'
+  ...
+# Subtest: session expiry cleanup and index are present
+ok 39 - session expiry cleanup and index are present
+  ---
+  duration_ms: 0.343867
+  type: 'test'
+  ...
+# Subtest: document create idempotency handles concurrent unique conflict
+ok 40 - document create idempotency handles concurrent unique conflict
+  ---
+  duration_ms: 0.418806
+  type: 'test'
+  ...
+# Subtest: last active admin protection is enforced in the mutation SQL
+ok 41 - last active admin protection is enforced in the mutation SQL
+  ---
+  duration_ms: 1.536929
+  type: 'test'
+  ...
+# Subtest: high-volume accounting inputs fail explicitly instead of silent truncation
+ok 42 - high-volume accounting inputs fail explicitly instead of silent truncation
+  ---
+  duration_ms: 1.121749
+  type: 'test'
+  ...
+# Subtest: donation receipt bulk processing is set-based and retry-guarded
+ok 43 - donation receipt bulk processing is set-based and retry-guarded
+  ---
+  duration_ms: 0.808299
+  type: 'test'
+  ...
+# Subtest: fresh migrated main DB is finalized without legacy full runtime migration
+ok 44 - fresh migrated main DB is finalized without legacy full runtime migration
+  ---
+  duration_ms: 3.230905
+  type: 'test'
+  ...
+# Subtest: built-in templates are seeded set-wise rather than one D1 statement per template
+ok 45 - built-in templates are seeded set-wise rather than one D1 statement per template
+  ---
+  duration_ms: 1.708193
+  type: 'test'
+  ...
+# Subtest: bootstrap failures include an internal stage marker in logs
+ok 46 - bootstrap failures include an internal stage marker in logs
+  ---
+  duration_ms: 0.528689
+  type: 'test'
+  ...
+# Subtest: Cloudflare PBKDF2 runtime cap is enforced for hash and verify paths
+ok 47 - Cloudflare PBKDF2 runtime cap is enforced for hash and verify paths
+  ---
+  duration_ms: 0.93031
+  type: 'test'
+  ...
+# Subtest: legacy hashes can still be upgraded toward the current runtime-safe target
+ok 48 - legacy hashes can still be upgraded toward the current runtime-safe target
+  ---
+  duration_ms: 0.14071
+  type: 'test'
+  ...
+# Subtest: document mutations force fresh list and dashboard counts without stale overwrites
+ok 49 - document mutations force fresh list and dashboard counts without stale overwrites
+  ---
+  duration_ms: 3.462671
+  type: 'test'
+  ...
+# Subtest: period filters are compact native dates without detached weekday badges
+ok 50 - period filters are compact native dates without detached weekday badges
+  ---
+  duration_ms: 2.446288
+  type: 'test'
+  ...
+# Subtest: official document preview always falls back to the bundled organization seal
+ok 51 - official document preview always falls back to the bundled organization seal
+  ---
+  duration_ms: 2.350637
+  type: 'test'
+  ...
+# Subtest: electronic document date filter stays compact without redesigning the original toolbar
+ok 52 - electronic document date filter stays compact without redesigning the original toolbar
+  ---
+  duration_ms: 3.241463
+  type: 'test'
+  ...
+# Subtest: official document uses the bundled square seal at the original preview position
+ok 53 - official document uses the bundled square seal at the original preview position
+  ---
+  duration_ms: 2.784157
+  type: 'test'
+  ...
+# Subtest: current user department refreshes from D1-backed session data without relogin
+ok 54 - current user department refreshes from D1-backed session data without relogin
+  ---
+  duration_ms: 3.406832
+  type: 'test'
+  ...
+# Subtest: V90 restores the original typography and toolbar geometry except requested compact dates
+ok 55 - V90 restores the original typography and toolbar geometry except requested compact dates
+  ---
+  duration_ms: 4.701153
+  type: 'test'
+  ...
+# Subtest: V90 keeps the official seal at the original document position and size
+ok 56 - V90 keeps the official seal at the original document position and size
+  ---
+  duration_ms: 2.437325
+  type: 'test'
+  ...
+# Subtest: V90 hamburger toggles only the sidebar and exposes a reversible state
+ok 57 - V90 hamburger toggles only the sidebar and exposes a reversible state
+  ---
+  duration_ms: 2.603268
+  type: 'test'
+  ...
+# Subtest: V91.1 shortens the immigration menu and page wording
+ok 58 - V91.1 shortens the immigration menu and page wording
+  ---
+  duration_ms: 3.876373
+  type: 'test'
+  ...
+# Subtest: V91.1 aligns form and ledger controls to the requested layout
+ok 59 - V91.1 aligns form and ledger controls to the requested layout
+  ---
+  duration_ms: 1.12724
+  type: 'test'
+  ...
+# Subtest: V91.1 isolates input sections so numbered sections cannot flow into adjacent columns
+ok 60 - V91.1 isolates input sections so numbered sections cannot flow into adjacent columns
+  ---
+  duration_ms: 0.913309
+  type: 'test'
+  ...
+# Subtest: V91.1 renders form-specific A4 previews with tables and multi-page visa output
+ok 61 - V91.1 renders form-specific A4 previews with tables and multi-page visa output
+  ---
+  duration_ms: 2.0402
+  type: 'test'
+  ...
+# Subtest: V91 exposes the foreign application workspace from the renamed certificate/application menu
+ok 62 - V91 exposes the foreign application workspace from the renamed certificate/application menu
+  ---
+  duration_ms: 2.238191
+  type: 'test'
+  ...
+# Subtest: V91 bundles the three supplied HWPX source forms
+ok 63 - V91 bundles the three supplied HWPX source forms
+  ---
+  duration_ms: 0.837049
+  type: 'test'
+  ...
+# Subtest: V91 schema marker and migration include foreign application history
+ok 64 - V91 schema marker and migration include foreign application history
+  ---
+  duration_ms: 1.030688
+  type: 'test'
+  ...
+# Subtest: V91 foreign form APIs preserve snapshots, owner access and admin or audit visibility
+ok 65 - V91 foreign form APIs preserve snapshots, owner access and admin or audit visibility
+  ---
+  duration_ms: 0.318857
+  type: 'test'
+  ...
+# Subtest: V91 test-data reset includes foreign application records and CSV export is formula-safe
+ok 66 - V91 test-data reset includes foreign application records and CSV export is formula-safe
+  ---
+  duration_ms: 3.023748
+  type: 'test'
+  ...
+# Subtest: V91 web fields cover the major sections of all three supplied forms
+ok 67 - V91 web fields cover the major sections of all three supplied forms
+  ---
+  duration_ms: 0.976111
+  type: 'test'
+  ...
+# Subtest: V92 adds the appointment/commendation issue page and sidebar menu
+ok 68 - V92 adds the appointment/commendation issue page and sidebar menu
+  ---
+  duration_ms: 1.044001
+  type: 'test'
+  ...
+# Subtest: V92 uses the supplied award-paper image and requested typography sizes
+ok 69 - V92 uses the supplied award-paper image and requested typography sizes
+  ---
+  duration_ms: 0.674879
+  type: 'test'
+  ...
+# Subtest: V92 switches appointment and commendation content correctly
+ok 70 - V92 switches appointment and commendation content correctly
+  ---
+  duration_ms: 0.309522
+  type: 'test'
+  ...
+# Subtest: V92 stores and manages a dedicated issuance ledger
+ok 71 - V92 stores and manages a dedicated issuance ledger
+  ---
+  duration_ms: 0.441819
+  type: 'test'
+  ...
+# Subtest: V92 includes preview, print, reuse and CSV ledger controls
+ok 72 - V92 includes preview, print, reuse and CSV ledger controls
+  ---
+  duration_ms: 1.168138
+  type: 'test'
+  ...
+# Subtest: 현재 재직증명서 기본 이사장 이름은 조화연이다
+ok 73 - 현재 재직증명서 기본 이사장 이름은 조화연이다
+  ---
+  duration_ms: 2.130807
+  type: 'test'
+  ...
+# Subtest: 현재 사용자/증명서/회계 후보 목록에서 조화연이 김양휘보다 먼저 표시된다
+ok 74 - 현재 사용자/증명서/회계 후보 목록에서 조화연이 김양휘보다 먼저 표시된다
+  ---
+  duration_ms: 0.407868
+  type: 'test'
+  ...
+# Subtest: V93 데이터 이관 migration은 최종 소스에 남기지 않는다
+ok 75 - V93 데이터 이관 migration은 최종 소스에 남기지 않는다
+  ---
+  duration_ms: 0.179797
+  type: 'test'
+  ...
+# Subtest: 이미 적용된 과거 0005 migration은 원본 이력을 보존한다
+ok 76 - 이미 적용된 과거 0005 migration은 원본 이력을 보존한다
+  ---
+  duration_ms: 0.183364
+  type: 'test'
+  ...
+# Subtest: 사무총장 직인은 독립 자산으로만 추가되고 기존 종단 직인 코드는 유지된다
+ok 77 - 사무총장 직인은 독립 자산으로만 추가되고 기존 종단 직인 코드는 유지된다
+  ---
+  duration_ms: 12.790878
+  type: 'test'
+  ...
+# Subtest: 사무처의 담당부서장 직책 표시가 사무총장일 때만 전용 직인을 표시한다
+ok 78 - 사무처의 담당부서장 직책 표시가 사무총장일 때만 전용 직인을 표시한다
+  ---
+  duration_ms: 3.335848
+  type: 'test'
+  ...
+# Subtest: 사무총장 직인은 장 글자 쪽에 겹쳐 보이도록 미리보기와 인쇄 CSS에 포함된다
+ok 79 - 사무총장 직인은 장 글자 쪽에 겹쳐 보이도록 미리보기와 인쇄 CSS에 포함된다
+  ---
+  duration_ms: 2.715866
+  type: 'test'
+  ...
+# (node:3143) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: new session: strong cookie, hashed D1 credential, absolute 12h lifetime, no legacy fallback
+ok 80 - new session: strong cookie, hashed D1 credential, absolute 12h lifetime, no legacy fallback
+  ---
+  duration_ms: 58.194636
+  type: 'test'
+  ...
+# Subtest: localhost-only development cookie and explicit cookie clearing
+ok 81 - localhost-only development cookie and explicit cookie clearing
+  ---
+  duration_ms: 1.613961
+  type: 'test'
+  ...
+# Subtest: session fails closed for bad-expiry
+ok 82 - session fails closed for bad-expiry
+  ---
+  duration_ms: 12.979338
+  type: 'test'
+  ...
+# Subtest: session fails closed for expired
+ok 83 - session fails closed for expired
+  ---
+  duration_ms: 7.553893
+  type: 'test'
+  ...
+# Subtest: session fails closed for too-long
+ok 84 - session fails closed for too-long
+  ---
+  duration_ms: 6.435907
+  type: 'test'
+  ...
+# Subtest: session fails closed for reversed
+ok 85 - session fails closed for reversed
+  ---
+  duration_ms: 6.173409
+  type: 'test'
+  ...
+# Subtest: session fails closed for bad-issued
+ok 86 - session fails closed for bad-issued
+  ---
+  duration_ms: 7.497978
+  type: 'test'
+  ...
+# Subtest: credential/privilege update atomically revokes sessions: password_hash='changed'
+ok 87 - credential/privilege update atomically revokes sessions: password_hash='changed'
+  ---
+  duration_ms: 6.039778
+  type: 'test'
+  ...
+# Subtest: credential/privilege update atomically revokes sessions: active=0
+ok 88 - credential/privilege update atomically revokes sessions: active=0
+  ---
+  duration_ms: 5.884205
+  type: 'test'
+  ...
+# Subtest: credential/privilege update atomically revokes sessions: role='admin'
+ok 89 - credential/privilege update atomically revokes sessions: role='admin'
+  ---
+  duration_ms: 5.779078
+  type: 'test'
+  ...
+# Subtest: credential/privilege update atomically revokes sessions: can_approve=1
+ok 90 - credential/privilege update atomically revokes sessions: can_approve=1
+  ---
+  duration_ms: 5.422052
+  type: 'test'
+  ...
+# Subtest: credential/privilege update atomically revokes sessions: can_accounting=1
+ok 91 - credential/privilege update atomically revokes sessions: can_accounting=1
+  ---
+  duration_ms: 5.313794
+  type: 'test'
+  ...
+# Subtest: profile refresh does not extend expiry; deletion revokes; password-reset race denies insertion
+ok 92 - profile refresh does not extend expiry; deletion revokes; password-reset race denies insertion
+  ---
+  duration_ms: 6.3611
+  type: 'test'
+  ...
+# Subtest: auth schema is checked per binding and the new migration is idempotent/data preserving
+ok 93 - auth schema is checked per binding and the new migration is idempotent/data preserving
+  ---
+  duration_ms: 16.377584
+  type: 'test'
+  ...
+# Subtest: password input/hash format bounds and legacy SHA256 verification
+ok 94 - password input/hash format bounds and legacy SHA256 verification
+  ---
+  duration_ms: 48.20813
+  type: 'test'
+  ...
+# Subtest: atomic rate reservation: concurrent bootstrap attempts limited, untrusted XFF ignored
+ok 95 - atomic rate reservation: concurrent bootstrap attempts limited, untrusted XFF ignored
+  ---
+  duration_ms: 13.295121
+  type: 'test'
+  ...
+# API endpoint failure {
+#   requestId: 'fdbefd29-7fb1-42ff-b27e-8898d28f9c95',
+#   path: '/api/auth/login',
+#   status: 500
+# }
+# Subtest: account-specific limits work across IPs; success does not erase attempts
+ok 96 - account-specific limits work across IPs; success does not erase attempts
+  ---
+  duration_ms: 17.765743
+  type: 'test'
+  ...
+# Subtest: CSRF/header guard rejects {"Origin":"https://evil.test"}
+ok 97 - CSRF/header guard rejects {"Origin":"https://evil.test"}
+  ---
+  duration_ms: 0.510042
+  type: 'test'
+  ...
+# Subtest: CSRF/header guard rejects {"Origin":"https://www.example.test"}
+ok 98 - CSRF/header guard rejects {"Origin":"https://www.example.test"}
+  ---
+  duration_ms: 0.118606
+  type: 'test'
+  ...
+# Subtest: CSRF/header guard rejects {"Origin":"null"}
+ok 99 - CSRF/header guard rejects {"Origin":"null"}
+  ---
+  duration_ms: 0.187632
+  type: 'test'
+  ...
+# Subtest: CSRF/header guard rejects {"Sec-Fetch-Site":"same-site"}
+ok 100 - CSRF/header guard rejects {"Sec-Fetch-Site":"same-site"}
+  ---
+  duration_ms: 1.967081
+  type: 'test'
+  ...
+# Subtest: CSRF/header guard rejects {"X-Milgyo-Request":"0"}
+ok 101 - CSRF/header guard rejects {"X-Milgyo-Request":"0"}
+  ---
+  duration_ms: 0.237476
+  type: 'test'
+  ...
+# Subtest: CSRF header permits same-origin and script client but not insecure production HTTP
+ok 102 - CSRF header permits same-origin and script client but not insecure production HTTP
+  ---
+  duration_ms: 0.490732
+  type: 'test'
+  ...
+# Subtest: actual byte limit works for missing/false Content-Length and compressed requests
+ok 103 - actual byte limit works for missing/false Content-Length and compressed requests
+  ---
+  duration_ms: 4.680118
+  type: 'test'
+  ...
+# Subtest: invalid top-level JSON and invalid UTF8 fail before business handlers
+ok 104 - invalid top-level JSON and invalid UTF8 fail before business handlers
+  ---
+  duration_ms: 0.673646
+  type: 'test'
+  ...
+# Subtest: encoded API aliases cannot bypass middleware, protected seal aliases identified
+ok 105 - encoded API aliases cannot bypass middleware, protected seal aliases identified
+  ---
+  duration_ms: 2.5043
+  type: 'test'
+  ...
+# Subtest: middleware enforces JSON shape, credentials, method and returns no-store security headers
+ok 106 - middleware enforces JSON shape, credentials, method and returns no-store security headers
+  ---
+  duration_ms: 1.614206
+  type: 'test'
+  ...
+# Subtest: middleware forwards a bounded body and sanitizes server errors
+ok 107 - middleware forwards a bounded body and sanitizes server errors
+  ---
+  duration_ms: 1.724512
+  type: 'test'
+  ...
+# Subtest: protected seal requires valid login; valid image response is private and original bytes unchanged
+ok 108 - protected seal requires valid login; valid image response is private and original bytes unchanged
+  ---
+  duration_ms: 17.785013
+  type: 'test'
+  ...
+# Subtest: login -> session -> logout end-to-end through middleware uses cookies, never JSON tokens
+ok 109 - login -> session -> logout end-to-end through middleware uses cookies, never JSON tokens
+  ---
+  duration_ms: 37.826096
+  type: 'test'
+  ...
+# V97 auth schema missing {
+#   requestId: '98df1c1b-53ac-40a6-934f-f23eadfa708c',
+#   path: '/api/auth/login'
+# }
+# Subtest: invalid password is distinct from session expiry; oversized password is not truncated
+ok 110 - invalid password is distinct from session expiry; oversized password is not truncated
+  ---
+  duration_ms: 37.915536
+  type: 'test'
+  ...
+# Subtest: login fails closed with clear migration error; bootstrap recovery is disabled by default
+ok 111 - login fails closed with clear migration error; bootstrap recovery is disabled by default
+  ---
+  duration_ms: 8.562629
+  type: 'test'
+  ...
+# Subtest: admin password/profile update commits atomically and revokes target sessions only
+ok 112 - admin password/profile update commits atomically and revokes target sessions only
+  ---
+  duration_ms: 57.252732
+  type: 'test'
+  ...
+# Subtest: main attachment allowlist checks signature/name/base64 and uses canonical MIME
+ok 113 - main attachment allowlist checks signature/name/base64 and uses canonical MIME
+  ---
+  duration_ms: 0.876279
+  type: 'test'
+  ...
+# Subtest: concurrent pending-document attachment inserts stop at 10 and canonicalize MIME
+ok 114 - concurrent pending-document attachment inserts stop at 10 and canonicalize MIME
+  ---
+  duration_ms: 20.961213
+  type: 'test'
+  ...
+# Subtest: post-review/state-conflict attachment denied and R2 object cleaned: approved
+ok 115 - post-review/state-conflict attachment denied and R2 object cleaned: approved
+  ---
+  duration_ms: 7.692938
+  type: 'test'
+  ...
+# Subtest: post-review/state-conflict attachment denied and R2 object cleaned: reviewed
+ok 116 - post-review/state-conflict attachment denied and R2 object cleaned: reviewed
+  ---
+  duration_ms: 8.355232
+  type: 'test'
+  ...
+# Subtest: post-review/state-conflict attachment denied and R2 object cleaned: locked
+ok 117 - post-review/state-conflict attachment denied and R2 object cleaned: locked
+  ---
+  duration_ms: 7.367275
+  type: 'test'
+  ...
+# Subtest: recalled draft is not disclosed to a former reviewer via detail or attachment fallback
+ok 118 - recalled draft is not disclosed to a former reviewer via detail or attachment fallback
+  ---
+  duration_ms: 8.679037
+  type: 'test'
+  ...
+# Subtest: draft deletion loses a submit race without deleting children or R2 data
+ok 119 - draft deletion loses a submit race without deleting children or R2 data
+  ---
+  duration_ms: 8.375078
+  type: 'test'
+  ...
+# Subtest: normal draft deletion removes only the draft and its attachment objects
+ok 120 - normal draft deletion removes only the draft and its attachment objects
+  ---
+  duration_ms: 10.119211
+  type: 'test'
+  ...
+# Subtest: received attachments enforce owner and maximum count atomically
+ok 121 - received attachments enforce owner and maximum count atomically
+  ---
+  duration_ms: 26.595379
+  type: 'test'
+  ...
+# register attachment transaction failed
+# API endpoint failure {
+#   requestId: '2c967522-1bf0-4afe-be1a-c58b51f60fdf',
+#   path: '/api/registers/upload-attachment',
+#   status: 500
+# }
+# Subtest: register metadata and audit commit atomically; rollback removes the newly uploaded R2 object
+ok 122 - register metadata and audit commit atomically; rollback removes the newly uploaded R2 object
+  ---
+  duration_ms: 22.70109
+  type: 'test'
+  ...
+# Subtest: register status changes during upload are rejected and cleaned
+ok 123 - register status changes during upload are rejected and cleaned
+  ---
+  duration_ms: 8.362305
+  type: 'test'
+  ...
+# Subtest: accounting multipart duplicate fields fail before authentication/business writes
+ok 124 - accounting multipart duplicate fields fail before authentication/business writes
+  ---
+  duration_ms: 71.579132
+  type: 'test'
+  ...
+# Subtest: accounting attachment count/bytes quota is atomic with R2 compensation and canonical MIME
+ok 125 - accounting attachment count/bytes quota is atomic with R2 compensation and canonical MIME
+  ---
+  duration_ms: 109.334416
+  type: 'test'
+  ...
+# Subtest: client removes legacy bearer credentials and never persists the compatibility marker
+ok 126 - client removes legacy bearer credentials and never persists the compatibility marker
+  ---
+  duration_ms: 40.251941
+  type: 'test'
+  ...
+# Subtest: ready coalesces simultaneous session checks and uses credentialed same-origin transport
+ok 127 - ready coalesces simultaneous session checks and uses credentialed same-origin transport
+  ---
+  duration_ms: 7.70156
+  type: 'test'
+  ...
+# Subtest: profile update never silently extends server expiry
+ok 128 - profile update never silently extends server expiry
+  ---
+  duration_ms: 1.516721
+  type: 'test'
+  ...
+# Subtest: transient or non-session error does not logout: invalid-password
+ok 129 - transient or non-session error does not logout: invalid-password
+  ---
+  duration_ms: 4.645196
+  type: 'test'
+  ...
+# Subtest: transient or non-session error does not logout: raw-401
+ok 130 - transient or non-session error does not logout: raw-401
+  ---
+  duration_ms: 2.353735
+  type: 'test'
+  ...
+# Subtest: transient or non-session error does not logout: html-gateway
+ok 131 - transient or non-session error does not logout: html-gateway
+  ---
+  duration_ms: 2.028995
+  type: 'test'
+  ...
+# Subtest: transient or non-session error does not logout: temporary-503
+ok 132 - transient or non-session error does not logout: temporary-503
+  ---
+  duration_ms: 2.307092
+  type: 'test'
+  ...
+# Subtest: transient or non-session error does not logout: network-failure
+ok 133 - transient or non-session error does not logout: network-failure
+  ---
+  duration_ms: 1.315884
+  type: 'test'
+  ...
+# Subtest: genuine authentication failure clears metadata once: SESSION_REQUIRED
+ok 134 - genuine authentication failure clears metadata once: SESSION_REQUIRED
+  ---
+  duration_ms: 2.664822
+  type: 'test'
+  ...
+# Subtest: genuine authentication failure clears metadata once: SESSION_EXPIRED
+ok 135 - genuine authentication failure clears metadata once: SESSION_EXPIRED
+  ---
+  duration_ms: 2.197926
+  type: 'test'
+  ...
+# Subtest: genuine authentication failure clears metadata once: ACCOUNT_DISABLED
+ok 136 - genuine authentication failure clears metadata once: ACCOUNT_DISABLED
+  ---
+  duration_ms: 2.754981
+  type: 'test'
+  ...
+# Subtest: late 401 from a former login cannot overwrite a new session
+ok 137 - late 401 from a former login cannot overwrite a new session
+  ---
+  duration_ms: 3.955068
+  type: 'test'
+  ...
+# Subtest: late initial session response cannot overwrite a concurrent new login
+ok 138 - late initial session response cannot overwrite a concurrent new login
+  ---
+  duration_ms: 1.933101
+  type: 'test'
+  ...
+# Subtest: storage-disabled client can keep session in memory and restore with cookie
+ok 139 - storage-disabled client can keep session in memory and restore with cookie
+  ---
+  duration_ms: 2.987475
+  type: 'test'
+  ...
+# Subtest: cross-tab re-login clears expiry notice and account switch reloads previous account view
+ok 140 - cross-tab re-login clears expiry notice and account switch reloads previous account view
+  ---
+  duration_ms: 1.290599
+  type: 'test'
+  ...
+# Subtest: logout waits for server success; network error does not claim successful sign-out
+ok 141 - logout waits for server success; network error does not claim successful sign-out
+  ---
+  duration_ms: 4.407418
+  type: 'test'
+  ...
+# Subtest: client does not retry uncertain write requests automatically
+ok 142 - client does not retry uncertain write requests automatically
+  ---
+  duration_ms: 1.273781
+  type: 'test'
+  ...
+# Subtest: expired persisted session metadata is removed immediately on page load
+ok 143 - expired persisted session metadata is removed immediately on page load
+  ---
+  duration_ms: 0.99816
+  type: 'test'
+  ...
+# Subtest: client refuses already expired metadata instead of showing a stale logged-in UI
+ok 144 - client refuses already expired metadata instead of showing a stale logged-in UI
+  ---
+  duration_ms: 1.419637
+  type: 'test'
+  ...
+# Subtest: XLSX preflight accepts a bounded workbook-shaped archive
+ok 145 - XLSX preflight accepts a bounded workbook-shaped archive
+  ---
+  duration_ms: 0.992552
+  type: 'test'
+  ...
+# Subtest: XLSX preflight rejects extreme compression before ExcelJS parses it
+ok 146 - XLSX preflight rejects extreme compression before ExcelJS parses it
+  ---
+  duration_ms: 0.410636
+  type: 'test'
+  ...
+# Subtest: health readiness requires both D1 and both R2 bindings
+ok 147 - health readiness requires both D1 and both R2 bindings
+  ---
+  duration_ms: 0.305476
+  type: 'test'
+  ...
+# Subtest: release targets current reviewed Astro and Sharp maintenance versions
+ok 148 - release targets current reviewed Astro and Sharp maintenance versions
+  ---
+  duration_ms: 0.135759
+  type: 'test'
+  ...
+# Subtest: release audit keeps a full audit command and narrows the temporary exception to one advisory
+ok 149 - release audit keeps a full audit command and narrows the temporary exception to one advisory
+  ---
+  duration_ms: 0.230521
+  type: 'test'
+  ...
+# Subtest: Pages routing bypasses Functions for known public static assets but never for protected seals
+ok 150 - Pages routing bypasses Functions for known public static assets but never for protected seals
+  ---
+  duration_ms: 0.336417
+  type: 'test'
+  ...
+1..150
+# tests 150
+# suites 0
+# pass 150
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3395.78699

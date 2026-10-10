@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
+import { authenticateSession, getSessionToken, clean, ensureTables, json } from '../../_shared/helpers';
 import { ensureAccountingTables, hasAccountingAccess, isAccountingManager } from '../../_shared/accounting';
 import { ensureAccountingOperationsTables } from '../../_shared/accounting-operations';
 import { ensureAccountingTaxTables } from '../../_shared/accounting-tax';
@@ -55,8 +55,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
 
   await ensureTables(env.DB);
-  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-  if ('message' in auth) return json({ ok: false, message: auth.message }, auth.status);
+  const auth = await authenticateSession(env.DB, getSessionToken(request));
+  if ('message' in auth) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
   if (!hasAccountingAccess(auth.user)) return json({ ok: false, message: '회계 권한이 없습니다.' }, 403);
   await ensureAccountingTables(env.ACCOUNTING_DB);
   await Promise.all([

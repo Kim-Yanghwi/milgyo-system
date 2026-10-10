@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json } from '../../_shared/helpers';
+import { authenticateSession, getSessionToken, clean, ensureTables, json } from '../../_shared/helpers';
 interface Env { DB: D1Database; FILES?: R2Bucket; }
 type Payload = { token?: string; attachmentId?: string; binary?: boolean };
 
@@ -26,8 +26,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: 'DB가 연결되지 않았습니다.' }, 500);
   let payload: Payload; try { payload = await request.json(); } catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
   await ensureTables(env.DB);
-  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+  const auth = await authenticateSession(env.DB, getSessionToken(request));
+  if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
   const attachment = await env.DB.prepare(`SELECT a.*,r.applicant_user_id
     FROM management_register_attachments a JOIN management_registers r ON r.id=a.register_id WHERE a.id=?`)
     .bind(clean(payload.attachmentId, 80)).first<any>();

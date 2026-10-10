@@ -1,6 +1,6 @@
 // 관인(도장)·로고 이미지 등, 문서서식에 고정으로 쓰이는 종단 설정값을 조회합니다.
 import {
-  authenticateSession,
+  authenticateSession, getSessionToken,
   clean,
   ensureTables,
   json,
@@ -23,8 +23,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   await ensureTables(env.DB);
-  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+  const auth = await authenticateSession(env.DB, getSessionToken(request));
+  if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
 
   try {
     const row = await env.DB.prepare(

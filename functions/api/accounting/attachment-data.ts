@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, json, randomHex, toHex } from '../../_shared/helpers';
+import { authenticateSession, getSessionToken, clean, ensureTables, json, randomHex, toHex } from '../../_shared/helpers';
 import { ensureAccountingTables } from '../../_shared/accounting';
 import {
   arrayBufferToBase64,
@@ -34,8 +34,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   await ensureTables(env.DB);
-  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-  if ('message' in auth) return json({ ok: false, message: auth.message }, auth.status);
+  const auth = await authenticateSession(env.DB, getSessionToken(request));
+  if ('message' in auth) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
   await ensureAccountingTables(env.ACCOUNTING_DB);
 
   const attachmentId = Number(payload.attachmentId);

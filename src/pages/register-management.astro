@@ -120,16 +120,13 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
   </div>
 
   <script is:inline>
-    (() => {
+    (async () => {
       const $ = (selector, root = document) => root.querySelector(selector);
       const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
       const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
       }[char]));
-      const session = (() => {
-        try { return JSON.parse(localStorage.getItem('milgyo-system-session') || 'null'); }
-        catch { return null; }
-      })();
+      const session = await window.MilgyoSession.ready();
       if (!session?.token) return;
 
       let currentType = '공고대장';
@@ -146,16 +143,15 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       const listCache = new Map();
 
       const api = async (url, payload, options = {}) => {
-        const response = await fetch(url, {
+        const response = await window.MilgyoSession.fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: session.token, ...payload }),
           signal: options.signal,
         });
         const data = await response.json();
-        if (!data.ok && response.status === 401) {
-          localStorage.removeItem('milgyo-system-session');
-          location.replace('/');
+        if (!data.ok && response.status === 401 && window.MilgyoSession.isAuthFailure(data)) {
+          
           throw new Error(data.message || '로그인이 필요합니다.');
         }
         return data;
@@ -698,7 +694,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       $$('[data-close-detail]').forEach((button) => button.addEventListener('click', closeDetail));
 
       const downloadAttachment = async (id) => {
-        const response = await fetch('/api/registers/attachment-data', {
+        const response = await window.MilgyoSession.fetch('/api/registers/attachment-data', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: session.token, attachmentId: id, binary: true }),
@@ -706,7 +702,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         if (!response.ok) {
           const text = await response.text();
           let data; try { data = JSON.parse(text); } catch { data = { message: `서버 응답 오류(HTTP ${response.status})` }; }
-          if (response.status === 401) { localStorage.removeItem('milgyo-system-session'); location.replace('/'); return; }
+          if (response.status === 401 && window.MilgyoSession.isAuthFailure(data)) return;
           alert(data.message || '첨부파일을 내려받지 못했습니다.'); return;
         }
         const blob = await response.blob();

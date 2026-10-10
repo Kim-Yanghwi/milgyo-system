@@ -71,12 +71,12 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
   </div>
 
   <script is:inline>
-    (()=>{
+    (async () => {
       const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>Array.from(r.querySelectorAll(s));
       const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-      const session=(()=>{try{return JSON.parse(localStorage.getItem('milgyo-system-session')||'null')}catch{return null}})();if(!session?.token)return;
+      const session = await window.MilgyoSession.ready();if(!session?.token)return;
       let users=[],page=1,pages=1,currentRows=[],canManage=false,lastPreview=null;
-      const api=async(url,payload)=>{const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:session.token,...payload})});const d=await r.json();if(!d.ok&&r.status===401){localStorage.removeItem('milgyo-system-session');location.replace('/');throw new Error(d.message||'로그인이 필요합니다.')}return d;};
+      const api=async(url,payload)=>{const r=await window.MilgyoSession.fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:session.token,...payload})});const d=await r.json();if(!d.ok&&r.status===401&&window.MilgyoSession.isAuthFailure(d)){throw new Error(d.message||'로그인이 필요합니다.')}return d;};
       const today=()=>new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
       const weekdayLabel=value=>{const match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value||''));if(!match)return '';const year=Number(match[1]),month=Number(match[2]),day=Number(match[3]),date=new Date(Date.UTC(year,month-1,day));if(date.getUTCFullYear()!==year||date.getUTCMonth()!==month-1||date.getUTCDate()!==day)return '';return `(${['일','월','화','수','목','금','토'][date.getUTCDay()]})`;};
       const parseSmartDate=raw=>{const text=String(raw||'').trim();if(!text)return {valid:true,value:''};let year,month,day;const separated=/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})$/.exec(text),digits=/^\d{8}$/.test(text)?text:'';if(separated){year=Number(separated[1]);month=Number(separated[2]);day=Number(separated[3]);}else if(digits){year=Number(digits.slice(0,4));month=Number(digits.slice(4,6));day=Number(digits.slice(6,8));}else return {valid:false,value:text};const date=new Date(Date.UTC(year,month-1,day));if(year<1900||year>2200||date.getUTCFullYear()!==year||date.getUTCMonth()!==month-1||date.getUTCDate()!==day)return {valid:false,value:text};return {valid:true,value:`${String(year).padStart(4,'0')}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`};};

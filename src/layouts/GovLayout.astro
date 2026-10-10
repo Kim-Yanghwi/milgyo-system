@@ -14,26 +14,9 @@ const { title = '대한불교밀교종 종단관리시스템' } = Astro.props;
   <title>{title}</title>
   <link rel="icon" type="image/png" href="/favicon.png" id="site-favicon" />
   <link rel="apple-touch-icon" href="/favicon.png" />
+  <script is:inline src="/system-session.js?v=97"></script>
   <script is:inline>
-    try {
-      let raw = localStorage.getItem('milgyo-system-session');
-      if (!raw) {
-        const legacyRaw = sessionStorage.getItem('milgyo-system-session');
-        if (legacyRaw) {
-          const legacy = JSON.parse(legacyRaw);
-          raw = JSON.stringify({ ...legacy, savedAt: Date.now() });
-          localStorage.setItem('milgyo-system-session', raw);
-          sessionStorage.removeItem('milgyo-system-session');
-        }
-      }
-      const session = raw ? JSON.parse(raw) : null;
-      const savedAt = Number(session?.savedAt || 0);
-      const valid = !!session?.token && !!session?.user && savedAt > 0 && (Date.now() - savedAt) < 12 * 60 * 60 * 1000;
-      if (!valid && raw) localStorage.removeItem('milgyo-system-session');
-      document.documentElement.dataset.authHint = valid ? 'session' : 'login';
-    } catch {
-      document.documentElement.dataset.authHint = 'login';
-    }
+    document.documentElement.dataset.authHint = window.MilgyoSession.peek() ? 'session' : 'login';
   </script>
 </head>
 <body>

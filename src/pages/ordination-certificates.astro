@@ -111,20 +111,20 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
   </div>
 
   <script is:inline>
-    (() => {
+    (async () => {
       const $=(selector,root=document)=>root.querySelector(selector);
       const $$=(selector,root=document)=>Array.from(root.querySelectorAll(selector));
       const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-      const session=(()=>{try{return JSON.parse(localStorage.getItem('milgyo-system-session')||'null')}catch{return null}})();
+      const session = await window.MilgyoSession.ready();
       if(!session?.token)return;
 
       let page=1,pages=1,currentRows=[],canManage=false,lastPreview=null,issuing=false,issueRequestId=null;
       const defaults={teacherName:'睡翁 眞妙',preceptorName:'東翁 呑析',witnessName:'LAMA WANGDA',organizationName:'大韓佛敎 密敎宗',templeName:'香天寺',issuerName:'睡翁 眞妙',closingText:'合掌'};
       const api=async(url,payload)=>{
         try{
-          const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:session.token,...payload})});
+          const response=await window.MilgyoSession.fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:session.token,...payload})});
           const data=await response.json().catch(()=>({ok:false,message:'서버 응답을 확인할 수 없습니다.'}));
-          if(!data.ok&&response.status===401){localStorage.removeItem('milgyo-system-session');location.replace('/');return {ok:false,message:data.message||'로그인이 필요합니다.'};}
+          if(!data.ok&&response.status===401&&window.MilgyoSession.isAuthFailure(data)){return {ok:false,message:data.message||'로그인이 필요합니다.'};}
           return data;
         }catch(error){
           console.error('ordination request failed',error);

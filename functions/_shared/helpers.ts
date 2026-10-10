@@ -1,6 +1,10 @@
+import { authenticateSessionRecord, type SessionResult, type SessionUser } from './security/sessions';
+import { reserveAuthAttempt } from './security/rate-limit';
+export { createSession, destroySession, getSessionToken, sessionCookie, SESSION_TTL_MS } from './security/sessions';
+export type { SessionUser } from './security/sessions';
 // 종단관리시스템 공용 헬퍼
 
-export const json = (payload: unknown, status = 200) =>
+export const json = (payload: unknown, status = 200, extraHeaders: Record<string, string> = {}) =>
   new Response(JSON.stringify(payload), {
     status,
     headers: {
@@ -8,6 +12,7 @@ export const json = (payload: unknown, status = 200) =>
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'same-origin',
+      ...extraHeaders,
     },
   });
 
@@ -141,8 +146,6 @@ export const timingSafeEqual = (a: string, b: string) => {
 export const getClientIp = (request: Request) => {
   const cfIp = request.headers.get('CF-Connecting-IP');
   if (cfIp) return cfIp;
-  const forwardedFor = request.headers.get('X-Forwarded-For');
-  if (forwardedFor) return forwardedFor.split(',')[0].trim();
   return 'unknown';
 };
 
@@ -176,7 +179,10 @@ export const needsPasswordRehash = (stored: string) => {
 export const verifyPassword = async (password: string, stored: string) => {
   if (!stored) return false;
   if (stored.startsWith('pbkdf2$')) {
-    const [, iterationText, saltText, expectedText] = stored.split('$');
+    const fields = stored.split('$');
+    if (fields.length !== 4) return false;
+    const [, iterationText, saltText, expectedText] = fields;
+    if (!/^[A-Za-z0-9+/]{22}==$/.test(saltText || '') || !/^[A-Za-z0-9+/]{43}=$/.test(expectedText || '')) return false;
     const iterations = Number(iterationText);
     if (!Number.isInteger(iterations) || iterations < 10_000 || iterations > PBKDF2_MAX_RUNTIME_ITERATIONS || !saltText || !expectedText) return false;
     const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
@@ -188,7 +194,10 @@ export const verifyPassword = async (password: string, stored: string) => {
     return timingSafeEqual(bytesToBase64(new Uint8Array(bits)), expectedText);
   }
   if (!stored.includes(':')) return false;
-  const [salt, expectedHash] = stored.split(':');
+  const fields = stored.split(':');
+  if (fields.length !== 2) return false;
+  const [salt, expectedHash] = fields;
+  if (!salt || !/^[0-9a-f]{64}$/.test(expectedHash)) return false;
   const actualHash = await sha256(`${salt}:${password}`);
   return timingSafeEqual(actualHash, expectedHash);
 };
@@ -1003,10 +1012,8 @@ const BUILT_IN_TEMPLATES = [
   },
 ] as const;
 
-let tablesEnsured = false;
-let tablesEnsurePromise: Promise<void> | null = null;
-let lastRateLimitCleanupAt = 0;
-const MAINTENANCE_COOLDOWN_MS = 10 * 60 * 1000;
+const tablesEnsured = new WeakSet<object>();
+const tablesEnsurePromises = new WeakMap<object, Promise<void>>();
 const SCHEMA_VERSION = '2026-08-30.1';
 
 type TableColumnInfo = { name: string; type: string; notnull: number; dflt_value?: unknown; pk: number };
@@ -1404,14 +1411,15 @@ const finalizeMigratedMainSchema = async (db: D1Database) => {
 };
 
 export const repairTables = async (db: D1Database) => {
-  tablesEnsured = false;
-  tablesEnsurePromise = null;
+  tablesEnsured.delete(db);
+  tablesEnsurePromises.delete(db);
   await runSchemaMigration(db);
-  tablesEnsured = true;
+  tablesEnsured.add(db);
 };
 
 export const ensureTables = async (db: D1Database) => {
-  if (tablesEnsured) return;
+  if (tablesEnsured.has(db)) return;
+  let tablesEnsurePromise = tablesEnsurePromises.get(db);
   if (!tablesEnsurePromise) {
     tablesEnsurePromise = (async () => {
       // Wrangler migrations are the primary schema authority. A freshly migrated database may
@@ -1422,52 +1430,22 @@ export const ensureTables = async (db: D1Database) => {
         if (hasMigratedMainStructure(state)) await finalizeMigratedMainSchema(db);
         else await runSchemaMigration(db);
       }
-      tablesEnsured = true;
+      tablesEnsured.add(db);
     })().catch((error) => {
-      tablesEnsurePromise = null;
+      tablesEnsurePromises.delete(db);
       console.error('D1 schema migration failed', error);
       throw error;
     });
+    tablesEnsurePromises.set(db, tablesEnsurePromise);
   }
   await tablesEnsurePromise;
 };
 
-const getAuthRateKey = async (request: Request, scope: string) => sha256(`gov-auth-failure:${scope}:ip:${getClientIp(request)}`);
-const cleanupExpiredRateLimits = async (db: D1Database, now: number) => {
-  if (now - lastRateLimitCleanupAt <= MAINTENANCE_COOLDOWN_MS) return;
-  await db.prepare(`DELETE FROM admin_rate_limits WHERE created_at < ?`)
-    .bind(new Date(now - 24 * 60 * 60 * 1000).toISOString()).run();
-  lastRateLimitCleanupAt = now;
+export const checkAuthRateLimit = async (db: D1Database, request: Request, scope = 'login', username = '') => {
+  await ensureTables(db);
+  return reserveAuthAttempt(db, request, scope, username);
 };
 
-export const checkAuthRateLimit = async (db: D1Database, request: Request, scope = 'login') => {
-  await ensureTables(db);
-  const now = Date.now();
-  await cleanupExpiredRateLimits(db, now);
-  const rateKey = await getAuthRateKey(request, scope);
-  const checks = [
-    { windowMs: 10 * 60 * 1000, max: 10, message: '인증 시도가 반복되었습니다. 잠시 후 다시 시도해 주세요.' },
-    { windowMs: 24 * 60 * 60 * 1000, max: 40, message: '인증 시도 한도를 초과했습니다. 나중에 다시 시도해 주세요.' },
-  ];
-  const rows = await db.batch(checks.map((check) => db.prepare(
-    `SELECT COUNT(*) AS count FROM admin_rate_limits WHERE rate_key = ? AND created_at >= ?`,
-  ).bind(rateKey, new Date(now - check.windowMs).toISOString())));
-  for (let i = 0; i < checks.length; i += 1) {
-    const row = (rows[i]?.results?.[0] || null) as Record<string, unknown> | null;
-    if (Number(row?.count || 0) >= checks[i].max) return { ok: false as const, message: checks[i].message };
-  }
-  return { ok: true as const, rateKey };
-};
-export const checkAdminAuthRateLimit = (db: D1Database, request: Request) => checkAuthRateLimit(db, request, 'admin');
-export const recordAuthFailure = async (db: D1Database, rateKey: string) => {
-  await db.prepare(`INSERT INTO admin_rate_limits (id, rate_key, created_at) VALUES (?, ?, ?)`)
-    .bind(`RL-${randomHex(24)}`, rateKey, new Date().toISOString()).run();
-};
-export const clearAuthFailures = async (db: D1Database, rateKey: string) => {
-  await db.prepare(`DELETE FROM admin_rate_limits WHERE rate_key = ?`).bind(rateKey).run();
-};
-export const recordAdminAuthFailure = recordAuthFailure;
-export const clearAdminAuthFailures = clearAuthFailures;
 export const verifyAdminToken = async (submittedToken: string, expectedToken: string) => {
   if (!submittedToken || !expectedToken) return false;
   const [submittedDigest, expectedDigest] = await Promise.all([sha256(submittedToken), sha256(expectedToken)]);
@@ -1597,45 +1575,12 @@ export const releaseDocumentTransition = async (db: D1Database, documentId: stri
 export const documentTransitionReleaseStatement = (db: D1Database, documentId: string, lockToken: string) =>
   db.prepare(`DELETE FROM document_transition_locks WHERE document_id=? AND lock_token=?`).bind(documentId,lockToken);
 
-export type SessionUser = {
-  id: string; name: string; username: string; position: string | null; grade: string | null;
-  department: string | null; role: string; can_approve: number; can_accounting: number;
-};
-const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
-const SESSION_PRUNE_INTERVAL_MS = 60 * 60 * 1000;
-let lastSessionPruneAt = 0;
-export const createSession = async (db: D1Database, userId: string) => {
-  const token = randomHex(48); const now = new Date();
-  if (now.getTime() - lastSessionPruneAt >= SESSION_PRUNE_INTERVAL_MS) {
-    lastSessionPruneAt = now.getTime();
-    try { await db.prepare(`DELETE FROM system_sessions WHERE expires_at < ?`).bind(now.toISOString()).run(); }
-    catch (error) { console.warn('expired session cleanup failed', error); }
-  }
-  await db.prepare(`INSERT INTO system_sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)` )
-    .bind(token, userId, now.toISOString(), new Date(now.getTime() + SESSION_TTL_MS).toISOString()).run();
-  return token;
-};
-export const destroySession = async (db: D1Database, token: string) => {
-  if (token) await db.prepare(`DELETE FROM system_sessions WHERE token = ?`).bind(token).run();
-};
-export const authenticateSession = async (
-  db: D1Database, token: string,
-): Promise<{ ok: true; user: SessionUser } | { ok: false; message: string; status: number }> => {
-  if (!token) return { ok: false, message: '로그인이 필요합니다.', status: 401 };
-  const row = await db.prepare(`
-    SELECT CAST(u.id AS TEXT) AS id, u.name, u.username, u.position, u.grade, u.department, u.role, u.can_approve, u.can_accounting, u.active, s.expires_at
-    FROM system_sessions s JOIN system_users u ON u.id = s.user_id WHERE s.token = ?
-  `).bind(token).first<SessionUser & { active: number; expires_at: string }>();
-  if (!row) return { ok: false, message: '로그인이 만료되었습니다. 다시 로그인해 주세요.', status: 401 };
-  if (!row.active) return { ok: false, message: '비활성화된 계정입니다. 관리자에게 문의해 주세요.', status: 403 };
-  if (new Date(row.expires_at).getTime() < Date.now()) {
-    await destroySession(db, token);
-    return { ok: false, message: '로그인이 만료되었습니다. 다시 로그인해 주세요.', status: 401 };
-  }
-  const { id, name, username, position, grade, department, role, can_approve, can_accounting } = row;
-  const normalizedPosition = normalizePositionValue(position);
-  const normalizedDepartment = normalizeDepartmentValue(department, normalizedPosition);
-  return { ok: true, user: { id, name, username, position: normalizedPosition, grade, department: normalizedDepartment, role, can_approve, can_accounting } };
+// Central authentication keeps the original department/position normalization contract.
+export const authenticateSession = async (db: D1Database, token: string): Promise<SessionResult> => {
+  const result = await authenticateSessionRecord(db, token);
+  if (!result.ok) return result;
+  const position = normalizePositionValue(result.user.position);
+  return { ...result, user: { ...result.user, position, department: normalizeDepartmentValue(result.user.department, position) } };
 };
 
 export const canReadDocument = (user: SessionUser, document: Record<string, unknown>) => {

@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, isValidIsoDate, json, randomHex } from '../../_shared/helpers';
+import { authenticateSession, getSessionToken, clean, ensureTables, isValidIsoDate, json, randomHex } from '../../_shared/helpers';
 import { makeOrdinationCertificateNumber, writeManagementAudit } from '../../_shared/management';
 
 interface Env { DB: D1Database; }
@@ -66,8 +66,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
 
   await ensureTables(env.DB);
-  const auth = await authenticateSession(env.DB, clean(payload.token, 200));
-  if (!auth.ok) return json({ ok: false, message: auth.message }, auth.status);
+  const auth = await authenticateSession(env.DB, getSessionToken(request));
+  if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
   const operation = clean(payload.operation, 30);
 
   if (operation === 'issue') {

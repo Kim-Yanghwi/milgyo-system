@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.check.json",
+  "include": [
+    "functions/types.d.ts",
+    "functions/_shared/security/**/*.ts",
+    "functions/_middleware.ts",
+    "functions/api/auth/*.ts",
+    "functions/api/users/*.ts",
+    "functions/api/documents/*.ts",
+    "functions/api/received/*.ts",
+    "functions/api/registers/*.ts",
+    "functions/api/settings/*.ts",
+    "functions/api/accounting/upload-attachment.ts"
+  ]
+}

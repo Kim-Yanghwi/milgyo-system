@@ -1,4 +1,4 @@
-import { authenticateSession, clean, ensureTables, isValidIsoDate, json } from '../../_shared/helpers';
+import { authenticateSession, getSessionToken, clean, ensureTables, isValidIsoDate, json } from '../../_shared/helpers';
 interface Env { DB: D1Database; }
 type ListPayload = { token?: string; direction?: string; query?: string; page?: number; pageSize?: number; dateFrom?: string; dateTo?: string; sort?: string };
 const SORTS: Record<string,string> = { newest:'received_at DESC, created_at DESC', oldest:'received_at ASC, created_at ASC', title:'title ASC' };
@@ -7,8 +7,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let payload:ListPayload;
   try { payload=await request.json(); } catch { return json({ok:false,message:'요청 형식이 올바르지 않습니다.'},400); }
   await ensureTables(env.DB);
-  const auth=await authenticateSession(env.DB,clean(payload.token,200));
-  if(!auth.ok) return json({ok:false,message:auth.message},auth.status);
+  const auth=await authenticateSession(env.DB, getSessionToken(request));
+  if(!auth.ok) return json({ok:false,code: auth.code, message: auth.message},auth.status);
   const direction=clean(payload.direction,10), query=clean(payload.query,100), dateFrom=clean(payload.dateFrom,10), dateTo=clean(payload.dateTo,10);
   if(dateFrom&&!isValidIsoDate(dateFrom))return json({ok:false,message:'조회 시작일이 올바르지 않습니다.'},400);
   if(dateTo&&!isValidIsoDate(dateTo))return json({ok:false,message:'조회 종료일이 올바르지 않습니다.'},400);
