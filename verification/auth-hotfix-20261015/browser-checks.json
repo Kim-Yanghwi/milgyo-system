@@ -1,0 +1,7 @@
+{
+  "status": "BLOCKED_BEFORE_NAVIGATION",
+  "reason": "Chromium rejected the local fixture URL with net::ERR_BLOCKED_BY_ADMINISTRATOR.",
+  "completed_browser_checks": 0,
+  "production_tested": false,
+  "note": "No browser end-to-end success is claimed. VM client tests and SQLite handler tests are recorded separately."
+}

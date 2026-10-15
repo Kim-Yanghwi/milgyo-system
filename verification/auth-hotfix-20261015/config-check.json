@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "issues": [],
+  "production": {
+    "DB": "milgyo-system-db",
+    "ACCOUNTING_DB": "milgyo-accounting-db",
+    "FILES": "milgyo-system-files",
+    "ACCOUNTING_FILES": "milgyo-accounting-files"
+  },
+  "preview": {
+    "DB": "milgyo-system-db-preview-v2",
+    "ACCOUNTING_DB": "milgyo-accounting-db-preview",
+    "FILES": "milgyo-system-files-preview",
+    "ACCOUNTING_FILES": "milgyo-accounting-files-preview"
+  }
+}

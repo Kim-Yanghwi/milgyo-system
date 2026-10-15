@@ -1,3 +1,4 @@
+import { AuthSchemaError } from '../../_shared/security/sessions';
 import {
   checkAuthRateLimit,
   clean,
@@ -98,6 +99,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     return json({ ok: true, id, message: '관리자 계정이 생성되었습니다. 이제 이 아이디로 로그인해 주세요.' });
   } catch (error) {
+    // Let middleware return AUTH_SCHEMA_NOT_READY, not a misleading generic creation error.
+    if (error instanceof AuthSchemaError) throw error;
     console.error('bootstrap failed', { stage, error });
     return json({ ok: false, message: '관리자 계정 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' }, 500);
   }

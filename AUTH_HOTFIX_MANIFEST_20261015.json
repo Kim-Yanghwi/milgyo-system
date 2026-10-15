@@ -1,0 +1,50 @@
+{
+  "patch_id": "V99_AUTH_HOTFIX_20261015",
+  "input_zip_sha256": "bf9611e03ef7a5e406a04b6ebcb4731c8e3cd307ed8381b0c37612f1e00eea89",
+  "modified_original_files": [
+    "functions/_middleware.ts",
+    "functions/api/auth/bootstrap.ts",
+    "public/system-session.js",
+    "src/layouts/GovLayout.astro",
+    "src/pages/index.astro",
+    "tests/v97-session-client.test.ts"
+  ],
+  "preserved_files": {
+    "wrangler.toml": "2a1cb69119a25e6c8ae3355a6edb347c85390d2b94103b70be1c1530ba0c153d",
+    "wrangler.accounting-maintenance.toml": "2600f6ae3119b032fee0634ce09085fc60bec9bb6a2a93fcf23faa438aff7ccd",
+    "package.json": "0e44873efcd98db3078085fba69c03dece3ac7c2201a46c0247efb3c93e5f68d",
+    "package-lock.json": "d138ef7501a0489df0ec62f7f042cf8eac899c309a585376db911d66a68b331f",
+    ".node-version": "08062faf0d7a2d22f5d7933c50e975dd1527034275597be7c1b3b9fd2b9d079a",
+    "functions/_shared/security/sessions.ts": "530769c0065c3894b3bc8d5d755ed08f1cafd84d6fc66aeac3e675dc17b23f62",
+    "functions/_shared/security/rate-limit.ts": "0db65ffb043a53558134947c3c3d0760f10014ae94676f9947ab23a8029a4d53",
+    "functions/api/auth/login.ts": "961f04a366a9150bc2aa282e63dbf125c6bd08c91e9d533e39c7a12295fe0c01",
+    "migrations/main/0012_v97_security_sessions.sql": "3f9ed534d2ae61a979cb2e9e0fd61cda5ee72e07f51c5db9a17247a7d3da5988"
+  },
+  "local_regression": {
+    "passed": 173,
+    "failed": 0,
+    "test_files_run": 18,
+    "test_files_total": 19,
+    "excluded_test_file": "tests/tax-accounting-regression.test.ts",
+    "excluded_reason": "fflate dependency unavailable due npm DNS failure"
+  },
+  "auth_subset": {
+    "passed": 88,
+    "failed": 0,
+    "included_in_173": true
+  },
+  "typecheck": {
+    "scope": "tsconfig.security.json",
+    "typescript_version": "5.8.3",
+    "exit_code": 0,
+    "project_requested_typescript": "5.9.3",
+    "full_project_verification": false
+  },
+  "npm_install": "blocked_by_registry_DNS",
+  "full_astro_build": "not_completed_dependencies_unavailable",
+  "browser_e2e": "blocked_before_navigation",
+  "production_inspection_or_changes": false,
+  "security_gate_bypassed": false,
+  "automatic_db_repair_on_public_login_added": false,
+  "sql_repair_contains_unchanged_original_v97_migration": true
+}

@@ -6,7 +6,7 @@ import vm from 'node:vm';
 // Web transport/state tests in a VM: real Fetch Request/Response APIs, mocked DOM and network.
 // They are not a built Astro browser E2E or Cloudflare integration test.
 const code = readFileSync('public/system-session.js', 'utf8');
-function harness({ initial = null, storageBlocked = false } = {} as any) {
+function harness({ initial = null, storageBlocked = false, loginVisible = false } = {} as any) {
   const store = new Map<string,string>();
   if (initial) store.set('milgyo-system-session', JSON.stringify(initial));
   const storage = { getItem: (key: string) => { if (storageBlocked) throw Error('blocked'); return store.get(key) || null; }, setItem: (key: string, value: string) => { if (storageBlocked) throw Error('blocked'); store.set(key, value); }, removeItem: (key: string) => { if (storageBlocked) throw Error('blocked'); store.delete(key); } };
@@ -22,6 +22,7 @@ function harness({ initial = null, storageBlocked = false } = {} as any) {
     body: { append: (element: any) => elements.set(element.id, element) },
     addEventListener: (name: string, cb: Function) => listeners.set('doc:'+name, [...(listeners.get('doc:'+name)||[]), cb]),
     getElementById: (id: string) => elements.get(id),
+    querySelector: (selector: string) => selector === '[data-login-screen]' && loginVisible ? { hidden: false } : null,
     createElement: () => ({ style: {}, append() {}, setAttribute() {}, remove() { elements.delete(this.id); } }),
   };
   const location: any = { href:'https://system.example.test/', origin:'https://system.example.test', replace: (url:string)=>events.push({type:'replace',url}), reload: ()=>events.push({type:'reload'}) };
@@ -126,4 +127,98 @@ test('client refuses already expired metadata instead of showing a stale logged-
     expiresAt: new Date(now - 1_000).toISOString(),
   }), /Server session metadata is required/);
   assert.equal(h.api.peek(), null);
+});
+
+// V99 regression coverage for the pre-login yellow-banner incident.
+test('V99: first anonymous login-page visit is not reported as an expired session', async () => {
+  const h = harness({ loginVisible: true });
+  await h.api.ready();
+  assert.equal(h.api.peek(), null);
+  assert.equal(h.calls.length, 1);
+  assert.equal(h.elements.has('milgyo-session-notice'), false);
+  const ended = h.events.find(e => e.type === 'milgyo:session-ended');
+  assert.equal(ended.detail.hadSession, false);
+});
+
+test('V99: an anonymous protected-page visit is not a false session-expiry event', async () => {
+  const h = harness();
+  await h.api.ready();
+  assert.equal(h.elements.has('milgyo-session-notice'), false);
+  assert.equal(h.api.peek(), null);
+});
+
+test('V99: expired stored metadata does not add a banner over the login form', async () => {
+  const h = harness({ loginVisible: true, initial: { ...metadata(), version: 2,
+    issuedAt: new Date(Date.now() - 30_000).toISOString(),
+    expiresAt: new Date(Date.now() - 1_000).toISOString(),
+  }});
+  await h.api.ready();
+  assert.equal(h.store.size, 0);
+  assert.equal(h.elements.has('milgyo-session-notice'), false);
+});
+
+test('V99: migration from legacy browser tokens does not create a login-page warning', async () => {
+  const h = harness({ loginVisible: true, initial: { token: 'old-credential', user: { id: 'u1' } } });
+  await h.api.ready();
+  assert.equal(h.store.size, 0);
+  assert.equal(h.elements.has('milgyo-session-notice'), false);
+});
+
+test('V99: rejected old cookie on the visible login form needs no second login link', async () => {
+  const h = harness({ loginVisible: true, initial: { ...metadata(), version: 2 } });
+  h.respond(async () => Response.json({ ok: false, code: 'SESSION_EXPIRED' }, { status: 401 }));
+  await h.api.ready();
+  assert.equal(h.api.peek(), null);
+  assert.equal(h.elements.has('milgyo-session-notice'), false);
+});
+
+test('V99: real expiry on an active form still shows the preservation warning', async () => {
+  const h = harness();
+  h.api.set(metadata());
+  h.respond(async () => Response.json({ ok: false, code: 'SESSION_EXPIRED' }, { status: 401 }));
+  await h.api.fetch('/api/documents/detail', req);
+  assert.equal(h.api.peek(), null);
+  assert.equal(h.elements.has('milgyo-session-notice'), true);
+  // An additional request after expiry must not remove the original warning.
+  await h.api.fetch('/api/documents/detail', req);
+  assert.equal(h.elements.has('milgyo-session-notice'), true);
+  assert.equal(h.events.some(e => e.type === 'replace' || e.type === 'reload'), false);
+});
+
+test('V99: cross-tab logout notifications while already signed out stay quiet', () => {
+  const h = harness({ loginVisible: true });
+  h.dispatch('storage', { key: 'milgyo-system-session', newValue: null });
+  assert.equal(h.elements.has('milgyo-session-notice'), false);
+});
+
+test('V99: auth-schema 503 on login is not converted into a session-expiry warning', async () => {
+  const h = harness({ loginVisible: true });
+  h.respond(async () => Response.json({ ok: false, code: 'AUTH_SCHEMA_NOT_READY' }, { status: 503 }));
+  const response = await h.api.fetch('/api/auth/login', req);
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).code, 'AUTH_SCHEMA_NOT_READY');
+  assert.equal(h.elements.has('milgyo-session-notice'), false);
+});
+
+test('V99: auth-schema 503 does not discard an existing session profile', async () => {
+  const h = harness(); h.api.set(metadata());
+  h.respond(async () => Response.json({ ok: false, code: 'AUTH_SCHEMA_NOT_READY' }, { status: 503 }));
+  await h.api.fetch('/api/auth/session', req);
+  assert.equal(h.api.peek().user.id, 'u1');
+  assert.equal(h.elements.has('milgyo-session-notice'), false);
+});
+
+test('V99: normal login after an anonymous check can restore session state', async () => {
+  const h = harness({ loginVisible: true });
+  await h.api.ready();
+  h.api.set(metadata());
+  assert.equal(h.api.peek().user.id, 'u1');
+  assert.equal(h.elements.has('milgyo-session-notice'), false);
+});
+
+test('V99: shared script URL changes, while the login screen clears any stale warning', () => {
+  assert.match(readFileSync('src/layouts/GovLayout.astro', 'utf8'), /system-session\.js\?v=99-auth-20261015/);
+  const index = readFileSync('src/pages/index.astro', 'utf8');
+  const showLogin = index.slice(index.indexOf('const showLogin ='), index.indexOf('const setAccountingAccessLinks ='));
+  assert.match(showLogin, /getElementById\('milgyo-session-notice'\)\?\.remove\(\)/);
 });

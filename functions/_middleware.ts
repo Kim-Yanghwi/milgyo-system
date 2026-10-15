@@ -56,8 +56,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   } catch (error) {
     if (error instanceof RequestSecurityError) return finish(json({ ok: false, code: error.code, message: error.message, requestId }, error.status));
     if (error instanceof AuthSchemaError) {
-      console.error('V97 auth schema missing', { requestId, path });
-      return finish(json({ ok: false, code: error.code, requestId, message: '\uc778\uc99d DB \uc900\ube44\uac00 \ud544\uc694\ud569\ub2c8\ub2e4. \uad00\ub9ac\uc790\uc5d0\uac8c \ubb38\uc758\ud574 \uc8fc\uc138\uc694.' }, 503));
+      console.error('V97 auth schema missing', { requestId, path, binding: 'DB', migration: 'migrations/main/0012_v97_security_sessions.sql' });
+      return finish(json({ ok: false, code: error.code, requestId, message: '인증 DB 보안 구조가 준비되지 않았습니다. 관리자가 메인 DB(DB)의 인증 마이그레이션 적용 상태를 확인해야 합니다. (AUTH_SCHEMA_NOT_READY)' }, 503));
     }
     // Do not log request headers/bodies, session cookies or user records.
     console.error('Unhandled Pages Function error', { requestId, path, error: error instanceof Error ? error.message.slice(0, 300) : 'unknown' });

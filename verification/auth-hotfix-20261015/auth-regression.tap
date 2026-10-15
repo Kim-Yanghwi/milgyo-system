@@ -1,0 +1,577 @@
+TAP version 13
+# (node:1137) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: new session: strong cookie, hashed D1 credential, absolute 12h lifetime, no legacy fallback
+ok 1 - new session: strong cookie, hashed D1 credential, absolute 12h lifetime, no legacy fallback
+  ---
+  duration_ms: 74.34577
+  type: 'test'
+  ...
+# Subtest: localhost-only development cookie and explicit cookie clearing
+ok 2 - localhost-only development cookie and explicit cookie clearing
+  ---
+  duration_ms: 1.307235
+  type: 'test'
+  ...
+# Subtest: session fails closed for bad-expiry
+ok 3 - session fails closed for bad-expiry
+  ---
+  duration_ms: 10.200859
+  type: 'test'
+  ...
+# Subtest: session fails closed for expired
+ok 4 - session fails closed for expired
+  ---
+  duration_ms: 6.860857
+  type: 'test'
+  ...
+# Subtest: session fails closed for too-long
+ok 5 - session fails closed for too-long
+  ---
+  duration_ms: 14.475123
+  type: 'test'
+  ...
+# Subtest: session fails closed for reversed
+ok 6 - session fails closed for reversed
+  ---
+  duration_ms: 10.842383
+  type: 'test'
+  ...
+# Subtest: session fails closed for bad-issued
+ok 7 - session fails closed for bad-issued
+  ---
+  duration_ms: 6.299109
+  type: 'test'
+  ...
+# Subtest: credential/privilege update atomically revokes sessions: password_hash='changed'
+ok 8 - credential/privilege update atomically revokes sessions: password_hash='changed'
+  ---
+  duration_ms: 5.895237
+  type: 'test'
+  ...
+# Subtest: credential/privilege update atomically revokes sessions: active=0
+ok 9 - credential/privilege update atomically revokes sessions: active=0
+  ---
+  duration_ms: 8.282941
+  type: 'test'
+  ...
+# Subtest: credential/privilege update atomically revokes sessions: role='admin'
+ok 10 - credential/privilege update atomically revokes sessions: role='admin'
+  ---
+  duration_ms: 6.778583
+  type: 'test'
+  ...
+# Subtest: credential/privilege update atomically revokes sessions: can_approve=1
+ok 11 - credential/privilege update atomically revokes sessions: can_approve=1
+  ---
+  duration_ms: 6.402043
+  type: 'test'
+  ...
+# Subtest: credential/privilege update atomically revokes sessions: can_accounting=1
+ok 12 - credential/privilege update atomically revokes sessions: can_accounting=1
+  ---
+  duration_ms: 6.428238
+  type: 'test'
+  ...
+# Subtest: profile refresh does not extend expiry; deletion revokes; password-reset race denies insertion
+ok 13 - profile refresh does not extend expiry; deletion revokes; password-reset race denies insertion
+  ---
+  duration_ms: 7.166078
+  type: 'test'
+  ...
+# Subtest: auth schema is checked per binding and the new migration is idempotent/data preserving
+ok 14 - auth schema is checked per binding and the new migration is idempotent/data preserving
+  ---
+  duration_ms: 29.986901
+  type: 'test'
+  ...
+# Subtest: password input/hash format bounds and legacy SHA256 verification
+ok 15 - password input/hash format bounds and legacy SHA256 verification
+  ---
+  duration_ms: 49.690115
+  type: 'test'
+  ...
+# Subtest: atomic rate reservation: concurrent bootstrap attempts limited, untrusted XFF ignored
+ok 16 - atomic rate reservation: concurrent bootstrap attempts limited, untrusted XFF ignored
+  ---
+  duration_ms: 15.774055
+  type: 'test'
+  ...
+# API endpoint failure {
+#   requestId: '7bd0006a-3cd3-4181-a991-0223f23675ab',
+#   path: '/api/auth/login',
+#   status: 500
+# }
+# Subtest: account-specific limits work across IPs; success does not erase attempts
+ok 17 - account-specific limits work across IPs; success does not erase attempts
+  ---
+  duration_ms: 31.892421
+  type: 'test'
+  ...
+# Subtest: CSRF/header guard rejects {"Origin":"https://evil.test"}
+ok 18 - CSRF/header guard rejects {"Origin":"https://evil.test"}
+  ---
+  duration_ms: 0.435058
+  type: 'test'
+  ...
+# Subtest: CSRF/header guard rejects {"Origin":"https://www.example.test"}
+ok 19 - CSRF/header guard rejects {"Origin":"https://www.example.test"}
+  ---
+  duration_ms: 0.130817
+  type: 'test'
+  ...
+# Subtest: CSRF/header guard rejects {"Origin":"null"}
+ok 20 - CSRF/header guard rejects {"Origin":"null"}
+  ---
+  duration_ms: 0.092069
+  type: 'test'
+  ...
+# Subtest: CSRF/header guard rejects {"Sec-Fetch-Site":"same-site"}
+ok 21 - CSRF/header guard rejects {"Sec-Fetch-Site":"same-site"}
+  ---
+  duration_ms: 0.188294
+  type: 'test'
+  ...
+# Subtest: CSRF/header guard rejects {"X-Milgyo-Request":"0"}
+ok 22 - CSRF/header guard rejects {"X-Milgyo-Request":"0"}
+  ---
+  duration_ms: 0.123136
+  type: 'test'
+  ...
+# Subtest: CSRF header permits same-origin and script client but not insecure production HTTP
+ok 23 - CSRF header permits same-origin and script client but not insecure production HTTP
+  ---
+  duration_ms: 0.355578
+  type: 'test'
+  ...
+# Subtest: actual byte limit works for missing/false Content-Length and compressed requests
+ok 24 - actual byte limit works for missing/false Content-Length and compressed requests
+  ---
+  duration_ms: 4.276392
+  type: 'test'
+  ...
+# Subtest: invalid top-level JSON and invalid UTF8 fail before business handlers
+ok 25 - invalid top-level JSON and invalid UTF8 fail before business handlers
+  ---
+  duration_ms: 0.497331
+  type: 'test'
+  ...
+# Subtest: encoded API aliases cannot bypass middleware, protected seal aliases identified
+ok 26 - encoded API aliases cannot bypass middleware, protected seal aliases identified
+  ---
+  duration_ms: 2.584956
+  type: 'test'
+  ...
+# Subtest: middleware enforces JSON shape, credentials, method and returns no-store security headers
+ok 27 - middleware enforces JSON shape, credentials, method and returns no-store security headers
+  ---
+  duration_ms: 1.65483
+  type: 'test'
+  ...
+# Subtest: middleware forwards a bounded body and sanitizes server errors
+ok 28 - middleware forwards a bounded body and sanitizes server errors
+  ---
+  duration_ms: 1.802924
+  type: 'test'
+  ...
+# Subtest: protected seal requires valid login; valid image response is private and original bytes unchanged
+ok 29 - protected seal requires valid login; valid image response is private and original bytes unchanged
+  ---
+  duration_ms: 20.518545
+  type: 'test'
+  ...
+# Subtest: login -> session -> logout end-to-end through middleware uses cookies, never JSON tokens
+ok 30 - login -> session -> logout end-to-end through middleware uses cookies, never JSON tokens
+  ---
+  duration_ms: 45.889471
+  type: 'test'
+  ...
+# V97 auth schema missing {
+#   requestId: '4f3357c9-2b00-4381-8f0a-5c19dc05a667',
+#   path: '/api/auth/login',
+#   binding: 'DB',
+#   migration: 'migrations/main/0012_v97_security_sessions.sql'
+# }
+# Subtest: invalid password is distinct from session expiry; oversized password is not truncated
+ok 31 - invalid password is distinct from session expiry; oversized password is not truncated
+  ---
+  duration_ms: 36.103139
+  type: 'test'
+  ...
+# Subtest: login fails closed with clear migration error; bootstrap recovery is disabled by default
+ok 32 - login fails closed with clear migration error; bootstrap recovery is disabled by default
+  ---
+  duration_ms: 9.9663
+  type: 'test'
+  ...
+# Subtest: admin password/profile update commits atomically and revokes target sessions only
+ok 33 - admin password/profile update commits atomically and revokes target sessions only
+  ---
+  duration_ms: 65.148843
+  type: 'test'
+  ...
+# Subtest: main attachment allowlist checks signature/name/base64 and uses canonical MIME
+ok 34 - main attachment allowlist checks signature/name/base64 and uses canonical MIME
+  ---
+  duration_ms: 1.146572
+  type: 'test'
+  ...
+# Subtest: concurrent pending-document attachment inserts stop at 10 and canonicalize MIME
+ok 35 - concurrent pending-document attachment inserts stop at 10 and canonicalize MIME
+  ---
+  duration_ms: 21.638046
+  type: 'test'
+  ...
+# Subtest: post-review/state-conflict attachment denied and R2 object cleaned: approved
+ok 36 - post-review/state-conflict attachment denied and R2 object cleaned: approved
+  ---
+  duration_ms: 9.577612
+  type: 'test'
+  ...
+# Subtest: post-review/state-conflict attachment denied and R2 object cleaned: reviewed
+ok 37 - post-review/state-conflict attachment denied and R2 object cleaned: reviewed
+  ---
+  duration_ms: 10.756969
+  type: 'test'
+  ...
+# Subtest: post-review/state-conflict attachment denied and R2 object cleaned: locked
+ok 38 - post-review/state-conflict attachment denied and R2 object cleaned: locked
+  ---
+  duration_ms: 8.347002
+  type: 'test'
+  ...
+# Subtest: recalled draft is not disclosed to a former reviewer via detail or attachment fallback
+ok 39 - recalled draft is not disclosed to a former reviewer via detail or attachment fallback
+  ---
+  duration_ms: 12.698604
+  type: 'test'
+  ...
+# Subtest: draft deletion loses a submit race without deleting children or R2 data
+ok 40 - draft deletion loses a submit race without deleting children or R2 data
+  ---
+  duration_ms: 14.771419
+  type: 'test'
+  ...
+# Subtest: normal draft deletion removes only the draft and its attachment objects
+ok 41 - normal draft deletion removes only the draft and its attachment objects
+  ---
+  duration_ms: 7.985998
+  type: 'test'
+  ...
+# Subtest: received attachments enforce owner and maximum count atomically
+ok 42 - received attachments enforce owner and maximum count atomically
+  ---
+  duration_ms: 41.324718
+  type: 'test'
+  ...
+# register attachment transaction failed
+# API endpoint failure {
+#   requestId: '8569ba84-055c-4e08-9129-01b7048322aa',
+#   path: '/api/registers/upload-attachment',
+#   status: 500
+# }
+# Subtest: register metadata and audit commit atomically; rollback removes the newly uploaded R2 object
+ok 43 - register metadata and audit commit atomically; rollback removes the newly uploaded R2 object
+  ---
+  duration_ms: 20.165241
+  type: 'test'
+  ...
+# Subtest: register status changes during upload are rejected and cleaned
+ok 44 - register status changes during upload are rejected and cleaned
+  ---
+  duration_ms: 8.865166
+  type: 'test'
+  ...
+# Subtest: accounting multipart duplicate fields fail before authentication/business writes
+ok 45 - accounting multipart duplicate fields fail before authentication/business writes
+  ---
+  duration_ms: 111.221475
+  type: 'test'
+  ...
+# Subtest: accounting attachment count/bytes quota is atomic with R2 compensation and canonical MIME
+ok 46 - accounting attachment count/bytes quota is atomic with R2 compensation and canonical MIME
+  ---
+  duration_ms: 169.087144
+  type: 'test'
+  ...
+# Subtest: client removes legacy bearer credentials and never persists the compatibility marker
+ok 47 - client removes legacy bearer credentials and never persists the compatibility marker
+  ---
+  duration_ms: 31.636474
+  type: 'test'
+  ...
+# Subtest: ready coalesces simultaneous session checks and uses credentialed same-origin transport
+ok 48 - ready coalesces simultaneous session checks and uses credentialed same-origin transport
+  ---
+  duration_ms: 6.989241
+  type: 'test'
+  ...
+# Subtest: profile update never silently extends server expiry
+ok 49 - profile update never silently extends server expiry
+  ---
+  duration_ms: 1.298532
+  type: 'test'
+  ...
+# Subtest: transient or non-session error does not logout: invalid-password
+ok 50 - transient or non-session error does not logout: invalid-password
+  ---
+  duration_ms: 3.836628
+  type: 'test'
+  ...
+# Subtest: transient or non-session error does not logout: raw-401
+ok 51 - transient or non-session error does not logout: raw-401
+  ---
+  duration_ms: 2.867293
+  type: 'test'
+  ...
+# Subtest: transient or non-session error does not logout: html-gateway
+ok 52 - transient or non-session error does not logout: html-gateway
+  ---
+  duration_ms: 2.764116
+  type: 'test'
+  ...
+# Subtest: transient or non-session error does not logout: temporary-503
+ok 53 - transient or non-session error does not logout: temporary-503
+  ---
+  duration_ms: 6.066367
+  type: 'test'
+  ...
+# Subtest: transient or non-session error does not logout: network-failure
+ok 54 - transient or non-session error does not logout: network-failure
+  ---
+  duration_ms: 2.316741
+  type: 'test'
+  ...
+# Subtest: genuine authentication failure clears metadata once: SESSION_REQUIRED
+ok 55 - genuine authentication failure clears metadata once: SESSION_REQUIRED
+  ---
+  duration_ms: 4.205154
+  type: 'test'
+  ...
+# Subtest: genuine authentication failure clears metadata once: SESSION_EXPIRED
+ok 56 - genuine authentication failure clears metadata once: SESSION_EXPIRED
+  ---
+  duration_ms: 3.389982
+  type: 'test'
+  ...
+# Subtest: genuine authentication failure clears metadata once: ACCOUNT_DISABLED
+ok 57 - genuine authentication failure clears metadata once: ACCOUNT_DISABLED
+  ---
+  duration_ms: 4.422873
+  type: 'test'
+  ...
+# Subtest: late 401 from a former login cannot overwrite a new session
+ok 58 - late 401 from a former login cannot overwrite a new session
+  ---
+  duration_ms: 3.568773
+  type: 'test'
+  ...
+# Subtest: late initial session response cannot overwrite a concurrent new login
+ok 59 - late initial session response cannot overwrite a concurrent new login
+  ---
+  duration_ms: 2.386927
+  type: 'test'
+  ...
+# Subtest: storage-disabled client can keep session in memory and restore with cookie
+ok 60 - storage-disabled client can keep session in memory and restore with cookie
+  ---
+  duration_ms: 2.15123
+  type: 'test'
+  ...
+# Subtest: cross-tab re-login clears expiry notice and account switch reloads previous account view
+ok 61 - cross-tab re-login clears expiry notice and account switch reloads previous account view
+  ---
+  duration_ms: 1.438143
+  type: 'test'
+  ...
+# Subtest: logout waits for server success; network error does not claim successful sign-out
+ok 62 - logout waits for server success; network error does not claim successful sign-out
+  ---
+  duration_ms: 1.844838
+  type: 'test'
+  ...
+# Subtest: client does not retry uncertain write requests automatically
+ok 63 - client does not retry uncertain write requests automatically
+  ---
+  duration_ms: 11.62103
+  type: 'test'
+  ...
+# Subtest: expired persisted session metadata is removed immediately on page load
+ok 64 - expired persisted session metadata is removed immediately on page load
+  ---
+  duration_ms: 1.64103
+  type: 'test'
+  ...
+# Subtest: client refuses already expired metadata instead of showing a stale logged-in UI
+ok 65 - client refuses already expired metadata instead of showing a stale logged-in UI
+  ---
+  duration_ms: 1.960723
+  type: 'test'
+  ...
+# Subtest: V99: first anonymous login-page visit is not reported as an expired session
+ok 66 - V99: first anonymous login-page visit is not reported as an expired session
+  ---
+  duration_ms: 2.946462
+  type: 'test'
+  ...
+# Subtest: V99: an anonymous protected-page visit is not a false session-expiry event
+ok 67 - V99: an anonymous protected-page visit is not a false session-expiry event
+  ---
+  duration_ms: 2.602362
+  type: 'test'
+  ...
+# Subtest: V99: expired stored metadata does not add a banner over the login form
+ok 68 - V99: expired stored metadata does not add a banner over the login form
+  ---
+  duration_ms: 2.830537
+  type: 'test'
+  ...
+# Subtest: V99: migration from legacy browser tokens does not create a login-page warning
+ok 69 - V99: migration from legacy browser tokens does not create a login-page warning
+  ---
+  duration_ms: 2.934324
+  type: 'test'
+  ...
+# Subtest: V99: rejected old cookie on the visible login form needs no second login link
+ok 70 - V99: rejected old cookie on the visible login form needs no second login link
+  ---
+  duration_ms: 2.650265
+  type: 'test'
+  ...
+# Subtest: V99: real expiry on an active form still shows the preservation warning
+ok 71 - V99: real expiry on an active form still shows the preservation warning
+  ---
+  duration_ms: 2.958711
+  type: 'test'
+  ...
+# Subtest: V99: cross-tab logout notifications while already signed out stay quiet
+ok 72 - V99: cross-tab logout notifications while already signed out stay quiet
+  ---
+  duration_ms: 1.557593
+  type: 'test'
+  ...
+# Subtest: V99: auth-schema 503 on login is not converted into a session-expiry warning
+ok 73 - V99: auth-schema 503 on login is not converted into a session-expiry warning
+  ---
+  duration_ms: 2.602733
+  type: 'test'
+  ...
+# Subtest: V99: auth-schema 503 does not discard an existing session profile
+ok 74 - V99: auth-schema 503 does not discard an existing session profile
+  ---
+  duration_ms: 1.987042
+  type: 'test'
+  ...
+# Subtest: V99: normal login after an anonymous check can restore session state
+ok 75 - V99: normal login after an anonymous check can restore session state
+  ---
+  duration_ms: 7.328564
+  type: 'test'
+  ...
+# Subtest: V99: shared script URL changes, while the login screen clears any stale warning
+ok 76 - V99: shared script URL changes, while the login screen clears any stale warning
+  ---
+  duration_ms: 4.865231
+  type: 'test'
+  ...
+# (node:1144) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: V99: supplied repair contains the unchanged original V97 migration
+ok 77 - V99: supplied repair contains the unchanged original V97 migration
+  ---
+  duration_ms: 1.610203
+  type: 'test'
+  ...
+# V97 auth schema missing {
+#   requestId: '061e13cf-8b43-45e1-8d1e-f4937cf14b6c',
+#   path: '/api/auth/login',
+#   binding: 'DB',
+#   migration: 'migrations/main/0012_v97_security_sessions.sql'
+# }
+# V97 auth schema missing {
+#   requestId: 'f2b039fe-de65-4270-b70b-5e4ffc3a4c95',
+#   path: '/api/auth/login',
+#   binding: 'DB',
+#   migration: 'migrations/main/0012_v97_security_sessions.sql'
+# }
+# Subtest: V99: bound pre-V97 main database reproduces AUTH_SCHEMA_NOT_READY on login
+ok 78 - V99: bound pre-V97 main database reproduces AUTH_SCHEMA_NOT_READY on login
+  ---
+  duration_ms: 120.416265
+  type: 'test'
+  ...
+# Subtest: V99: diagnostic is read-only on both pre-migration and ready databases
+ok 79 - V99: diagnostic is read-only on both pre-migration and ready databases
+  ---
+  duration_ms: 31.804468
+  type: 'test'
+  ...
+# Subtest: V99: applying repair twice preserves every pre-existing table row
+ok 80 - V99: applying repair twice preserves every pre-existing table row
+  ---
+  duration_ms: 12.045657
+  type: 'test'
+  ...
+# Subtest: V99: repair restores existing-account login and cookie session without a new admin
+ok 81 - V99: repair restores existing-account login and cookie session without a new admin
+  ---
+  duration_ms: 45.150054
+  type: 'test'
+  ...
+# Subtest: V99: incomplete V97 installation repairs only missing security objects
+ok 82 - V99: incomplete V97 installation repairs only missing security objects
+  ---
+  duration_ms: 59.546092
+  type: 'test'
+  ...
+# Subtest: V99: repair refuses a database without main tables before creating auth objects
+ok 83 - V99: repair refuses a database without main tables before creating auth objects
+  ---
+  duration_ms: 0.937346
+  type: 'test'
+  ...
+# Subtest: V99: repair refuses missing user security columns rather than silently bypassing them
+ok 84 - V99: repair refuses missing user security columns rather than silently bypassing them
+  ---
+  duration_ms: 0.371071
+  type: 'test'
+  ...
+# Subtest: V99: repair keeps active hashed sessions and existing rate-limit counters intact
+ok 85 - V99: repair keeps active hashed sessions and existing rate-limit counters intact
+  ---
+  duration_ms: 17.186355
+  type: 'test'
+  ...
+# V97 auth schema missing {
+#   requestId: '8cc199f0-d810-4b9f-a9a7-260a08daccd7',
+#   path: '/api/auth/bootstrap',
+#   binding: 'DB',
+#   migration: 'migrations/main/0012_v97_security_sessions.sql'
+# }
+# Subtest: V99: repaired schema retains password-reset/deactivation session revocation
+ok 86 - V99: repaired schema retains password-reset/deactivation session revocation
+  ---
+  duration_ms: 75.599239
+  type: 'test'
+  ...
+# Subtest: V99: initial-admin route reports the same missing-schema code without creating users
+ok 87 - V99: initial-admin route reports the same missing-schema code without creating users
+  ---
+  duration_ms: 9.036294
+  type: 'test'
+  ...
+# Subtest: V99: bootstrap remains disabled unless an operator explicitly enables it
+ok 88 - V99: bootstrap remains disabled unless an operator explicitly enables it
+  ---
+  duration_ms: 5.826084
+  type: 'test'
+  ...
+1..88
+# tests 88
+# suites 0
+# pass 88
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2510.757895

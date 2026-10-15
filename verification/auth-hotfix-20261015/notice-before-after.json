@@ -1,0 +1,12 @@
+{
+  "scope": "VM reproduction with the supplied original source and patched source; normal anonymous SESSION_REQUIRED=401",
+  "before": {
+    "sessionPresent": false,
+    "yellowNotice": true
+  },
+  "after": {
+    "sessionPresent": false,
+    "yellowNotice": false
+  },
+  "passed": true
+}

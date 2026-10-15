@@ -1,4 +1,4 @@
-/* V97 shared session transport. No credential is read/written by JavaScript.
+/* V99 login-notice hotfix (2026-10-15), retaining the V97 shared session transport. No credential is read/written by JavaScript.
  * token='cookie-session' is an IN-MEMORY compatibility marker, never a bearer token.
  */
 (() => {
@@ -28,7 +28,7 @@
     state = null; revision += 1; readyPromise = null;
     try { localStorage.removeItem(KEY); } catch {}
     try { sessionStorage.removeItem(KEY); } catch {}
-    emit('milgyo:session-ended', { reason: 'SESSION_EXPIRED' });
+    emit('milgyo:session-ended', { reason: 'SESSION_EXPIRED', hadSession: true });
     return true;
   };
   const peek = () => expireLocalStateIfNeeded() ? null : (state ? { ...state, user: { ...state.user }, token: 'cookie-session' } : null);
@@ -43,10 +43,11 @@
     return peek();
   };
   const clear = (reason = 'expired') => {
+    const hadSession = !!state;
     state = null; revision += 1; readyPromise = null;
     try { localStorage.removeItem(KEY); } catch {}
     try { sessionStorage.removeItem(KEY); } catch {}
-    emit('milgyo:session-ended', { reason });
+    emit('milgyo:session-ended', { reason, hadSession });
   };
   try {
     state = normalize(JSON.parse(localStorage.getItem(KEY) || 'null'), true);
@@ -130,13 +131,22 @@
     const previousId = state?.user.id;
     try { state = normalize(JSON.parse(event.newValue || 'null'), true); } catch { state = null; }
     revision += 1; readyPromise = null;
-    if (!state) emit('milgyo:session-ended', { reason: 'another-tab' });
+    if (!state) emit('milgyo:session-ended', { reason: 'another-tab', hadSession: !!previousId });
     else if (previousId && previousId !== state.user.id) location.reload();
     else emit('milgyo:session-updated', { user: state.user, expiresAt: state.expiresAt });
   });
   // On subpages preserve unsaved input; a re-login link opens a new tab instead of silently discarding forms.
   window.addEventListener('milgyo:session-ended', (event) => {
     if (event.detail?.reason === 'logout' || !document.body) return;
+    // A first anonymous visit gets SESSION_REQUIRED; no previous login has expired.
+    // Also avoid a second login link when the sign-in form is already on screen.
+    const loginScreen = document.querySelector('[data-login-screen]');
+    if (event.detail?.hadSession === false || (loginScreen && !loginScreen.hidden)) {
+      // Do not remove a real expiry warning on a protected form just because a
+      // second in-flight API request also returned 401 after state was cleared.
+      if (loginScreen && !loginScreen.hidden) document.getElementById('milgyo-session-notice')?.remove();
+      return;
+    }
     let notice = document.getElementById('milgyo-session-notice');
     if (!notice) {
       notice = document.createElement('div'); notice.id = 'milgyo-session-notice'; notice.setAttribute('role', 'alert');

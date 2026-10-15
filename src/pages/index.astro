@@ -860,6 +860,8 @@ import GovLayout from '../layouts/GovLayout.astro';
         document.documentElement.classList.add('auth-ready');
       };
       const showLogin = () => {
+        // The sign-in form is the recovery UI; a second fixed expiry banner is redundant.
+        document.getElementById('milgyo-session-notice')?.remove();
         loginScreen.hidden = false;
         appShell.hidden = true;
         document.documentElement.dataset.authHint = 'login';

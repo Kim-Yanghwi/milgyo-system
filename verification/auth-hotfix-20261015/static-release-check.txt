@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-04",
+  "astro": "7.3.5",
+  "sharp": [
+    {
+      "path": "node_modules/sharp",
+      "version": "0.35.5"
+    }
+  ],
+  "ok": true,
+  "issues": [],
+  "advisory": "https://github.com/withastro/astro/security/advisories/GHSA-26w7-cxv4-gfx2"
+}

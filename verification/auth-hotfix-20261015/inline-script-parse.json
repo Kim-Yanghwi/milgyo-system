@@ -1,0 +1,15 @@
+{
+  "checks": [
+    {
+      "file": "src/pages/index.astro",
+      "inlineScripts": 1,
+      "status": "parsed"
+    },
+    {
+      "file": "src/layouts/GovLayout.astro",
+      "inlineScripts": 2,
+      "status": "parsed"
+    }
+  ],
+  "scope": "JavaScript parsing only, not an Astro build"
+}
