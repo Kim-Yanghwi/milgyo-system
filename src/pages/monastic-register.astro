@@ -6,21 +6,12 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
     <div><p class="page-heading__kicker">MONASTIC REGISTRY · INTERNAL ONLY</p><h1>승적원부 대장</h1><p>종단 승적기록을 등록·검증하고 증빙 및 변경이력을 비공개로 관리합니다.</p></div>
     <button type="button" class="btn btn-primary" data-new hidden>+ 승적원부 등록</button>
   </div>
-  <section class="surface monastic-surface" data-list-section>
-    <div class="section-title"><div><h2>승적원부 목록</h2><p>승적번호·법명·재적 사찰 검색 및 변경이력 조회</p></div>
-      <div class="toolbar monastic-filters"><select data-status><option value="">전체 상태</option><option>재적</option><option>제적</option><option>기타</option></select>
-        <input type="search" data-query placeholder="승적번호·법명·사찰 검색" aria-label="승적 검색" />
-        <select data-page-size><option value="10">10개</option><option value="20" selected>20개</option><option value="50">50개</option></select>
-        <button type="button" class="btn btn-outline" data-search>조회</button></div></div>
-    <div class="status-message" data-status-message aria-live="polite">승적원부를 불러오는 중입니다.</div>
-    <div class="data-wrap"><table class="data-table"><thead><tr><th>원부 관리번호</th><th>승적번호</th><th>법명(한글)</th><th>승적 상태</th><th>재적 사찰</th><th>최근 확인일</th><th>증빙</th><th>관리</th></tr></thead><tbody data-body><tr><td colspan="8">불러오는 중입니다.</td></tr></tbody></table></div>
-    <div class="pagination" data-pagination></div>
-  </section>
+
 
   <section class="surface monastic-editor" data-editor hidden>
-    <div class="section-title"><div><h2 data-editor-title>승적원부 등록</h2><p>서식 01의 기본 신원·재적·수계·소임·보존관리 항목을 기록합니다. 주민등록번호와 가족정보는 입력하지 않습니다.</p></div><button type="button" class="btn btn-outline" data-editor-close>닫기</button></div>
+    <div class="section-title"><div><h2 data-editor-title>승적원부 등록</h2><p>기본 신원·재적·수계·소임·보존관리 항목을 기록합니다.</p></div><button type="button" class="btn btn-outline" data-editor-close>닫기</button></div>
     <form data-form>
-      <h3>01 · 기본 신원 및 재적 사항</h3>
+      <h3>기본 신원 및 재적 사항</h3>
       <div class="form-grid monastic-grid">
         <div class="form-field"><label>승적번호 *</label><input data-field="monasticNo" maxlength="60" required autocomplete="off" /></div>
         <div class="form-field"><label>법명(한글) *</label><input data-field="dharmaNameKo" maxlength="80" required /></div>
@@ -38,11 +29,11 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         <div class="form-field"><label>최초 등록일</label><span class="monastic-date-control" data-monastic-date-control><input type="text" data-monastic-date data-field="firstRegisteredDate" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off" spellcheck="false" /><button type="button" class="monastic-calendar-button" data-monastic-calendar aria-label="최초 등록일 달력 선택" title="달력에서 선택">▦</button><input type="date" data-no-weekday data-no-date8 class="monastic-calendar-native" tabindex="-1" aria-hidden="true" /></span></div>
         <div class="form-field"><label>최근 확인일</label><span class="monastic-date-control" data-monastic-date-control><input type="text" data-monastic-date data-field="lastVerifiedDate" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD" autocomplete="off" spellcheck="false" /><button type="button" class="monastic-calendar-button" data-monastic-calendar aria-label="최근 확인일 달력 선택" title="달력에서 선택">▦</button><input type="date" data-no-weekday data-no-date8 class="monastic-calendar-native" tabindex="-1" aria-hidden="true" /></span></div>
       </div>
-      <div class="section-title monastic-part-title"><div><h3>02 · 수계 및 법계 기록</h3><p>관련 증빙을 대조해 확인된 사실만 기록합니다.</p></div><button type="button" class="btn btn-outline btn-sm" data-add-ordination>+ 기록 추가</button></div>
+      <div class="section-title monastic-part-title"><div><h3>수계 및 법계 기록</h3><p>관련 증빙을 대조해 확인된 사실만 기록합니다.</p></div><button type="button" class="btn btn-outline btn-sm" data-add-ordination>+ 기록 추가</button></div>
       <div class="data-wrap"><table class="data-table monastic-input-table monastic-ordination-table"><colgroup><col style="width:14%"><col style="width:18%"><col style="width:23%"><col style="width:18%"><col style="width:20%"><col style="width:7%"></colgroup><thead><tr><th>구분 / 계종</th><th>수계·품수일</th><th>장소 / 시행기관</th><th>계사·확인자</th><th>근거 문서</th><th>관리</th></tr></thead><tbody data-ordination></tbody></table></div>
-      <div class="section-title monastic-part-title"><div><h3>03 · 소임 및 주요 종무 경력</h3><p>선택 기록</p></div><button type="button" class="btn btn-outline btn-sm" data-add-career>+ 경력 추가</button></div>
+      <div class="section-title monastic-part-title"><div><h3>소임 및 주요 종무 경력</h3><p>선택 기록</p></div><button type="button" class="btn btn-outline btn-sm" data-add-career>+ 경력 추가</button></div>
       <div class="data-wrap"><table class="data-table monastic-input-table monastic-career-table"><thead><tr><th>활동 기간 (시작일 ~ 종료일)</th><th>소속 사찰·기관</th><th>소임 / 직책</th><th>확인 자료</th><th>관리</th></tr></thead><tbody data-career></tbody></table></div>
-      <h3>06 · 접근권한 및 보존관리 확인</h3>
+      <h3>접근권한 및 보존관리 확인</h3>
       <div class="form-grid monastic-grid">
         <div class="form-field"><label>접근 허가 범위</label><input data-field="accessScope" maxlength="200" value="승적관리 담당자" /></div>
         <div class="form-field"><label>개인정보 처리근거 *</label><select data-field="processingBasis" required><option value="">선택해 주세요</option><option value="동의">동의</option><option value="비동의">비동의</option></select></div>
@@ -51,28 +42,40 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         <div class="form-field"><label>내부 보관장소</label><input data-field="storageLocation" maxlength="200" /></div>
       </div>
       <p class="privacy-note monastic-consent-note">'비동의'는 동의하지 않았다는 사실을 기록합니다. 개인정보 처리의 별도 법적 근거가 없으면 관련 정보의 수집·이용과 대외증명서 발급을 진행하지 마세요.</p>
-      <h3>07 · 작성·검토·승인</h3>
+      <h3>작성·검토·승인</h3>
       <div class="form-grid monastic-grid">
         <div class="form-field"><label>작성자</label><select data-field="preparedBy"><option value="">계정 목록 불러오는 중</option></select></div>
         <div class="form-field"><label>검토자</label><select data-field="reviewedBy"><option value="">계정 목록 불러오는 중</option></select></div>
         <div class="form-field"><label>승인자</label><select data-field="approvedBy"><option value="">계정 목록 불러오는 중</option></select></div>
       </div>
       <div class="form-grid monastic-grid" data-change-fields hidden>
-        <div class="form-field"><label>04 · 처리 구분 *</label><select data-change-type><option value="">선택</option><option>재적 변경</option><option>법명 변경</option><option>수계 정정</option><option>법계 변경</option><option>제적</option><option>복적</option><option>입적(入寂)</option><option>기타 정정</option></select></div>
+        <div class="form-field"><label>처리 구분 *</label><select data-change-type><option value="">선택</option><option>재적 변경</option><option>법명 변경</option><option>수계 정정</option><option>법계 변경</option><option>제적</option><option>복적</option><option>입적(入寂)</option><option>기타 정정</option></select></div>
         <div class="form-field form-field--full"><label>정정 근거·증빙·승인 *</label><textarea data-change-evidence rows="2" maxlength="500" placeholder="정정 사유 및 근거자료·승인 내용을 구체적으로 기록"></textarea></div>
       </div>
       <div class="status-message" data-form-status aria-live="polite"></div>
       <div class="form-actions"><button type="button" class="btn btn-outline" data-editor-close>취소</button><button type="submit" class="btn btn-primary" data-save>승적원부 등록</button></div>
     </form>
   </section>
+  <section class="surface monastic-surface" data-list-section>
+    <div class="section-title"><div><h2>승적원부 목록</h2><p>승적번호·법명·재적 사찰 검색 및 변경이력 조회</p></div>
+      <div class="toolbar monastic-filters"><select data-status><option value="">전체 상태</option><option>재적</option><option>제적</option><option>기타</option></select>
+        <input type="search" data-query placeholder="승적번호·법명·사찰 검색" aria-label="승적 검색" />
+        <select data-page-size><option value="10">10개</option><option value="20" selected>20개</option><option value="50">50개</option></select>
+        <button type="button" class="btn btn-outline" data-search>조회</button></div></div>
+    <div class="status-message" data-status-message aria-live="polite">승적원부를 불러오는 중입니다.</div>
+    <div class="data-wrap"><table class="data-table"><thead><tr><th>원부 관리번호</th><th>승적번호</th><th>법명(한글)</th><th>승적 상태</th><th>재적 사찰</th><th>최근 확인일</th><th>증빙</th><th>관리</th></tr></thead><tbody data-body><tr><td colspan="8">불러오는 중입니다.</td></tr></tbody></table></div>
+    <div class="pagination" data-pagination></div>
+  </section>
+
 
   <section class="surface monastic-detail" data-detail hidden>
-    <div class="section-title"><div><h2>승적원부 상세 · 비공개 내부 관리</h2><p data-detail-heading></p></div><div class="toolbar"><button type="button" class="btn btn-outline" data-detail-print>원부 인쇄</button><button type="button" class="btn btn-outline" data-detail-edit>기재사항 정정</button><button type="button" class="btn btn-outline" data-detail-close>닫기</button></div></div>
+    <div class="section-title"><div><h2>승적원부 상세</h2><p data-detail-heading></p></div><div class="toolbar"><button type="button" class="btn btn-outline" data-detail-print>원부 인쇄</button><button type="button" class="btn btn-outline" data-detail-edit>기재사항 정정</button><button type="button" class="btn btn-outline" data-detail-close>닫기</button></div></div>
     <div data-detail-summary class="data-wrap monastic-summary"></div>
-    <div class="section-title monastic-part-title"><div><h3>02 · 수계 및 법계 기록</h3></div></div><div data-detail-ordination></div>
-    <div class="section-title monastic-part-title"><div><h3>03 · 소임 및 주요 종무 경력</h3></div></div><div data-detail-career></div>
-    <h3>04 · 승적 기재사항 변경·정정 이력</h3><div class="data-wrap"><table class="data-table monastic-changes-table"><thead><tr><th>처리일자</th><th>처리 구분</th><th>변경 항목</th><th>변경 전</th><th>변경 후</th><th>증빙·승인·담당자</th></tr></thead><tbody data-detail-changes></tbody></table></div>
-    <div class="section-title monastic-part-title"><div><h3>05 · 확인한 증빙자료 목록 (비공개)</h3><p>파일당 4MB 이하, 최대 10개. R2(FILES) 우선 저장</p></div></div>
+    <div class="section-title monastic-part-title"><div><h3>수계 및 법계 기록</h3></div></div><div data-detail-ordination></div>
+    <div class="section-title monastic-part-title"><div><h3>소임 및 주요 종무 경력</h3></div></div><div data-detail-career></div>
+    <div class="monastic-section-divider" aria-hidden="true"></div>
+    <div class="section-title monastic-part-title"><div><h3>승적 기재사항 변경·정정 이력</h3></div></div><div class="data-wrap"><table class="data-table monastic-changes-table"><thead><tr><th>처리일자</th><th>처리 구분</th><th>변경 항목</th><th>변경 전</th><th>변경 후</th><th>증빙·승인·담당자</th></tr></thead><tbody data-detail-changes></tbody></table></div>
+    <div class="section-title monastic-part-title"><div><h3>확인한 증빙자료 목록 (비공개)</h3><p>파일당 4MB 이하, 최대 10개. R2(FILES) 우선 저장</p></div></div>
     <div class="form-grid monastic-grid monastic-attachments">
       <div class="form-field"><label>증빙 종류</label><input data-evidence-type maxlength="100" placeholder="예: 수계증빙, 사찰재적확인" /></div>
       <div class="form-field"><label>발급기관</label><input data-evidence-issuer maxlength="160" /></div>
@@ -245,17 +248,15 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         const evidenceTable=grid(['자료번호','증빙 종류·발급기관','확인일','보관 위치·파일명'],evidence);
         const html=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>승적원부 ${esc(r.register_no)}</title><style>${printCss}</style></head><body>
           <div class="print-tools"><button type="button" data-print-trigger>인쇄하기 (A4 세로)</button></div>
-          <section class="print-sheet print-sheet--first"><header>대한불교밀교종 | 서식 01 승적원부 · 비공개</header><h1>승적원부</h1><p class="meta">승려 개인별 종단 승적기록 · 외부 제출용이 아닌 내부관리 문서</p>
-          <h2>01 · 기본 신원 및 재적 사항</h2><div class="data-wrap">${visible(r)}</div>
-          <h2>02 · 수계 및 법계 기록</h2>${ordinationTable(r)}
-          <h2>03 · 소임 및 주요 종무 경력</h2>${careerTable(r)}
-          <p class="warning">작성 원칙: 확인된 근거자료로 작성·정정합니다. 주민등록번호 및 불필요한 가족정보는 수집하지 않습니다.</p><p class="foot">승적자료 · 비공개 내부 관리</p></section>
-          <section class="print-sheet"><header>대한불교밀교종 | 서식 01 승적원부 · 비공개</header><h1>승적원부 | 변경·검증 기록</h1><p class="meta">승적번호 ${esc(r.monastic_no)} · 법명 ${esc(r.dharma_name_ko)}</p>
-          <h2>04 · 승적 기재사항 변경·정정 이력</h2><div class="data-wrap"><table class="data-table monastic-changes-table"><thead><tr><th>처리일자</th><th>처리구분</th><th>변경항목</th><th>변경 전</th><th>변경 후</th><th>증빙·담당자</th></tr></thead><tbody>${history}</tbody></table></div>
-          <h2>05 · 확인한 증빙자료 목록</h2>${evidenceTable}
-          <h2>06 · 접근권한 및 보존관리 확인</h2>${grid(['접근 범위','개인정보 동의','민감정보 동의','보유기간','보관장소'],[[r.access_scope,r.processing_basis,r.sensitive_basis,r.retention_period,r.storage_location]])}
-          <h2>07 · 작성·검토·승인</h2>${grid(['작성자','검토자','승인자'],[[accountName(r.prepared_by),accountName(r.reviewed_by),accountName(r.approved_by)]])}
-          <p class="warning">보안 취급: 원부는 대외 배포하지 않습니다. 대외 제출은 승적증명서로 처리합니다.</p><p class="foot">승적자료 · 비공개 내부 관리</p></section></body></html>`;
+          <section class="print-sheet print-sheet--first"><header>대한불교밀교종 | 승적원부</header><h1>승적원부</h1>
+          <h2>기본 신원 및 재적 사항</h2><div class="data-wrap">${visible(r)}</div>
+          <h2>수계 및 법계 기록</h2>${ordinationTable(r)}
+          <h2>소임 및 주요 종무 경력</h2>${careerTable(r)}</section>
+          <section class="print-sheet"><header>대한불교밀교종 | 승적원부</header><h1>승적원부 | 변경·검증 기록</h1><p class="meta">승적번호: ${esc(r.monastic_no)}  /  법명: ${esc(r.dharma_name_ko)}</p>
+          <h2>승적 기재사항 변경·정정 이력</h2><div class="data-wrap"><table class="data-table monastic-changes-table"><thead><tr><th>처리일자</th><th>처리구분</th><th>변경항목</th><th>변경 전</th><th>변경 후</th><th>증빙·담당자</th></tr></thead><tbody>${history}</tbody></table></div>
+          <h2>확인한 증빙자료 목록</h2>${evidenceTable}
+          <h2>접근권한 및 보존관리 확인</h2>${grid(['접근 범위','개인정보 동의','민감정보 동의','보유기간','보관장소'],[[r.access_scope,r.processing_basis,r.sensitive_basis,r.retention_period,r.storage_location]])}
+          <h2>작성·검토·승인</h2>${grid(['작성자','검토자','승인자'],[[accountName(r.prepared_by),accountName(r.reviewed_by),accountName(r.approved_by)]])}</section></body></html>`;
         const w=window.open('','_blank','width=1100,height=900');if(!w){alert('팝업을 허용해 주세요.');return;}
         w.document.write(html);w.document.close();
         w.document.querySelector('[data-print-trigger]')?.addEventListener('click',()=>w.print());
@@ -271,6 +272,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
     .section-title{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1rem}
     .section-title h2,.section-title h3{margin:0;font-size:1.1rem}.section-title p{margin:.25rem 0 0;font-size:.8rem;color:var(--gov-muted)}
     .monastic-part-title{margin-top:1.6rem;border-top:1px solid var(--gov-border);padding-top:1rem}
+    .monastic-section-divider{height:0;border-top:2px solid #d8e0ea;margin:1.35rem 0 .35rem}
     .monastic-grid{grid-template-columns:repeat(3,minmax(0,1fr));margin:1rem 0}
     .monastic-grid .form-field--full{grid-column:1/-1}
     .monastic-editor h3,.monastic-detail h3{font-size:1.04rem;margin:1.5rem 0 .6rem}
