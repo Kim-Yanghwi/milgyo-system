@@ -19,7 +19,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const organizationUsers = users.results || [];
     const signatories = organizationUsers.filter((u: any) => ['이사장', '이사장 직무대리'].includes(String(u.position || '').trim()));
     return json({ ok: true, registry: (registry.results || []).slice(0, 50), hasMoreRegistry: (registry.results || []).length > 50,
-      organizationUsers, signatories, me: auth.user, canIssue: signatories.length > 0 });
+      organizationUsers, signatories, me: auth.user, canIssue: organizationUsers.length > 0 });
   }
   if (op === 'search-registry') {
     const query = clean(p.query, 100);

@@ -77,8 +77,8 @@ test('조직도 활성 계정은 미리보기용으로 표시하지만 실제 �
     const created = await call(registryAction, db, admin, { operation: 'create', content: sample('M-103-SIGN', '계정시험', '테스트인물', '시험사찰') });
     assert.equal(created.status, 200);
     const issueBase = { operation: 'issue', registryId: created.body.row.id, issueDate: monasticToday(), purpose: '서류 제출', signatoryTitle: '이사장' };
-    const rejected = await call(certificateAction, db, admin, { ...issueBase, requestId: 'v103-signatory-denied-0001', signatoryUserId: 'staff' });
-    assert.equal(rejected.status, 403, '직위가 다른 조직도 계정으로 발급 불가능');
+    const withStaff = await call(certificateAction, db, admin, { ...issueBase, requestId: 'v103-signatory-any-000001', signatoryUserId: 'staff' });
+    assert.equal(withStaff.status, 200, withStaff.body.message);
     const accepted = await call(certificateAction, db, admin, { ...issueBase, requestId: 'v103-signatory-valid-00002', signatoryUserId: 'chair' });
     assert.equal(accepted.status, 200, accepted.body.message);
   } finally { db.close(); }
@@ -102,6 +102,8 @@ test('테스트 미리보기에는 좌측 상단 테스트용 표기가 있고 �
   assert.doesNotMatch(testPrint, /organization-seal\.png/);
   assert.doesNotMatch(testPrint, /\(직인\)/);
   assert.match(testPrint, /승적 등재 여부를 증명하지 않습니다/);
+  assert.doesNotMatch(testPrint, /대한불교밀교종 \| 서식 02 승적증명서/);
+  assert.match(testPrint, /monastic-certificate-disclaimer-line">필요한 경우 별도 확인합니다\./);
   const finalPrint = markup({ ...record, certificateNo: '승적-2026-00001', monasticNo: 'M-103-A' }, false, false);
   assert.match(finalPrint, /organization-seal\.png/);
   assert.doesNotMatch(finalPrint, /monastic-certificate-test-watermark/);

@@ -26,9 +26,9 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
             <span class="employment-smart-date-weekday" data-date-weekday hidden></span></div></div>
         <div class="form-field form-field--full"><label for="monastic-purpose">제출 용도 *</label><input id="monastic-purpose" name="purpose" maxlength="300" placeholder="예: 소속 종단 승적 확인용" required /></div>
         <div class="form-field"><label for="monastic-signatory-title">발급명의 직함 *</label><select id="monastic-signatory-title" name="signatoryTitle" required><option value="이사장">이사장</option><option value="이사장 직무대리">이사장 직무대리</option></select></div>
-        <div class="form-field"><label for="monastic-signatory-user">발급명의 성명 *</label><select id="monastic-signatory-user" name="signatoryUserId" data-signatory-select required><option value="">조직도 계정을 불러오는 중입니다.</option></select><small class="field-hint">조직도의 활성 계정 중 선택합니다. 이사장·직무대리 외 계정은 테스트용 미리보기만 가능합니다.</small></div>
+        <div class="form-field"><label for="monastic-signatory-user">발급명의 성명 *</label><select id="monastic-signatory-user" name="signatoryUserId" data-signatory-select required><option value="">계정 목록을 불러오는 중입니다.</option></select></div>
         <div class="form-field"><label for="monastic-manager">담당자</label><input id="monastic-manager" name="managerName" maxlength="60" /></div>
-        <div class="form-field"><label for="monastic-contact">발급기관 연락처</label><input id="monastic-contact" name="contact" maxlength="80" /></div>
+        <div class="form-field"><label for="monastic-contact">연락처</label><input id="monastic-contact" name="contact" maxlength="80" /></div>
         <div class="form-field form-field--full employment-logo-option"><span class="field-label">좌측 상단 종단 로고</span><label class="certificate-logo-check"><input type="checkbox" name="includeLogoSqSeal" /><span>종단 로고 표시</span></label><small class="field-hint">재직증명서와 같은 종단 로고를 A4 문서 왼쪽 상단에 표시합니다. 직인 겹침 위치는 별도로 유지합니다.</small></div>
       </div>
       <div class="status-message" data-issue-status aria-live="polite"></div>
@@ -68,10 +68,10 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       const selectedOrgUser=()=>organizationUsers.find(u=>String(u.id)===$('[data-signatory-select]').value);
       const fillRegistry=()=>{const r=selectedRegistry();$('[data-person-name]').value=r?.dharma_name_ko||'';$('[data-person-layname]').value=r?.lay_name||'';$('[data-person-number]').value=r?.monastic_no||'';$('[data-person-temple]').value=r?.temple||'';$('[data-person-verified]').value=r?.last_verified_date||'';updateIssuanceState();};
       const updateIssuanceState=()=>{
-        const signer=selectedOrgUser(),title=$('[name=signatoryTitle]').value;
-        const authorized=Boolean(signer&&signatories.some(s=>String(s.id)===String(signer.id))&&String(signer.position||'').trim()===title);
-        $('[data-issue-button]').disabled=!selectedRegistry()||!authorized;
-        $('[data-issue-button]').title=authorized?'승적원부와 발급 조건이 맞으면 정식 발급합니다.':'정식 발급에는 이사장 또는 직무대리 직위와 일치하는 활성 계정이 필요합니다.';
+        const signer=selectedOrgUser();
+        const ready=Boolean(selectedRegistry()&&signer);
+        $('[data-issue-button]').disabled=!ready;
+        $('[data-issue-button]').title=ready?'승적원부와 입력 내용을 기준으로 정식 발급합니다.':'승적원부 대상자와 발급명의 성명을 선택해 주세요.';
       };
       const showRegistryOptions=(items,hasMore=false)=>{
         records=Array.isArray(items)?items:[];
@@ -105,15 +105,20 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         .monastic-certificate-table th,.monastic-certificate-table td{border:1.3px solid #88919c;padding:15px 10px;text-align:center;vertical-align:middle;line-height:1.4;overflow-wrap:anywhere}
         .monastic-certificate-table th{background:#eef2f5;font-weight:600;width:17%}
         .monastic-certificate-table td{width:33%}
-        .monastic-certificate-statement{text-align:justify;line-height:2.05;font-size:17px;margin:50px 14px 30px;word-break:keep-all}
+        .monastic-certificate-statement{text-align:center;line-height:2.05;font-size:17px;margin:50px 14px 30px;word-break:keep-all}
+        .monastic-certificate-statement--notice{text-align:center}
         .monastic-certificate-purpose{font-size:15.5px;margin:18px 0 50px}
         .monastic-certificate-date{text-align:center;font-size:18px;margin:0 0 38px}
-        .monastic-certificate-issuer{text-align:center;font-size:21px;font-weight:700;line-height:1.7;padding-bottom:75px}
+        .monastic-certificate-issuer{width:100%;margin:0 auto;padding-bottom:75px;text-align:center;font-size:21px;font-weight:700;line-height:1.7}
         .monastic-certificate-issuer-block{display:inline-grid;justify-items:end;position:relative;margin:0 auto;width:max-content;max-width:100%;text-align:right}
-        .monastic-certificate-issuer-line{position:relative;z-index:2;white-space:nowrap}
-        .monastic-certificate-seal{position:absolute;z-index:1;right:-62px;top:2px;width:98px;height:98px;object-fit:contain;pointer-events:none;opacity:1;mix-blend-mode:normal}
+        .monastic-certificate-issuer-line{position:relative;z-index:2;display:block;white-space:nowrap;letter-spacing:0}
+        .monastic-certificate-issuer-line + .monastic-certificate-issuer-line{margin-top:4px}
+        .monastic-certificate-seal{position:absolute;z-index:1;right:-62px;top:2px;width:98px;height:98px;object-fit:contain;pointer-events:none;opacity:1;mix-blend-mode:normal;filter:none;background:transparent}
         .monastic-certificate-contacts{font-size:13px;line-height:1.8;border-top:1px solid #c4cbd4;margin-top:8px;padding-top:16px}
-        .monastic-certificate-disclaimer{font-size:11px;color:#526073;line-height:1.6;margin-top:10px}
+        .monastic-certificate-disclaimer{display:grid;grid-template-columns:auto 1fr;column-gap:.25em;align-items:start;font-size:11px;color:#526073;line-height:1.6;margin-top:10px}
+        .monastic-certificate-disclaimer-mark{display:block}
+        .monastic-certificate-disclaimer-text{display:block}
+        .monastic-certificate-disclaimer-line{display:block}
         .monastic-certificate-invalid{position:absolute;z-index:5;top:45%;left:16%;transform:rotate(-23deg);border:6px solid #9d2828;color:#9d2828;opacity:.58;font-size:72px;font-weight:bold;padding:10px 28px}
         .monastic-certificate-test-watermark{position:absolute;z-index:8;top:15px;left:18px;transform:rotate(-10deg);border:3px double #981e27;border-radius:4px;padding:3px 9px;text-align:center;font-family:"Malgun Gothic",sans-serif;font-size:23px;font-weight:900;line-height:1.1;color:#981e27;background:rgba(255,255,255,.94);pointer-events:none;-webkit-print-color-adjust:exact;print-color-adjust:exact}
         .monastic-certificate-test-watermark small{display:block;font-size:11px;white-space:nowrap}
@@ -121,10 +126,9 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         .monastic-certificate-print-action{width:794px;text-align:right;margin:12px auto}
         @page{size:A4;margin:0}@media print{.monastic-certificate-root{padding:0;background:#fff}.monastic-certificate-paper{margin:0}.monastic-certificate-print-action{display:none}}
       `;
-      const markup=(s,invalid=false,previewMode=false)=>`<div class="monastic-certificate-root"><article class="monastic-certificate-paper">
+      const markup=(s,invalid=false,previewMode=false)=>{const previewNotice=previewMode&&!s.monasticNo;return `<div class="monastic-certificate-root"><article class="monastic-certificate-paper">
         ${s.includeLogo?'<img class="monastic-certificate-top-logo" src="/certificates/logo-sq.png" alt="" />':''}
         ${invalid?'<div class="monastic-certificate-invalid">발급취소</div>':previewMode?`<div class="monastic-certificate-test-watermark${s.includeLogo?' monastic-certificate-test-watermark--with-logo':''}">테스트용<small>미리보기·미발급 · 효력 없음</small></div>`:''}
-        <p class="monastic-certificate-subhead">대한불교밀교종 | 서식 02 승적증명서</p>
         <h1 class="monastic-certificate-title">승 적 증 명 서</h1><p class="monastic-certificate-english">CERTIFICATE OF MONASTIC REGISTRATION</p>
         <div class="monastic-certificate-meta"><span>발급번호: ${esc(s.certificateNo||'미리보기')}</span><span>발급일: ${esc(koreanDate(s.issueDate))}</span></div>
         <p class="monastic-certificate-section">승적 확인사항</p>
@@ -134,15 +138,15 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
           <tr><th>소속 종단</th><td>${esc(s.organization||'대한불교밀교종')}</td><th>소속 사찰</th><td>${esc(s.temple||'-')}</td></tr>
           <tr><th>승적 취득일</th><td>${esc(koreanDate(s.acquiredDate))}</td><th>확인 기준일</th><td>${esc(koreanDate(s.verificationDate))}</td></tr>
         </tbody></table>
-        <p class="monastic-certificate-statement">${previewMode&&!s.monasticNo?'본 화면은 서식 확인을 위한 테스트 출력물로서 승적 등재 여부를 증명하지 않습니다.':'위 사람은 발급일 현재 본 종단의 승적원부에 재적 승려로 등재되어 있음을 확인하여 이에 증명합니다.'}</p>
+        <p class="monastic-certificate-statement${previewNotice?' monastic-certificate-statement--notice':''}">${previewNotice?'본 화면은 서식 확인을 위한 테스트 출력물로서 승적 등재 여부를 증명하지 않습니다.':'위 사람은 발급일 현재 본 종단의 승적원부에 재적 승려로 등재되어 있음을 확인하여 이에 증명합니다.'}</p>
         <p class="monastic-certificate-purpose">제출 용도 : ${esc(s.purpose||'-')}</p>
         <p class="monastic-certificate-date">${esc(koreanDate(s.issueDate))}</p>
-        <div class="monastic-certificate-issuer"><div class="monastic-certificate-issuer-block"><div class="monastic-certificate-issuer-line">대한불교밀교종</div><div class="monastic-certificate-issuer-line">${esc(s.signatoryTitle||'이사장')} ${esc(signatoryName(s.signatoryName||'-'))}${previewMode?' (미발급)':' (직인)'}</div>${previewMode?'':'<img class="monastic-certificate-seal" src="/organization-seal.png" alt="대한불교밀교종 직인" />'}</div></div>
-        <div class="monastic-certificate-contacts">발급기관 연락처 : ${esc(s.contact||'-')}<div>문서 진위 확인 : 발급번호·발급일자·발급권자를 발급기관에 조회</div></div>
-        <p class="monastic-certificate-disclaimer">※ 본 증명서는 본 종단의 승적 등재 사실에 관한 자체 확인서로서, 타 종단 승적이나 국가 자격을 증명하지 않습니다. 수계·법계·소임은 필요한 경우 별도 확인합니다.</p>
-      </article></div>`;
+        <div class="monastic-certificate-issuer"><div class="monastic-certificate-issuer-block"><div class="monastic-certificate-issuer-line">대한불교밀교종</div><div class="monastic-certificate-issuer-line">${esc(s.signatoryTitle||'이사장')} ${esc(signatoryName(s.signatoryName||'-'))}${previewMode?' (미발급)':''}</div>${previewMode?'':'<img class="monastic-certificate-seal" src="/organization-seal.png" alt="대한불교밀교종 직인" />'}</div></div>
+        <div class="monastic-certificate-contacts">연락처 : ${esc(s.contact||'-')}<div>문서 진위 확인 : 발급번호·발급일자·발급권자를 발급기관에 조회</div></div>
+        <div class="monastic-certificate-disclaimer"><span class="monastic-certificate-disclaimer-mark">※</span><span class="monastic-certificate-disclaimer-text"><span class="monastic-certificate-disclaimer-line">본 증명서는 본 종단의 승적 등재 사실에 관한 자체 확인서로서, 타 종단 승적이나 국가 자격을 증명하지 않습니다. 수계·법계·소임은</span><span class="monastic-certificate-disclaimer-line">필요한 경우 별도 확인합니다.</span></span></div>
+      </article></div>`;};
       // 테스트 미리보기는 필수 발급조건과 독립적이며, D1 발급대장에 기록하지 않습니다.
-      const snapshotFromForm=()=>{const f=new FormData($('[data-issue-form]')),r=selectedRegistry(),s=selectedOrgUser();return {certificateNo:'테스트용 · 미발급',dharmaName:r?.dharma_name_ko||'테스트 법명',layName:r?.lay_name||'테스트 성명',monasticNo:r?.monastic_no||'',status:r?'재적':'미확인',organization:'대한불교밀교종',temple:r?.temple||'테스트 사찰',acquiredDate:r?.acquired_date||'',verificationDate:r?.last_verified_date||'',issueDate:parsedDate(f.get('issueDate'))||today(),purpose:f.get('purpose')||'서식 확인용',signatoryTitle:s&&!signatories.some(u=>String(u.id)===String(s.id))?(s.position||'발급권한 없는 계정'):f.get('signatoryTitle'),signatoryName:s?.name||'발급명의 미선택',includeLogo:f.get('includeLogoSqSeal')==='on',managerName:f.get('managerName'),contact:f.get('contact')};};
+      const snapshotFromForm=()=>{const f=new FormData($('[data-issue-form]')),r=selectedRegistry(),s=selectedOrgUser();return {certificateNo:'테스트용 · 미발급',dharmaName:r?.dharma_name_ko||'테스트 법명',layName:r?.lay_name||'테스트 성명',monasticNo:r?.monastic_no||'',status:r?'재적':'미확인',organization:'대한불교밀교종',temple:r?.temple||'테스트 사찰',acquiredDate:r?.acquired_date||'',verificationDate:r?.last_verified_date||'',issueDate:parsedDate(f.get('issueDate'))||today(),purpose:f.get('purpose')||'서식 확인용',signatoryTitle:f.get('signatoryTitle')||'이사장',signatoryName:s?.name||'발급명의 미선택',includeLogo:f.get('includeLogoSqSeal')==='on',managerName:f.get('managerName'),contact:f.get('contact')};};
       const parseSnapshot=row=>{try{return JSON.parse(String(row.certificate_snapshot||'{}'))}catch{return {}}};
       const preview=s=>{currentPrint={snapshot:s,invalid:false,previewMode:true};$('[data-preview-container]').innerHTML=`<style>${printCss}</style>${markup(s,false,true)}`;$('[data-preview-modal]').hidden=false;};
       const printRecord=(row)=>{const s=row.snapshot||parseSnapshot(row),invalid=row.invalid||row.status==='취소';if(!s.certificateNo){alert('인쇄 정보가 없습니다.');return;}const w=window.open('','_blank','width=980,height=1080');if(!w){alert('팝업 차단을 해제해 주세요.');return;}w.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(s.certificateNo)} 승적증명서</title><style>body{margin:0;background:#fff}${printCss}</style></head><body>${markup(s,invalid,Boolean(row.previewMode))}<div class="monastic-certificate-print-action"><button onclick="window.print()">인쇄</button></div></body></html>`);w.document.close();};
@@ -160,22 +164,18 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         if(!d.ok){status('[data-issue-status]',d.message,'error');$('[data-preview]').hidden=true;$('[data-issue-button]').hidden=true;return;}
         signatories=d.signatories||[];organizationUsers=d.organizationUsers||[];
         showRegistryOptions(d.registry,d.hasMoreRegistry);
-        const eligibleIds=new Set(signatories.map(u=>String(u.id)));
-        const validUsers=organizationUsers.filter(u=>eligibleIds.has(String(u.id)));
-        const otherUsers=organizationUsers.filter(u=>!eligibleIds.has(String(u.id)));
         const toOpts=items=>items.map(u=>`<option value="${esc(u.id)}">${esc(u.name)} · ${esc(u.position||u.grade||'직위 미지정')}</option>`).join('');
-        $('[data-signatory-select]').innerHTML='<option value="">발급명의 계정을 선택해 주세요</option>'+(validUsers.length?`<optgroup label="정식 발급 가능 (이사장·직무대리)">${toOpts(validUsers)}</optgroup>`:'')+(otherUsers.length?`<optgroup label="조직도 계정 (테스트 미리보기 전용)">${toOpts(otherUsers)}</optgroup>`:'');
-        const preferred=validUsers.find(u=>u.position==='이사장')||validUsers.find(u=>u.position==='이사장 직무대리');
-        if(preferred){$('[data-signatory-select]').value=String(preferred.id);$('[name=signatoryTitle]').value=preferred.position;}
+        $('[data-signatory-select]').innerHTML=organizationUsers.length?toOpts(organizationUsers):'<option value="">선택 가능한 계정이 없습니다.</option>';
+        const preferred=organizationUsers.find(u=>['이사장','이사장 직무대리'].includes(String(u.position||'').trim()))||organizationUsers.find(u=>String(u.id)===String(session.user.id))||organizationUsers[0];
+        if(preferred){$('[data-signatory-select]').value=String(preferred.id);if(['이사장','이사장 직무대리'].includes(String(preferred.position||'').trim()))$('[name=signatoryTitle]').value=String(preferred.position).trim();}
         updateIssuanceState();
-        if(!signatories.length){status('[data-issue-status]','정식 발급에 필요한 이사장·직무대리 계정이 없습니다. 테스트용 미리보기만 사용할 수 있습니다.','error');}
         $('[name=managerName]').value=session.user.name||'';loadLedger();
       };
       const newRequest=()=>{requestId=crypto.randomUUID()};newRequest();
       $('[data-issue-form]').addEventListener('submit',async e=>{
         e.preventDefault();if(!commitDate()||!e.currentTarget.reportValidity())return;
         const r=selectedRegistry();if(!r){status('[data-issue-status]','승적원부를 선택해 주세요.','error');return;}
-        const chosen=selectedOrgUser();if(!chosen||!signatories.some(u=>String(u.id)===String(chosen.id))||String(chosen.position||'').trim()!==$('[name=signatoryTitle]').value){status('[data-issue-status]','정식 발급에는 선택한 직함과 동일한 이사장·직무대리 계정이 필요합니다.','error');return;}
+        const chosen=selectedOrgUser();if(!chosen){status('[data-issue-status]','발급명의 성명을 선택해 주세요.','error');return;}
         const f=new FormData(e.currentTarget),btn=$('[data-issue-button]');btn.disabled=true;status('[data-issue-status]','발급대장에 저장하는 중입니다...');
         try{const d=await api('/api/monastic-certificates/action',{operation:'issue',requestId,registryId:f.get('registryId'),issueDate:f.get('issueDate'),purpose:f.get('purpose'),signatoryTitle:f.get('signatoryTitle'),signatoryUserId:f.get('signatoryUserId'),managerName:f.get('managerName'),contact:f.get('contact'),includeLogoSqSeal:f.get('includeLogoSqSeal')==='on'});
           if(!d.ok){status('[data-issue-status]',d.message,'error');return;}status('[data-issue-status]',d.message,'ok');if(d.row)printRecord(d.row);newRequest();page=1;await loadLedger();

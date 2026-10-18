@@ -38,7 +38,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const signatory = await env.DB.prepare('SELECT CAST(id AS TEXT) AS id,name,position FROM system_users WHERE CAST(id AS TEXT)=? AND active=1')
       .bind(signatoryUserId).first<{ id: string; name: string; position: string }>();
     if (!signatory) return json({ ok: false, message: '유효한 발급명의 계정을 선택해 주세요.' }, 400);
-    if (clean(signatory.position, 30) !== signatoryTitle) return json({ ok: false, message: '발급명의 계정의 실제 직위와 선택한 발급권자 직함이 일치해야 합니다.' }, 403);
     const managerName = clean(p.managerName, 60) || auth.user.name;
     const contact = clean(p.contact, 80);
     const includeLogo = p.includeLogoSqSeal === true;
