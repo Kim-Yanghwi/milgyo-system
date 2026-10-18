@@ -9,12 +9,33 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
   if (auth.user.role !== 'admin') return json({ ok: false, message: '승적증명서 발급대장은 관리자만 열람할 수 있습니다.' }, 403);
   const op = clean(p.operation, 20) || 'list';
+  // 조직도는 활성 system_users 계정을 표시합니다. 발급권자는 action.ts가 최종 검증합니다.
+  const registryColumns = 'id,monastic_no,dharma_name_ko,lay_name,temple,acquired_date,last_verified_date,status';
   if (op === 'options') {
     const [registry, users] = await env.DB.batch([
-      env.DB.prepare(`SELECT id,monastic_no,dharma_name_ko,lay_name,temple,acquired_date,last_verified_date,status FROM monastic_registry WHERE status='재적' ORDER BY dharma_name_ko LIMIT 500`),
-      env.DB.prepare(`SELECT CAST(id AS TEXT) AS id,name,position,grade FROM system_users WHERE active=1 AND position IN ('이사장','이사장 직무대리') ORDER BY CASE WHEN position='이사장' THEN 0 ELSE 1 END,name`),
+      env.DB.prepare(`SELECT ${registryColumns} FROM monastic_registry WHERE status='재적' ORDER BY dharma_name_ko,monastic_no LIMIT 51`),
+      env.DB.prepare(`SELECT CAST(id AS TEXT) AS id,name,position,grade,department FROM system_users WHERE active=1 ORDER BY name,id`),
     ]);
-    return json({ ok: true, registry: registry.results || [], signatories: users.results || [], me: auth.user, canIssue: true });
+    const organizationUsers = users.results || [];
+    const signatories = organizationUsers.filter((u: any) => ['이사장', '이사장 직무대리'].includes(String(u.position || '').trim()));
+    return json({ ok: true, registry: (registry.results || []).slice(0, 50), hasMoreRegistry: (registry.results || []).length > 50,
+      organizationUsers, signatories, me: auth.user, canIssue: signatories.length > 0 });
+  }
+  if (op === 'search-registry') {
+    const query = clean(p.query, 100);
+    let result: D1Result;
+    if (query) {
+      // LIKE 특수문자도 문자 그대로 검색하고, 모든 검색값은 바인딩합니다.
+      const term = `%${query.replace(/[!%_]/g, (char) => `!${char}`)}%`;
+      result = await env.DB.prepare(`SELECT ${registryColumns} FROM monastic_registry WHERE status='재적'
+        AND (monastic_no LIKE ? ESCAPE '!' OR dharma_name_ko LIKE ? ESCAPE '!'
+          OR lay_name LIKE ? ESCAPE '!' OR temple LIKE ? ESCAPE '!')
+        ORDER BY dharma_name_ko,monastic_no LIMIT 51`).bind(term,term,term,term).all();
+    } else {
+      result = await env.DB.prepare(`SELECT ${registryColumns} FROM monastic_registry WHERE status='재적'
+        ORDER BY dharma_name_ko,monastic_no LIMIT 51`).all();
+    }
+    return json({ ok: true, registry: (result.results || []).slice(0, 50), hasMoreRegistry: (result.results || []).length > 50 });
   }
   if (op === 'detail') {
     const row = await env.DB.prepare('SELECT * FROM monastic_certificates WHERE id=?').bind(clean(p.id, 80)).first();

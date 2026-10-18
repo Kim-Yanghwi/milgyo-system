@@ -225,5 +225,5 @@ test('대외증명서 발급 화면은 재직증명서와 동일한 로고·직�
   assert.match(cert, /미리보기·미발급/);
   assert.match(cert, /previewMode\?'':/);
   assert.match(registry, /monastic-registry\/upload-attachment/);
-  assert.match(registry, /승적자료 · 비공개 내부 관리/);
+  assert.match(registry, /승적원부는 대외 배포용 문서가 아닙니다/);
 });

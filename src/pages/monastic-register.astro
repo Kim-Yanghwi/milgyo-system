@@ -33,6 +33,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
       <div class="data-wrap"><table class="data-table monastic-input-table monastic-ordination-table"><colgroup><col style="width:14%"><col style="width:18%"><col style="width:23%"><col style="width:18%"><col style="width:20%"><col style="width:7%"></colgroup><thead><tr><th>구분 / 계종</th><th>수계·품수일</th><th>장소 / 시행기관</th><th>계사·확인자</th><th>근거 문서</th><th>관리</th></tr></thead><tbody data-ordination></tbody></table></div>
       <div class="section-title monastic-part-title"><div><h3>소임 및 주요 종무 경력</h3><p>선택 기록</p></div><button type="button" class="btn btn-outline btn-sm" data-add-career>+ 경력 추가</button></div>
       <div class="data-wrap"><table class="data-table monastic-input-table monastic-career-table"><thead><tr><th>활동 기간 (시작일 ~ 종료일)</th><th>소속 사찰·기관</th><th>소임 / 직책</th><th>확인 자료</th><th>관리</th></tr></thead><tbody data-career></tbody></table></div>
+      <div class="monastic-section-divider monastic-editor-divider" aria-hidden="true"></div>
       <h3>접근권한 및 보존관리 확인</h3>
       <div class="form-grid monastic-grid">
         <div class="form-field"><label>접근 허가 범위</label><input data-field="accessScope" maxlength="200" value="승적관리 담당자" /></div>
@@ -73,7 +74,6 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
     <div data-detail-summary class="data-wrap monastic-summary"></div>
     <div class="section-title monastic-part-title"><div><h3>수계 및 법계 기록</h3></div></div><div data-detail-ordination></div>
     <div class="section-title monastic-part-title"><div><h3>소임 및 주요 종무 경력</h3></div></div><div data-detail-career></div>
-    <div class="monastic-section-divider" aria-hidden="true"></div>
     <div class="section-title monastic-part-title"><div><h3>승적 기재사항 변경·정정 이력</h3></div></div><div class="data-wrap"><table class="data-table monastic-changes-table"><thead><tr><th>처리일자</th><th>처리 구분</th><th>변경 항목</th><th>변경 전</th><th>변경 후</th><th>증빙·승인·담당자</th></tr></thead><tbody data-detail-changes></tbody></table></div>
     <div class="section-title monastic-part-title"><div><h3>확인한 증빙자료 목록 (비공개)</h3><p>파일당 4MB 이하, 최대 10개. R2(FILES) 우선 저장</p></div></div>
     <div class="form-grid monastic-grid monastic-attachments">
