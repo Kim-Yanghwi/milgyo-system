@@ -28,9 +28,9 @@ const sample = (overrides: object = {}) => ({
   firstRegisteredDate: '2020-01-01', lastVerifiedDate: '2020-02-01',
   ordination: [{ kind: '사미·사미니계', date: '2019-01-01', place: '종단', teacher: '계사', evidence: '수계증명' }],
   career: [{ period: '2020-2025', institution: '향천사', position: '주지', evidence: '임명장' }],
-  accessScope: '승적관리 담당자', processingBasis: '동의서 확인', sensitiveBasis: '별도 동의서 확인',
-  retentionPeriod: '보존정책 확인', storageLocation: '비공개 내부 관리',
-  preparedBy: '관리자', reviewedBy: '검토자', approvedBy: '승인자', ...overrides,
+  accessScope: '승적관리 담당자', processingBasis: '동의', sensitiveBasis: '동의',
+  retentionPeriod: '5년', storageLocation: '비공개 내부 관리',
+  preparedBy: 'user:admin', reviewedBy: 'user:admin', approvedBy: 'user:admin', ...overrides,
 });
 const setup = async () => {
   const db = new SQLiteD1();

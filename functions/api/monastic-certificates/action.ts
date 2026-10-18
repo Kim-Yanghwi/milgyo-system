@@ -25,6 +25,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!record) return json({ ok: false, message: '승적원부가 등록되지 않았습니다.' }, 404);
     if (!record.lay_name) return json({ ok: false, message: '대외증명서 성명란을 위한 속명을 승적원부에 먼저 기록해 주세요.' }, 409);
     if (record.status !== '재적') return json({ ok: false, message: '현재 재적 중인 승려에 대해서만 승적증명서를 발급할 수 있습니다.' }, 409);
+    if (record.processing_basis === '비동의' || record.sensitive_basis === '비동의') return json({ ok: false, message: '동의하지 않은 개인정보 처리항목이 있습니다. 적법한 처리근거를 확인하기 전에는 대외증명서를 발급할 수 없습니다.' }, 409);
     const issueDate = clean(p.issueDate, 10) || monasticToday();
     if (!isValidIsoDate(issueDate) || issueDate > monasticToday() || issueDate < String(record.acquired_date) || issueDate < String(record.last_verified_date)) {
       return json({ ok: false, message: '발급일은 실제 확인일·승적 취득일 이후이며 오늘 이전이어야 합니다.' }, 400);

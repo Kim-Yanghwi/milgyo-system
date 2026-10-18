@@ -4,6 +4,10 @@ import { clean, isValidIsoDate } from './helpers';
 export const MONASTIC_STATUSES = ['재적', '제적', '기타'] as const;
 export const MONASTIC_CHANGE_TYPES = ['최초 취적', '재적 변경', '법명 변경', '수계 정정', '법계 변경', '제적', '복적', '입적(入寂)', '기타 정정'] as const;
 export const MONASTIC_ORDINATION_TYPES = ['사미·사미니계', '구족계', '기타 수계', '법계 / 품수'] as const;
+export const MONASTIC_CONSENT_CHOICES = ['동의', '비동의'] as const;
+export const MONASTIC_RETENTION_CHOICES = ['1년', '2년', '3년', '4년', '5년', '10년', '준영구', '영구'] as const;
+export const MONASTIC_USER_REF = /^user:[A-Za-z0-9_-]{1,70}$/;
+
 export type MonasticStatus = typeof MONASTIC_STATUSES[number];
 export const monasticToday = () => new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10);
 export const isDateOrEmpty = (s: string) => !s || isValidIsoDate(s);
@@ -53,11 +57,18 @@ export const normalizeRegistryInput = (data: unknown): { ok: true; content: Regi
     });
   };
   const ordination = pickRows('ordination', [['kind', 30], ['date', 10], ['place', 120], ['teacher', 120], ['evidence', 200]], 12);
-  const career = pickRows('career', [['period', 100], ['institution', 120], ['position', 120], ['evidence', 200]], 20);
+  const career = pickRows('career', [['period', 100], ['fromDate', 10], ['toDate', 10], ['institution', 120], ['position', 120], ['evidence', 200]], 20);
   if (!ordination || !career) return { ok: false, message: '수계·경력 항목의 최대 개수를 확인해 주세요.' };
   for (const record of ordination) {
     if (record.kind && !MONASTIC_ORDINATION_TYPES.includes(record.kind as typeof MONASTIC_ORDINATION_TYPES[number])) return { ok: false, message: '수계·법계 항목의 종류가 올바르지 않습니다.' };
     if (record.date && !isValidIsoDate(record.date)) return { ok: false, message: '수계·법계 일자를 확인해 주세요.' };
+  }
+  for (const record of career) {
+    if (!record.fromDate && !record.toDate) continue; // 과거 자유 입력 기간도 읽기·정정 시 보존
+    if (!isValidIsoDate(record.fromDate) || !isValidIsoDate(record.toDate) || record.fromDate > record.toDate) {
+      return { ok: false, message: '활동 시작일과 종료일을 정확히 입력하고 날짜 순서를 확인해 주세요.' };
+    }
+    record.period = `${record.fromDate} ~ ${record.toDate}`;
   }
   const result: RegistryContent = {
     monasticNo: value(s, 'monasticNo', 60), dharmaNameKo: value(s, 'dharmaNameKo', 80),
@@ -79,7 +90,13 @@ export const normalizeRegistryInput = (data: unknown): { ok: true; content: Regi
   for (const date of [result.birthDate, result.acquiredDate, result.firstRegisteredDate, result.lastVerifiedDate]) {
     if (!isDateOrEmpty(date)) return { ok: false, message: '날짜를 YYYY-MM-DD로 정확히 입력해 주세요.' };
   }
-  if (!result.processingBasis || !result.sensitiveBasis) return { ok: false, message: '개인정보 처리근거 및 종교 관련 민감정보 처리근거를 확인하여 기록해 주세요.' };
+  if (!MONASTIC_CONSENT_CHOICES.includes(result.processingBasis as typeof MONASTIC_CONSENT_CHOICES[number]) ||
+      !MONASTIC_CONSENT_CHOICES.includes(result.sensitiveBasis as typeof MONASTIC_CONSENT_CHOICES[number])) {
+    return { ok: false, message: '개인정보·민감정보 항목은 동의 또는 비동의 중 하나를 선택해 주세요.' };
+  }
+  if (result.retentionPeriod && !MONASTIC_RETENTION_CHOICES.includes(result.retentionPeriod as typeof MONASTIC_RETENTION_CHOICES[number])) {
+    return { ok: false, message: '정해진 보유기간 중 하나를 선택해 주세요.' };
+  }
   return { ok: true, content: result };
 };
 

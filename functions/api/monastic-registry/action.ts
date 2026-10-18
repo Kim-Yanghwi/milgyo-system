@@ -1,6 +1,6 @@
 import { authenticateSession, getSessionToken, clean, ensureTables, json, randomHex } from '../../_shared/helpers';
 import { writeManagementAudit } from '../../_shared/management';
-import { normalizeRegistryInput, serializeRegistry, registryFields, nextMonasticSequence, MONASTIC_CHANGE_TYPES, monasticToday, toRegistryResponse } from '../../_shared/monastic';
+import { normalizeRegistryInput, serializeRegistry, registryFields, nextMonasticSequence, MONASTIC_CHANGE_TYPES, MONASTIC_USER_REF, monasticToday, toRegistryResponse } from '../../_shared/monastic';
 
 interface Env { DB: D1Database }
 type Payload = { operation?: string; id?: string; version?: number; content?: unknown; changeType?: string; evidenceNote?: string; approvalNote?: string };
@@ -17,6 +17,33 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const validated = normalizeRegistryInput(p.content);
   if (!validated.ok) return json({ ok: false, message: validated.message }, 400);
   const v = validated.content;
+  // 필드에는 계정의 고유 ID(user:<id>)를 저장합니다. 화면에 보이는 이름은 출력 시 해석합니다.
+  // 과거 자유입력값은 해당 원부 수정에서 변경하지 않는 경우에만 보존합니다.
+  const original = operation === 'update' ? await env.DB.prepare('SELECT prepared_by,reviewed_by,approved_by FROM monastic_registry WHERE id=?')
+    .bind(clean(p.id, 80)).first<Record<string, unknown>>() : null;
+  const userFields: Array<[keyof typeof v, string]> = [
+    ['preparedBy', 'prepared_by'], ['reviewedBy', 'reviewed_by'], ['approvedBy', 'approved_by'],
+  ];
+  const userRefs = userFields.map(([key]) => String(v[key] || '')).filter((ref) => MONASTIC_USER_REF.test(ref));
+  const uniqueRefs = [...new Set(userRefs.map((ref) => ref.slice(5)))];
+  const known = new Set<string>();
+  if (uniqueRefs.length) {
+    const rows = await env.DB.prepare(`SELECT CAST(id AS TEXT) AS id FROM system_users WHERE active=1 AND CAST(id AS TEXT) IN (${uniqueRefs.map(() => '?').join(',')})`)
+      .bind(...uniqueRefs).all<{ id: string }>();
+    for (const row of rows.results || []) known.add(row.id);
+  }
+  for (const [key, column] of userFields) {
+    const selected = String(v[key] || '');
+    if (!selected) continue;
+    if (MONASTIC_USER_REF.test(selected)) {
+      // 이미 선택된 비활성 계정은 기존 값 그대로라면 유지; 새로운 계정 선택은 활성 사용자만 가능
+      if (!known.has(selected.slice(5)) && String(original?.[column] || '') !== selected) {
+        return json({ ok: false, message: '작성·검토·승인자는 현재 활성화된 계정에서 선택해 주세요.' }, 400);
+      }
+    } else if (String(original?.[column] || '') !== selected) {
+      return json({ ok: false, message: '작성·검토·승인자는 등록된 계정을 선택해야 합니다.' }, 400);
+    }
+  }
   const now = new Date().toISOString();
   const values = serializeRegistry(v);
   if (operation === 'create') {

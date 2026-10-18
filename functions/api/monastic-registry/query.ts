@@ -10,7 +10,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
   if (auth.user.role !== 'admin') return json({ ok: false, message: '승적원부 열람은 관리자만 가능합니다.' }, 403);
   const op = clean(p.operation, 20) || 'list';
-  if (op === 'options') return json({ ok: true, me: auth.user, canManage: true, statuses: MONASTIC_STATUSES });
+  if (op === 'options') {
+    // 개인정보·종교 기록의 결재자 선택용: 관리자에게 최소한의 계정 정보만 제공합니다.
+    const users = await env.DB.prepare(`SELECT CAST(id AS TEXT) AS id,name,position,active FROM system_users ORDER BY active DESC,name,id`).all();
+    return json({ ok: true, me: auth.user, canManage: true, statuses: MONASTIC_STATUSES, users: users.results || [] });
+  }
   if (op === 'detail') {
     const id = clean(p.id, 80);
     const results = await env.DB.batch([
