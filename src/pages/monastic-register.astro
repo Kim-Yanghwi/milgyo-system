@@ -1,0 +1,214 @@
+---
+import ManagementLayout from '../layouts/ManagementLayout.astro';
+---
+<ManagementLayout title="승적원부 대장" active="monasticRegistry">
+  <div class="page-heading">
+    <div><p class="page-heading__kicker">MONASTIC REGISTRY · INTERNAL ONLY</p><h1>승적원부 대장</h1><p>종단 승적기록을 등록·검증하고 증빙 및 변경이력을 비공개로 관리합니다.</p></div>
+    <button type="button" class="btn btn-primary" data-new hidden>+ 승적원부 등록</button>
+  </div>
+  <section class="surface monastic-surface" data-list-section>
+    <div class="section-title"><div><h2>승적원부 목록</h2><p>승적번호·법명·재적 사찰 검색 및 변경이력 조회</p></div>
+      <div class="toolbar monastic-filters"><select data-status><option value="">전체 상태</option><option>재적</option><option>제적</option><option>기타</option></select>
+        <input type="search" data-query placeholder="승적번호·법명·사찰 검색" aria-label="승적 검색" />
+        <select data-page-size><option value="10">10개</option><option value="20" selected>20개</option><option value="50">50개</option></select>
+        <button type="button" class="btn btn-outline" data-search>조회</button></div></div>
+    <div class="status-message" data-status-message aria-live="polite">승적원부를 불러오는 중입니다.</div>
+    <div class="data-wrap"><table class="data-table"><thead><tr><th>원부 관리번호</th><th>승적번호</th><th>법명(한글)</th><th>승적 상태</th><th>재적 사찰</th><th>최근 확인일</th><th>증빙</th><th>관리</th></tr></thead><tbody data-body><tr><td colspan="8">불러오는 중입니다.</td></tr></tbody></table></div>
+    <div class="pagination" data-pagination></div>
+  </section>
+
+  <section class="surface monastic-editor" data-editor hidden>
+    <div class="section-title"><div><h2 data-editor-title>승적원부 등록</h2><p>서식 01의 기본 신원·재적·수계·소임·보존관리 항목을 기록합니다. 주민등록번호와 가족정보는 입력하지 않습니다.</p></div><button type="button" class="btn btn-outline" data-editor-close>닫기</button></div>
+    <form data-form>
+      <h3>01 · 기본 신원 및 재적 사항</h3>
+      <div class="form-grid monastic-grid">
+        <div class="form-field"><label>승적번호 *</label><input data-field="monasticNo" maxlength="60" required autocomplete="off" /></div>
+        <div class="form-field"><label>법명(한글) *</label><input data-field="dharmaNameKo" maxlength="80" required /></div>
+        <div class="form-field"><label>법명(한자)</label><input data-field="dharmaNameHanja" maxlength="80" /></div>
+        <div class="form-field"><label>성명(속명)</label><input data-field="layName" maxlength="80" /></div>
+        <div class="form-field"><label>생년월일</label><input type="date" data-field="birthDate" data-weekday /></div>
+        <div class="form-field"><label>승적 상태 *</label><select data-field="status"><option>재적</option><option>제적</option><option>기타</option></select></div>
+        <div class="form-field"><label>종단명</label><input value="대한불교밀교종" readonly /></div>
+        <div class="form-field"><label>재적 사찰</label><input data-field="temple" maxlength="120" /></div>
+        <div class="form-field"><label>승적 취득일 *</label><input type="date" data-field="acquiredDate" data-weekday required /></div>
+        <div class="form-field"><label>은사 법명</label><input data-field="mentorName" maxlength="100" /></div>
+        <div class="form-field"><label>현재 소임</label><input data-field="positionTitle" maxlength="100" /></div>
+        <div class="form-field"><label>연락처 (내부 관리)</label><input data-field="contact" maxlength="80" autocomplete="off" /></div>
+        <div class="form-field"><label>관리부서</label><input data-field="managingOffice" maxlength="120" /></div>
+        <div class="form-field"><label>최초 등록일</label><input type="date" data-field="firstRegisteredDate" data-weekday /></div>
+        <div class="form-field"><label>최근 확인일</label><input type="date" data-field="lastVerifiedDate" data-weekday /></div>
+      </div>
+      <div class="section-title monastic-part-title"><div><h3>02 · 수계 및 법계 기록</h3><p>관련 증빙을 대조해 확인된 사실만 기록합니다.</p></div><button type="button" class="btn btn-outline btn-sm" data-add-ordination>+ 기록 추가</button></div>
+      <div class="data-wrap"><table class="data-table monastic-input-table"><thead><tr><th>구분 / 계종</th><th>수계·품수일</th><th>장소 / 시행기관</th><th>계사·확인자</th><th>근거 문서</th><th>관리</th></tr></thead><tbody data-ordination></tbody></table></div>
+      <div class="section-title monastic-part-title"><div><h3>03 · 소임 및 주요 종무 경력</h3><p>선택 기록</p></div><button type="button" class="btn btn-outline btn-sm" data-add-career>+ 경력 추가</button></div>
+      <div class="data-wrap"><table class="data-table monastic-input-table"><thead><tr><th>활동 기간</th><th>소속 사찰·기관</th><th>소임 / 직책</th><th>확인 자료</th><th>관리</th></tr></thead><tbody data-career></tbody></table></div>
+      <h3>06 · 접근권한 및 보존관리 확인</h3>
+      <div class="form-grid monastic-grid">
+        <div class="form-field"><label>접근 허가 범위</label><input data-field="accessScope" maxlength="200" value="승적관리 담당자" /></div>
+        <div class="form-field"><label>개인정보 처리근거 *</label><input data-field="processingBasis" maxlength="300" required placeholder="확인한 동의 또는 구체적인 처리근거" /></div>
+        <div class="form-field"><label>민감정보 처리근거 *</label><input data-field="sensitiveBasis" maxlength="300" required placeholder="별도 동의 또는 해당 법령 근거" /></div>
+        <div class="form-field"><label>보유기간</label><input data-field="retentionPeriod" maxlength="160" /></div>
+        <div class="form-field"><label>내부 보관장소</label><input data-field="storageLocation" maxlength="200" /></div>
+      </div>
+      <h3>07 · 작성·검토·승인</h3>
+      <div class="form-grid monastic-grid">
+        <div class="form-field"><label>작성자</label><input data-field="preparedBy" maxlength="80" /></div>
+        <div class="form-field"><label>검토자</label><input data-field="reviewedBy" maxlength="80" /></div>
+        <div class="form-field"><label>승인자</label><input data-field="approvedBy" maxlength="80" /></div>
+      </div>
+      <div class="form-grid monastic-grid" data-change-fields hidden>
+        <div class="form-field"><label>04 · 처리 구분 *</label><select data-change-type><option value="">선택</option><option>재적 변경</option><option>법명 변경</option><option>수계 정정</option><option>법계 변경</option><option>제적</option><option>복적</option><option>입적(入寂)</option><option>기타 정정</option></select></div>
+        <div class="form-field form-field--full"><label>정정 근거·증빙·승인 *</label><textarea data-change-evidence rows="2" maxlength="500" placeholder="정정 사유 및 근거자료·승인 내용을 구체적으로 기록"></textarea></div>
+      </div>
+      <div class="status-message" data-form-status aria-live="polite"></div>
+      <div class="form-actions"><button type="button" class="btn btn-outline" data-editor-close>취소</button><button type="submit" class="btn btn-primary" data-save>승적원부 등록</button></div>
+    </form>
+  </section>
+
+  <section class="surface monastic-detail" data-detail hidden>
+    <div class="section-title"><div><h2>승적원부 상세 · 비공개 내부 관리</h2><p data-detail-heading></p></div><div class="toolbar"><button type="button" class="btn btn-outline" data-detail-print>원부 인쇄</button><button type="button" class="btn btn-outline" data-detail-edit>기재사항 정정</button><button type="button" class="btn btn-outline" data-detail-close>닫기</button></div></div>
+    <div data-detail-summary class="detail-grid monastic-summary"></div>
+    <div class="section-title monastic-part-title"><div><h3>02·03 수계 및 종무 경력</h3></div></div><div data-detail-records></div>
+    <h3>04 · 승적 기재사항 변경·정정 이력</h3><div class="data-wrap"><table class="data-table"><thead><tr><th>처리일자</th><th>처리 구분</th><th>변경 전 → 변경 후</th><th>증빙·승인</th><th>담당자</th></tr></thead><tbody data-detail-changes></tbody></table></div>
+    <div class="section-title monastic-part-title"><div><h3>05 · 확인한 증빙자료 목록 (비공개)</h3><p>파일당 4MB 이하, 최대 10개. R2(FILES) 우선 저장</p></div></div>
+    <div class="form-grid monastic-grid monastic-attachments">
+      <div class="form-field"><label>증빙 종류</label><input data-evidence-type maxlength="100" placeholder="예: 수계증빙, 사찰재적확인" /></div>
+      <div class="form-field"><label>발급기관</label><input data-evidence-issuer maxlength="160" /></div>
+      <div class="form-field"><label>확인일</label><input data-evidence-date type="date" data-weekday /></div>
+      <div class="form-field"><label>증빙파일</label><input type="file" data-evidence-file accept=".pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.csv,.txt,.jpg,.jpeg,.png" /></div>
+    </div>
+    <div class="form-actions"><button type="button" class="btn btn-primary" data-upload>첨부파일 등록</button></div>
+    <div class="status-message" data-attachment-status aria-live="polite"></div>
+    <div class="data-wrap"><table class="data-table"><thead><tr><th>증빙 종류</th><th>파일명</th><th>발급기관</th><th>확인일</th><th>크기</th><th>관리</th></tr></thead><tbody data-attachments></tbody></table></div>
+    <p class="privacy-note">승적원부는 대외 배포용 문서가 아닙니다. 외부 제출용은 별도의 승적증명서 발급 화면을 사용하세요.</p>
+  </section>
+  <script is:inline>
+    (async () => {
+      const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+      const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      const session=await window.MilgyoSession.ready(); if(!session?.token)return;
+      const api=async(url,p)=>{const r=await window.MilgyoSession.fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});const d=await r.json();if(!d.ok&&r.status===401&&window.MilgyoSession.isAuthFailure(d))throw new Error(d.message);return d;};
+      const today=()=>new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+      const status=(selector,message,kind='')=>{const el=$(selector);el.textContent=message||'';el.className=`status-message ${kind}`;};
+      let current=null, page=1, pages=1, selectedId='', selectedVersion=0;
+      const fields=['monasticNo','dharmaNameKo','dharmaNameHanja','layName','birthDate','status','temple','acquiredDate','mentorName','positionTitle','contact','managingOffice','firstRegisteredDate','lastVerifiedDate','accessScope','processingBasis','sensitiveBasis','retentionPeriod','storageLocation','preparedBy','reviewedBy','approvedBy'];
+      const ordTypes=['사미·사미니계','구족계','기타 수계','법계 / 품수'];
+      const ordRow=(v={})=>`<tr data-repeat="ordination"><td><select data-key="kind"><option value="">선택</option>${ordTypes.map(x=>`<option ${v.kind===x?'selected':''}>${esc(x)}</option>`).join('')}</select></td><td><input type="date" data-key="date" data-no-weekday value="${esc(v.date||'')}" /></td><td><input data-key="place" maxlength="120" value="${esc(v.place||'')}" /></td><td><input data-key="teacher" maxlength="120" value="${esc(v.teacher||'')}" /></td><td><input data-key="evidence" maxlength="200" value="${esc(v.evidence||'')}" /></td><td><button type="button" class="btn btn-outline btn-sm" data-remove-row>삭제</button></td></tr>`;
+      const careerRow=(v={})=>`<tr data-repeat="career"><td><input data-key="period" maxlength="100" value="${esc(v.period||'')}" /></td><td><input data-key="institution" maxlength="120" value="${esc(v.institution||'')}" /></td><td><input data-key="position" maxlength="120" value="${esc(v.position||'')}" /></td><td><input data-key="evidence" maxlength="200" value="${esc(v.evidence||'')}" /></td><td><button type="button" class="btn btn-outline btn-sm" data-remove-row>삭제</button></td></tr>`;
+      const addRepeat=(type,v)=>{const box=$(`[data-${type}]`),max=type==='ordination'?12:20;if(box.children.length>=max){alert('허용된 최대 항목 수입니다.');return;}box.insertAdjacentHTML('beforeend',type==='ordination'?ordRow(v):careerRow(v));};
+      $('[data-add-ordination]').addEventListener('click',()=>addRepeat('ordination'));
+      $('[data-add-career]').addEventListener('click',()=>addRepeat('career'));
+      $('[data-form]').addEventListener('click',e=>{const b=e.target.closest('[data-remove-row]');if(b)b.closest('tr')?.remove()});
+      const getRepeat=type=>$$( `[data-repeat="${type}"]`).map(row=>Object.fromEntries($$('[data-key]',row).map(el=>[el.dataset.key,el.value.trim()]))).filter(row=>Object.values(row).some(Boolean));
+      const openEditor=(row=null)=>{
+        selectedId=row?.id||'';selectedVersion=Number(row?.version||0);
+        $('[data-form]').reset();for(const name of fields){const el=$(`[data-field="${name}"]`);if(!el)continue;const databaseKey=name.replace(/[A-Z]/g,c=>'_'+c.toLowerCase());el.value=row?.[databaseKey]??(name==='status'?'재적':name==='accessScope'?'승적관리 담당자':name==='firstRegisteredDate'||name==='lastVerifiedDate'?today():'');}
+        $('[data-field="monasticNo"]').readOnly=!!row;
+        $('[data-ordination]').innerHTML='';$('[data-career]').innerHTML='';
+        const ord=row?.ordination?.length?row.ordination:ordTypes.map(kind=>({kind}));
+        ord.forEach(v=>addRepeat('ordination',v));
+        (row?.career?.length?row.career:[{}]).forEach(v=>addRepeat('career',v));
+        $('[data-change-fields]').hidden=!row;$('[data-editor-title]').textContent=row?'승적원부 기재사항 정정':'승적원부 신규 등록';$('[data-save]').textContent=row?'정정내용 저장':'승적원부 등록';
+        $('[data-editor]').hidden=false;$('[data-editor]').scrollIntoView({behavior:'smooth'});status('[data-form-status]','');
+        window.__MILGYO_SYNC_MANAGED_DATES__?.($('[data-editor]'));
+      };
+      $$('[data-editor-close]').forEach(b=>b.addEventListener('click',()=>{$('[data-editor]').hidden=true}));
+      $('[data-new]').addEventListener('click',()=>openEditor());
+      $('[data-form]').addEventListener('submit',async e=>{
+        e.preventDefault();if(!e.currentTarget.reportValidity())return;
+        const content=Object.fromEntries(fields.map(name=>[name,$(`[data-field="${name}"]`).value.trim()]));
+        content.ordination=getRepeat('ordination');content.career=getRepeat('career');
+        const payload={operation:selectedId?'update':'create',content,id:selectedId,version:selectedVersion,changeType:$('[data-change-type]').value,evidenceNote:$('[data-change-evidence]').value};
+        if(selectedId&&(!payload.changeType||!payload.evidenceNote.trim())){status('[data-form-status]','수정 시 처리 구분과 근거를 입력해 주세요.','error');return;}
+        const btn=$('[data-save]');btn.disabled=true;status('[data-form-status]','저장 중입니다...');
+        try{const d=await api('/api/monastic-registry/action',payload);if(!d.ok){status('[data-form-status]',d.message,'error');return;}status('[data-form-status]',d.message,'ok');$('[data-editor]').hidden=true;await loadList();if(d.row)await loadDetail(d.row.id);}catch(err){status('[data-form-status]',err.message||'저장 중 오류가 발생했습니다.','error');}finally{btn.disabled=false;}
+      });
+      const loadList=async()=>{
+        const d=await api('/api/monastic-registry/query',{operation:'list',query:$('[data-query]').value.trim(),status:$('[data-status]').value,page,pageSize:Number($('[data-page-size]').value)});
+        if(!d.ok){status('[data-status-message]',d.message,'error');return;}
+        pages=d.pages||1;status('[data-status-message]',`총 ${Number(d.total||0).toLocaleString('ko-KR')}건`);
+        $('[data-body]').innerHTML=d.rows.length?d.rows.map(r=>`<tr><td>${esc(r.register_no)}</td><td>${esc(r.monastic_no)}</td><td>${esc(r.dharma_name_ko)}</td><td>${esc(r.status)}</td><td>${esc(r.temple||'-')}</td><td>${esc(r.last_verified_date)}</td><td>${esc(r.attachment_count)}건</td><td><button type="button" class="btn btn-outline btn-sm" data-open-id="${esc(r.id)}">상세</button></td></tr>`).join(''):'<tr><td colspan="8">등록된 승적원부가 없습니다.</td></tr>';
+        $$('[data-open-id]').forEach(b=>b.addEventListener('click',()=>loadDetail(b.dataset.openId)));
+        const p=$('[data-pagination]');p.innerHTML=`<button type="button" data-page="${Math.max(1,page-1)}" ${page===1?'disabled':''}>‹</button><button type="button" class="active">${page} / ${pages}</button><button type="button" data-page="${Math.min(pages,page+1)}" ${page===pages?'disabled':''}>›</button>`;
+        $$('[data-page]',p).forEach(b=>b.addEventListener('click',()=>{page=Number(b.dataset.page);loadList()}));
+      };
+      const labels={register_no:'원부 관리번호',monastic_no:'승적번호',dharma_name_ko:'법명(한글)',dharma_name_hanja:'법명(한자)',lay_name:'성명(속명)',birth_date:'생년월일',status:'승적 상태',temple:'재적 사찰',acquired_date:'승적 취득일',mentor_name:'은사 법명',position_title:'현재 소임',contact:'연락처',managing_office:'관리부서',first_registered_date:'최초 등록일',last_verified_date:'최근 확인일',access_scope:'접근 허가 범위',processing_basis:'개인정보 처리근거',sensitive_basis:'민감정보 처리근거',retention_period:'보유기간',storage_location:'내부 보관장소',prepared_by:'작성자',reviewed_by:'검토자',approved_by:'승인자'};
+      const visible=row=>Object.entries(labels).map(([key,label])=>`<div><strong>${esc(label)}</strong><span>${esc(row[key]||'-')}</span></div>`).join('');
+      const grid=(cols,rows)=>`<div class="data-wrap"><table class="data-table"><thead><tr>${cols.map(x=>`<th>${esc(x)}</th>`).join('')}</tr></thead><tbody>${rows.length?rows.map(row=>`<tr>${row.map(c=>`<td>${esc(c||'-')}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="${cols.length}">기록 없음</td></tr>`}</tbody></table></div>`;
+      const recordParts=r=>grid(['구분·계종','수계·품수일','장소·기관','계사·확인자','근거 문서'],(r.ordination||[]).map(x=>[x.kind,x.date,x.place,x.teacher,x.evidence]))+grid(['활동 기간','소속 사찰·기관','소임·직책','확인 자료'],(r.career||[]).map(x=>[x.period,x.institution,x.position,x.evidence]));
+      const displayChange=r=>{const before=r.before||{},after=r.after||{};const differences=Object.keys(after).filter(k=>String(before[k]||'')!==String(after[k]||''));return differences.length?differences.slice(0,6).map(k=>`${labels[k]||k}: ${String(before[k]||'-').slice(0,40)} → ${String(after[k]||'-').slice(0,40)}`).join(' / '):r.changeType==='최초 취적'?'승적원부 신규 등록':'변경 내용 확인';};
+      const loadDetail=async id=>{
+        const d=await api('/api/monastic-registry/query',{operation:'detail',id});if(!d.ok){alert(d.message);return;}
+        current=d;$('[data-detail]').hidden=false;$('[data-detail-heading]').textContent=`${d.row.register_no} · ${d.row.dharma_name_ko}`;
+        $('[data-detail-summary]').innerHTML=visible(d.row);$('[data-detail-records]').innerHTML=recordParts(d.row);
+        $('[data-detail-changes]').innerHTML=d.changes?.length?d.changes.map(c=>`<tr><td>${esc(c.changeDate)}</td><td>${esc(c.changeType)}</td><td class="text-left">${esc(displayChange(c))}</td><td>${esc(c.evidenceNote||c.approvedBy||'-')}</td><td>${esc(c.actorName)}</td></tr>`).join(''):'<tr><td colspan="5">변경 기록 없음</td></tr>';
+        $('[data-attachments]').innerHTML=d.attachments?.length?d.attachments.map(a=>`<tr><td>${esc(a.evidence_type||'-')}</td><td>${esc(a.file_name)}</td><td>${esc(a.issuing_authority||'-')}</td><td>${esc(a.verified_date||'-')}</td><td>${esc(Math.ceil(a.size_bytes/1024))}KB</td><td><button type="button" class="btn btn-outline btn-sm" data-download="${esc(a.id)}" data-name="${esc(a.file_name)}">다운로드</button> <button type="button" class="btn btn-outline btn-sm" data-delete="${esc(a.id)}">삭제</button></td></tr>`).join(''):'<tr><td colspan="6">등록된 증빙자료가 없습니다.</td></tr>';
+        $$('[data-download]').forEach(b=>b.addEventListener('click',()=>download(b.dataset.download,b.dataset.name)));
+        $$('[data-delete]').forEach(b=>b.addEventListener('click',()=>deleteAttachment(b.dataset.delete)));
+        $('[data-detail]').scrollIntoView({behavior:'smooth'});window.__MILGYO_SYNC_MANAGED_DATES__?.($('[data-detail]'));
+      };
+      $('[data-detail-edit]').addEventListener('click',()=>{if(current)openEditor(current.row)});
+      $('[data-detail-close]').addEventListener('click',()=>{$('[data-detail]').hidden=true});
+      $('[data-search]').addEventListener('click',()=>{page=1;loadList()});
+      $('[data-query]').addEventListener('keydown',e=>{if(e.key==='Enter'){page=1;loadList()}});
+      $$('[data-status],[data-page-size]').forEach(x=>x.addEventListener('change',()=>{page=1;loadList()}));
+      const fileBase64=file=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(new Error('파일을 읽을 수 없습니다.'));reader.onload=()=>resolve(String(reader.result||'').split(',')[1]||'');reader.readAsDataURL(file)});
+      $('[data-upload]').addEventListener('click',async()=>{
+        if(!current)return;
+        const file=$('[data-evidence-file]').files?.[0];if(!file){status('[data-attachment-status]','첨부할 파일을 선택해 주세요.','error');return;}
+        if(file.size>4*1024*1024){status('[data-attachment-status]','파일당 최대 4MB까지 업로드할 수 있습니다.','error');return;}
+        const btn=$('[data-upload]');btn.disabled=true;status('[data-attachment-status]','파일을 저장하는 중입니다...');
+        try{const dataBase64=await fileBase64(file);const d=await api('/api/monastic-registry/upload-attachment',{registryId:current.row.id,fileName:file.name,dataBase64,evidenceType:$('[data-evidence-type]').value,issuingAuthority:$('[data-evidence-issuer]').value,verifiedDate:$('[data-evidence-date]').value});status('[data-attachment-status]',d.message,d.ok?'ok':'error');if(d.ok){$('[data-evidence-file]').value='';await loadDetail(current.row.id);}}
+        catch(err){status('[data-attachment-status]',err.message||'파일 업로드 오류','error');}finally{btn.disabled=false;}
+      });
+      const download=async(id,fileName)=>{try{
+        const r=await window.MilgyoSession.fetch('/api/monastic-registry/attachment-data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attachmentId:id})});
+        if(!r.ok){const d=await r.json();throw new Error(d.message||'다운로드 오류');}
+        const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=fileName;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      }catch(err){alert(err.message||'다운로드할 수 없습니다.')}};
+      const deleteAttachment=async id=>{if(!current||!confirm('첨부파일을 삭제하시겠습니까? 삭제 이력은 감사기록에 남습니다.'))return;const d=await api('/api/monastic-registry/delete-attachment',{attachmentId:id});if(!d.ok){alert(d.message);return;}await loadDetail(current.row.id)};
+      const printCss=`@page{size:A4;margin:13mm}body{font-family:"Malgun Gothic","Noto Sans KR",sans-serif;color:#243344;margin:0;font-size:11px}header{text-align:right;border-bottom:1px solid #cdd3da;padding-bottom:12px;margin-bottom:16px}h1{font-size:26px;margin:0 0 8px}h2{font-size:16px;margin:18px 0 8px}.meta{font-size:12px;color:#4b596b}.box{display:grid;grid-template-columns:repeat(4,1fr);border-left:1px solid #cbd3df;border-top:1px solid #cbd3df}.box>div{padding:10px 8px;border-right:1px solid #cbd3df;border-bottom:1px solid #cbd3df;min-width:0;overflow-wrap:anywhere}.box strong{display:block;font-size:10px;color:#354b61;background:#eef2f6;margin:-10px -8px 7px;padding:7px 8px}table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:10px}th,td{border:1px solid #cbd3df;padding:8px;word-break:break-all;vertical-align:top}th{background:#eef2f6}.page{min-height:270mm;page-break-after:always;position:relative}.foot{position:absolute;bottom:4mm;width:100%;text-align:center;color:#687689;font-size:11px}.warning{margin:15px 0;color:#5a3640;font-weight:bold}`;
+      $('[data-detail-print]').addEventListener('click',()=>{
+        if(!current)return;const r=current.row;
+        const history=(current.changes||[]).map(c=>[c.changeDate,c.changeType,displayChange(c),c.evidenceNote||c.approvedBy||'-']);
+        const evidence=(current.attachments||[]).map((a,i)=>[String(i+1),`${a.evidence_type||'-'} / ${a.issuing_authority||'-'}`,a.verified_date||'-',a.file_name]);
+        const details=`<div class="box">${visible(r)}</div>`;
+        const printTable=(cols,rows)=>grid(cols,rows);
+        const html=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>승적원부 ${esc(r.register_no)}</title><style>${printCss}</style></head><body>
+          <div class="page"><header>대한불교밀교종 | 서식 01 승적원부</header><h1>승적원부</h1><p class="meta">승려 개인별 종단 승적기록 · 외부 제출용이 아닌 내부관리 문서</p><h2>01 기본 신원 및 재적 사항</h2>${details}
+          <h2>02 수계 및 법계 기록</h2>${printTable(['구분','수계일','장소·기관','계사·확인자','근거 문서'],(r.ordination||[]).map(x=>[x.kind,x.date,x.place,x.teacher,x.evidence]))}
+          <h2>03 소임 및 주요 종무 경력</h2>${printTable(['활동 기간','소속 사찰·기관','소임·직책','확인 자료'],(r.career||[]).map(x=>[x.period,x.institution,x.position,x.evidence]))}
+          <p class="warning">작성 원칙: 확인된 근거자료로 작성·정정합니다. 주민등록번호 및 불필요한 가족정보는 수집하지 않습니다.</p><p class="foot">승적자료 · 비공개 내부 관리</p></div>
+          <div class="page"><header>대한불교밀교종 | 서식 01 승적원부</header><h1>승적원부 | 변경·검증 기록</h1><p class="meta">승적번호 ${esc(r.monastic_no)} · 법명 ${esc(r.dharma_name_ko)}</p><h2>04 승적 기재사항 변경·정정 이력</h2>
+          ${printTable(['처리일자','처리 구분','변경 전·후','증빙·승인'],history)}<h2>05 확인한 증빙자료 목록</h2>
+          ${printTable(['자료번호','증빙 종류·발급기관','확인일','보관 위치·관리번호'],evidence)}
+          <h2>06 접근권한 및 보존관리 확인</h2><div class="box">${['access_scope','processing_basis','sensitive_basis','retention_period','storage_location'].map(k=>`<div><strong>${esc(labels[k])}</strong>${esc(r[k]||'-')}</div>`).join('')}</div>
+          <h2>07 작성·검토·승인</h2><p>작성자: ${esc(r.prepared_by||'-')}　검토자: ${esc(r.reviewed_by||'-')}　승인자: ${esc(r.approved_by||'-')}</p>
+          <p class="warning">보안 취급: 원부는 대외 배포하지 않습니다. 외부 제출은 승적증명서로 처리합니다.</p><p class="foot">승적자료 · 비공개 내부 관리</p></div><button onclick="window.print()">인쇄</button></body></html>`;
+        const w=window.open('','_blank','width=1050,height=900');if(!w){alert('팝업을 허용해 주세요.');return;}w.document.write(html);w.document.close();
+      });
+      const options=await api('/api/monastic-registry/query',{operation:'options'});
+      if(!options.ok){status('[data-status-message]',options.message,'error');$('[data-body]').innerHTML='<tr><td colspan="8">승적원부 관리 권한이 없습니다.</td></tr>';return;}
+      $('[data-new]').hidden=false;loadList();
+    })();
+  </script>
+  <style>
+    .monastic-surface,.monastic-editor,.monastic-detail{margin-bottom:1rem}
+    .section-title{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1rem}
+    .section-title h2,.section-title h3{margin:0;font-size:1.1rem}.section-title p{margin:.25rem 0 0;font-size:.8rem;color:var(--gov-muted)}
+    .monastic-part-title{margin-top:1.6rem;border-top:1px solid var(--gov-border);padding-top:1rem}
+    .monastic-grid{grid-template-columns:repeat(3,minmax(0,1fr));margin:1rem 0}
+    .monastic-grid .form-field--full{grid-column:1/-1}
+    .monastic-editor h3,.monastic-detail h3{font-size:1.04rem;margin:1.5rem 0 .6rem}
+    .monastic-input-table input,.monastic-input-table select{width:100%;min-width:90px;max-width:100%;box-sizing:border-box;font-size:.8rem;padding:.35rem .3rem}
+    .monastic-input-table th{white-space:nowrap}.monastic-input-table th:last-child{width:65px}
+    .monastic-filters input{min-width:200px}
+    .form-actions{display:flex;justify-content:flex-end;gap:.5rem;padding:.75rem 0;margin:1rem 0;border-top:1px solid var(--gov-border)}
+    .monastic-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem}
+    .monastic-summary>div{border:1px solid var(--gov-border);background:#f7f9fc;padding:.65rem;min-width:0}
+    .monastic-summary strong{display:block;color:var(--gov-muted);font-size:.75rem;margin-bottom:.2rem}.monastic-summary span{word-break:break-all}
+    .privacy-note{margin:1rem 0 0;background:#fdf7e8;border:1px solid #e2d0a8;padding:.8rem;font-size:.85rem}
+    @media(max-width:1050px){.monastic-grid,.monastic-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.section-title{align-items:flex-start;flex-wrap:wrap}}
+    @media(max-width:680px){.monastic-grid,.monastic-summary{grid-template-columns:1fr}.monastic-filters input{min-width:0;width:100%}}
+  </style>
+</ManagementLayout>

@@ -2,7 +2,7 @@
 import GovLayout from './GovLayout.astro';
 export interface Props {
   title: string;
-  active: 'registers' | 'vehicle' | 'employment' | 'ordination' | 'foreignForms' | 'appointmentAwards';
+  active: 'registers' | 'monasticRegistry' | 'vehicle' | 'employment' | 'monasticCertificates' | 'ordination' | 'foreignForms' | 'appointmentAwards';
   showCurrentUser?: boolean;
 }
 const { title, active, showCurrentUser = true } = Astro.props;
@@ -63,11 +63,13 @@ const { title, active, showCurrentUser = true } = Astro.props;
         <div class="sidebar-group">
           <p class="sidebar-group__title">대장관리기능</p>
           <a class:list={["sidebar-link","sidebar-external-link", active === 'registers' && 'active']} href="/register-management">공고·관인·인영 대장</a>
+          <a class:list={["sidebar-link","sidebar-external-link", active === 'monasticRegistry' && 'active']} href="/monastic-register">승적원부 대장</a>
           <a class:list={["sidebar-link","sidebar-external-link", active === 'vehicle' && 'active']} href="/vehicle-register" data-accounting-access-link hidden>업무용 차량 관리대장</a>
         </div>
         <div class="sidebar-group">
           <p class="sidebar-group__title">증명서·신청서 발급·대장</p>
           <a class:list={["sidebar-link","sidebar-external-link", active === 'employment' && 'active']} href="/employee-certificates">재직증명서 발급·대장</a>
+          <a class:list={["sidebar-link","sidebar-external-link", active === 'monasticCertificates' && 'active']} href="/monastic-certificates">승적증명서 발급·대장</a>
           <a class:list={["sidebar-link","sidebar-external-link", active === 'ordination' && 'active']} href="/ordination-certificates">수계증서 발급·대장</a>
           <a class:list={["sidebar-link","sidebar-external-link", active === 'appointmentAwards' && 'active']} href="/appointment-awards">임명장·표창장 발급·대장</a>
           <a class:list={["sidebar-link","sidebar-external-link", active === 'foreignForms' && 'active']} href="/foreign-applications">출입국 신청서 작성·대장</a>
