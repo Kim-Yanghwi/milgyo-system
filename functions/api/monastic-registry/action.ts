@@ -1,6 +1,6 @@
 import { authenticateSession, getSessionToken, clean, ensureTables, json, randomHex } from '../../_shared/helpers';
 import { writeManagementAudit } from '../../_shared/management';
-import { normalizeRegistryInput, serializeRegistry, registryFields, nextMonasticSequence, MONASTIC_CHANGE_TYPES, MONASTIC_USER_REF, monasticToday, toRegistryResponse } from '../../_shared/monastic';
+import { normalizeRegistryInput, serializeRegistry, registryFields, nextMonasticSequence, nextMonasticNumber, monasticYearFromContent, isMonasticRound, MONASTIC_CHANGE_TYPES, MONASTIC_USER_REF, monasticToday, toRegistryResponse } from '../../_shared/monastic';
 
 interface Env { DB: D1Database }
 type Payload = { operation?: string; id?: string; version?: number; content?: unknown; changeType?: string; evidenceNote?: string; approvalNote?: string };
@@ -14,7 +14,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (auth.user.role !== 'admin') return json({ ok: false, message: '승적원부 등록 및 정정은 관리자만 처리할 수 있습니다.' }, 403);
   const operation = clean(p.operation, 20);
   if (operation !== 'create' && operation !== 'update') return json({ ok: false, message: '지원하지 않는 작업입니다.' }, 400);
-  const validated = normalizeRegistryInput(p.content);
+  const isCreate = operation === 'create';
+  // 신규등록 번호는 클라이언트가 보내도 사용하지 않습니다. 서버에서만 배정합니다.
+  const content = (p.content && typeof p.content === 'object' && !Array.isArray(p.content)) ? p.content as Record<string, unknown> : {};
+  const round = typeof content.ordinationRound === 'string' ? content.ordinationRound : '';
+  if (isCreate && !isMonasticRound(round)) return json({ ok: false, message: '계단 회차 01~30을 선택해 주세요.' }, 400);
+  const validated = normalizeRegistryInput(p.content, isCreate);
   if (!validated.ok) return json({ ok: false, message: validated.message }, 400);
   const v = validated.content;
   // 필드에는 계정의 고유 ID(user:<id>)를 저장합니다. 화면에 보이는 이름은 출력 시 해석합니다.
@@ -45,10 +50,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
   }
   const now = new Date().toISOString();
-  const values = serializeRegistry(v);
   if (operation === 'create') {
-    const existing = await env.DB.prepare('SELECT id FROM monastic_registry WHERE monastic_no=?').bind(v.monasticNo).first();
-    if (existing) return json({ ok: false, message: '이미 등록된 승적번호입니다.' }, 409);
+    const year = monasticYearFromContent(v);
+    // 기존 수기 번호와 문서 채번을 조회해 초기값을 맞추고, 고유 시퀀스를 먼저 원자적 예약합니다.
+    // 저장 실패 시 결번이 생길 수 있으나 같은 번호를 다시 발급하지 않습니다.
+    v.monasticNo = await nextMonasticNumber(env.DB, round, year, true);
+    const values = serializeRegistry(v);
     const id = `MONREG-${randomHex(24)}`;
     const registerNo = await nextMonasticSequence(env.DB, 'REGISTRY', v.firstRegisteredDate);
     const columnList = registryFields.join(',');
@@ -79,6 +86,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!prior) return json({ ok: false, message: '승적원부를 찾을 수 없습니다.' }, 404);
   if (Number(prior.version) !== version) return json({ ok: false, message: '다른 사용자가 먼저 수정했습니다. 원부를 다시 조회해 주세요.' }, 409);
   if (String(prior.monastic_no) !== v.monasticNo) return json({ ok: false, message: '승적번호는 변경할 수 없습니다. 관리자에게 별도 정정 절차를 문의하세요.' }, 400);
+  const values = serializeRegistry(v);
   const assignments = registryFields.map((f) => `${f}=?`).join(',');
   const before = Object.fromEntries(registryFields.map((f) => [f, prior[f]]));
   const after = Object.fromEntries(registryFields.map((f, i) => [f, values[i]]));

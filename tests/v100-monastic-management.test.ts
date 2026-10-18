@@ -22,7 +22,7 @@ const call = async (handler: any, db: any, token: string, data: object, files?: 
   return { status: response.status, body: response.headers.get('content-type')?.includes('json') ? await response.json() : await response.arrayBuffer() };
 };
 const sample = (overrides: object = {}) => ({
-  monasticNo: '승적-TEST-001', dharmaNameKo: '법광', dharmaNameHanja: '法光', layName: '홍길동',
+  ordinationRound: '01', monasticNo: '승적-TEST-001', dharmaNameKo: '법광', dharmaNameHanja: '法光', layName: '홍길동',
   birthDate: '1980-03-05', status: '재적', temple: '향천사', acquiredDate: '2020-01-01',
   mentorName: '은사', positionTitle: '주지', contact: '010-1234-5678', managingOffice: '총무원',
   firstRegisteredDate: '2020-01-01', lastVerifiedDate: '2020-02-01',
@@ -74,7 +74,8 @@ test('원부는 관리자만 등록·열람할 수 있으며 서식 검증과 �
     assert.equal((await call(registryAction, s.db, s.admin, { operation: 'create', content: sample({ birthDate: '2020-02-31' }) })).status, 400);
     const created = await call(registryAction, s.db, s.admin, { operation: 'create', content: sample() });
     assert.equal(created.status, 200);assert.ok(created.body.ok);assert.match(created.body.row.register_no, /^승적원부-\d{4}-\d{5}$/);
-    assert.equal((await call(registryAction, s.db, s.admin, { operation: 'create', content: sample() })).status, 409);
+    assert.equal((await call(registryAction, s.db, s.admin, { operation: 'create', content: sample({ ordinationRound: '31' }) })).status, 400);
+    assert.match(created.body.row.monastic_no, /^0119-\d{3}$/);
     const listed = await call(registryQuery, s.db, s.admin, { operation: 'list' });
     assert.equal(listed.body.total, 1);assert.equal(listed.body.rows[0].dharma_name_ko, '법광');
     const detail = await call(registryQuery, s.db, s.admin, { operation: 'detail', id: created.body.row.id });
@@ -86,11 +87,11 @@ test('원부 정정은 변경이력을 보존하고 낡은 버전으로 덮어�
   const s = await setup(); try {
     const created = (await call(registryAction, s.db, s.admin, { operation: 'create', content: sample() })).body.row;
     const edited = await call(registryAction, s.db, s.admin, { operation: 'update', id: created.id, version: created.version,
-      changeType: '재적 변경', evidenceNote: '변경 신청서 및 승인기록 확인', content: sample({ temple: '화엄사' }) });
+      changeType: '재적 변경', evidenceNote: '변경 신청서 및 승인기록 확인', content: sample({ monasticNo: created.monastic_no, temple: '화엄사' }) });
     assert.equal(edited.status, 200);assert.equal(edited.body.row.temple, '화엄사');
     assert.equal(edited.body.row.version, 2);
     const stale = await call(registryAction, s.db, s.admin, { operation: 'update', id: created.id, version: created.version,
-      changeType: '법명 변경', evidenceNote: '근거 확인', content: sample({ dharmaNameKo: '다른법명' }) });
+      changeType: '법명 변경', evidenceNote: '근거 확인', content: sample({ monasticNo: created.monastic_no, dharmaNameKo: '다른법명' }) });
     assert.equal(stale.status, 409);
     const detail = await call(registryQuery, s.db, s.admin, { operation: 'detail', id: created.id });
     assert.equal(detail.body.changes.length, 2);
@@ -116,7 +117,7 @@ test('발급번호·문서 스냅샷·재발급 중복·취소·비재적 거부
     assert.equal(repeated.body.repeated, true);assert.equal(repeated.body.row.certificate_no, first.body.row.certificate_no);
     assert.equal((await call(certAction, s.db, s.viewer, { ...issue, requestId: 'different-id-1234' })).status, 403);
     const revoked = await call(registryAction, s.db, s.admin, { operation: 'update', id: created.id, version: created.version,
-      changeType: '제적', evidenceNote: '제적 처리 승인', content: sample({ status: '제적' }) });
+      changeType: '제적', evidenceNote: '제적 처리 승인', content: sample({ monasticNo: created.monastic_no, status: '제적' }) });
     assert.equal(revoked.status, 200);
     const blocked = await call(certAction, s.db, s.admin, { ...issue, requestId: 'new-unique-request-002' });
     assert.equal(blocked.status, 409);
@@ -136,7 +137,7 @@ test('승적 증명서 대장 표시도 발급 당시 내용을 그대로 유지
       registryId: created.id, issueDate: monasticToday(), purpose: '종단 제출', signatoryTitle: '이사장', signatoryUserId: 'admin' });
     assert.equal(issued.status, 200);
     const edited = await call(registryAction, s.db, s.admin, { operation: 'update', id: created.id, version: created.version,
-      changeType: '재적 변경', evidenceNote: '자료 대조 및 승인', content: sample({ temple: '새사찰', dharmaNameKo: '새법명' }) });
+      changeType: '재적 변경', evidenceNote: '자료 대조 및 승인', content: sample({ monasticNo: created.monastic_no, temple: '새사찰', dharmaNameKo: '새법명' }) });
     assert.equal(edited.status, 200);
     const ledger = await call(certQuery, s.db, s.admin, { operation: 'list' });
     assert.equal(ledger.status, 200);
@@ -152,8 +153,9 @@ test('대외발급은 지정된 직위·적법한 날짜만 허용하고 발급 
     const created = (await call(registryAction, s.db, s.admin, { operation: 'create', content: sample() })).body.row;
     const standard = { operation: 'issue', requestId: 'signer-basis-test-001', registryId: created.id,
       issueDate: monasticToday(), purpose: '사찰 제출', signatoryTitle: '이사장', signatoryUserId: 'admin' };
-    assert.equal((await call(certAction, s.db, s.admin, { ...standard, signatoryUserId: 'viewer' })).status, 403);
-    assert.equal((await call(certAction, s.db, s.admin, { ...standard, signatoryTitle: '이사장 직무대리' })).status, 403);
+    // V104에서는 이사장 직함을 지정하고 활성 계정 사용자 성명을 선택할 수 있습니다.
+    assert.equal((await call(certAction, s.db, s.admin, { ...standard, signatoryUserId: 'viewer', requestId: 'other-active-user-01' })).status, 200);
+    assert.equal((await call(certAction, s.db, s.admin, { ...standard, signatoryTitle: '이사장 직무대리', requestId: 'other-title-01' })).status, 200);
     assert.equal((await call(certAction, s.db, s.admin, { ...standard, issueDate: '2015-01-01' })).status, 400);
     assert.equal((await call(certAction, s.db, s.admin, { ...standard, issueDate: '2099-01-01' })).status, 400);
     assert.equal((await call(certAction, s.db, s.admin, { ...standard, purpose: ' ' })).status, 400);
@@ -165,7 +167,7 @@ test('대외발급은 지정된 직위·적법한 날짜만 허용하고 발급 
     assert.equal(issued.status, 200);
     assert.equal(issued.body.row.signatory_name, '테스트 관리자');
     const audit = s.db.sqlite.prepare("SELECT action FROM management_audit_logs WHERE category='승적증명서' ORDER BY created_at").all();
-    assert.equal(audit.length, 1);
+    assert.equal(audit.length, 3);
     assert.equal(audit[0].action, '발급');
   } finally { s.close(); }
 });
@@ -223,7 +225,7 @@ test('대외증명서 발급 화면은 재직증명서와 동일한 로고·직�
   assert.match(cert, /monastic-certificate-seal\{[^}]*right:-62px;top:2px;width:98px;height:98px/);
   assert.match(cert, /@page\{size:A4;margin:0\}/);
   assert.match(cert, /미리보기·미발급/);
-  assert.match(cert, /previewMode\?'':/);
+  assert.match(cert, /monastic-certificate-seal--preview/);
   assert.match(registry, /monastic-registry\/upload-attachment/);
   assert.match(registry, /승적원부는 대외 배포용 문서가 아닙니다/);
 });

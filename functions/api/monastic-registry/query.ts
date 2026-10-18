@@ -1,7 +1,7 @@
 import { authenticateSession, getSessionToken, clean, ensureTables, json } from '../../_shared/helpers';
-import { toRegistryResponse, MONASTIC_STATUSES } from '../../_shared/monastic';
+import { toRegistryResponse, MONASTIC_STATUSES, isMonasticRound, monasticYearFromContent, nextMonasticNumber } from '../../_shared/monastic';
 interface Env { DB: D1Database }
-type Payload = { operation?: string; id?: string; query?: string; status?: string; page?: number; pageSize?: number };
+type Payload = { operation?: string; id?: string; query?: string; status?: string; page?: number; pageSize?: number; ordinationRound?: string; acquiredDate?: string; ordination?: unknown };
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok: false, message: '메인 D1(DB)이 연결되지 않았습니다.' }, 503);
   let p: Payload; try { p = await request.json(); } catch { return json({ ok: false, message: '요청 형식이 올바르지 않습니다.' }, 400); }
@@ -10,6 +10,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
   if (auth.user.role !== 'admin') return json({ ok: false, message: '승적원부 열람은 관리자만 가능합니다.' }, 403);
   const op = clean(p.operation, 20) || 'list';
+  if (op === 'number-preview') {
+    const round = String(p.ordinationRound || '');
+    if (!isMonasticRound(round)) return json({ ok: false, message: '계단 회차 01~30을 선택해 주세요.' }, 400);
+    const acquiredDate = typeof p.acquiredDate === 'string' ? p.acquiredDate : '';
+    const ordination = Array.isArray(p.ordination) ? p.ordination : [];
+    // 프리뷰는 유효한 수계일만 이용하며, 서버의 실제 등록 시 모든 날짜를 다시 검사합니다.
+    const simpleRows = ordination.filter((r): r is Record<string, unknown> => !!r && typeof r === 'object' && !Array.isArray(r))
+      .map((r) => ({ kind: String(r.kind || '').slice(0, 30), date: String(r.date || '').slice(0, 10) }));
+    let year: string;
+    try { year = monasticYearFromContent({ acquiredDate, ordination: simpleRows }); }
+    catch { return json({ ok: false, message: '승적 취득일 또는 수계일을 먼저 입력해 주세요.' }, 400); }
+    const next = await nextMonasticNumber(env.DB, round, year, false);
+    return json({ ok: true, next, year, estimated: true, message: '예상 번호이며 저장 시 최종 번호가 확정됩니다.' });
+  }
   if (op === 'options') {
     // 개인정보·종교 기록의 결재자 선택용: 관리자에게 최소한의 계정 정보만 제공합니다.
     const users = await env.DB.prepare(`SELECT CAST(id AS TEXT) AS id,name,position,active FROM system_users ORDER BY active DESC,name,id`).all();

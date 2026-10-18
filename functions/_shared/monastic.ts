@@ -7,6 +7,47 @@ export const MONASTIC_ORDINATION_TYPES = ['사미·사미니계', '구족계', '
 export const MONASTIC_CONSENT_CHOICES = ['동의', '비동의'] as const;
 export const MONASTIC_RETENTION_CHOICES = ['1년', '2년', '3년', '4년', '5년', '10년', '준영구', '영구'] as const;
 export const MONASTIC_USER_REF = /^user:[A-Za-z0-9_-]{1,70}$/;
+export const MONASTIC_ROUNDS = Array.from({ length: 30 }, (_, i) => String(i + 1).padStart(2, '0'));
+export const isMonasticRound = (value: unknown): value is string => typeof value === 'string' && MONASTIC_ROUNDS.includes(value);
+
+/** 수계·취득 연도에 따른 승적번호. 수계 기록의 첫 연도를 우선하며, 기록이 없으면 승적 취득일을 사용합니다. */
+export const monasticYearFromContent = (data: Pick<RegistryContent, 'ordination' | 'acquiredDate'>): string => {
+  const suGye = data.ordination
+    .filter((row) => row.date && isValidIsoDate(row.date) && row.kind !== '법계 / 품수')
+    .map((row) => row.date).sort();
+  const date = suGye[0] || data.acquiredDate;
+  if (!isValidIsoDate(date)) throw new Error('수계·승적 취득일이 올바르지 않습니다.');
+  return date.slice(0, 4);
+};
+
+export const monasticNumberPrefix = (round: string, year: string): string => {
+  if (!isMonasticRound(round) || !/^\d{4}$/.test(year)) throw new Error('계단 회차 또는 수계 연도가 올바르지 않습니다.');
+  return `${round}${year.slice(-2)}-`;
+};
+
+/** 기존 수기 번호도 보존하면서, 새 형식의 채번은 D1 시퀀스로 원자적 예약합니다. */
+export const nextMonasticNumber = async (db: D1Database, round: string, year: string, reserve: boolean): Promise<string> => {
+  const prefix = monasticNumberPrefix(round, year);
+  const suffixStart = prefix.length + 1;
+  const maxRow = await db.prepare(`SELECT MAX(CAST(SUBSTR(monastic_no, ?) AS INTEGER)) AS last_num
+    FROM monastic_registry WHERE monastic_no LIKE ? AND SUBSTR(monastic_no, ?) <> ''
+    AND SUBSTR(monastic_no, ?) NOT GLOB '*[^0-9]*'`)
+    .bind(suffixStart, `${prefix}%`, suffixStart, suffixStart).first<{ last_num: number | null }>();
+  const key = `MONASTIC:NO:${prefix.slice(0, 4)}`; // two digits of round + two digits of year
+  const initial = Number(maxRow?.last_num || 0);
+  if (!reserve) {
+    const sequence = await db.prepare('SELECT last_seq FROM document_sequences WHERE seq_key=?')
+      .bind(key).first<{ last_seq: number }>();
+    return `${prefix}${String(Math.max(initial, Number(sequence?.last_seq || 0)) + 1).padStart(3, '0')}`;
+  }
+  await db.prepare(`INSERT INTO document_sequences(seq_key,last_seq) VALUES(?,?)
+    ON CONFLICT(seq_key) DO UPDATE SET last_seq=MAX(document_sequences.last_seq,excluded.last_seq)`)
+    .bind(key, initial).run();
+  const result = await db.prepare('UPDATE document_sequences SET last_seq=last_seq+1 WHERE seq_key=? RETURNING last_seq')
+    .bind(key).first<{ last_seq: number }>();
+  if (!Number.isSafeInteger(result?.last_seq) || Number(result!.last_seq) < 1) throw new Error('승적번호 채번에 실패했습니다.');
+  return `${prefix}${String(result!.last_seq).padStart(3, '0')}`;
+};
 
 export type MonasticStatus = typeof MONASTIC_STATUSES[number];
 export const monasticToday = () => new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10);
@@ -41,7 +82,7 @@ export const serializeRegistry = (v: RegistryContent): unknown[] => [
   v.accessScope, v.processingBasis, v.sensitiveBasis, v.retentionPeriod,
   v.storageLocation, v.preparedBy, v.reviewedBy, v.approvedBy,
 ];
-export const normalizeRegistryInput = (data: unknown): { ok: true; content: RegistryContent } | { ok: false; message: string } => {
+export const normalizeRegistryInput = (data: unknown, allowAutoNumber = false): { ok: true; content: RegistryContent } | { ok: false; message: string } => {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return { ok: false, message: '승적원부 입력자료가 올바르지 않습니다.' };
   const s = data as Record<string, unknown>;
   const status = value(s, 'status', 10);
@@ -84,7 +125,7 @@ export const normalizeRegistryInput = (data: unknown): { ok: true; content: Regi
     retentionPeriod: value(s, 'retentionPeriod', 160), storageLocation: value(s, 'storageLocation', 200),
     preparedBy: value(s, 'preparedBy', 80), reviewedBy: value(s, 'reviewedBy', 80), approvedBy: value(s, 'approvedBy', 80),
   };
-  if (!/^[^\s\u0000-\u001f]{1,60}$/.test(result.monasticNo) || !result.dharmaNameKo || !result.acquiredDate) {
+  if ((!allowAutoNumber && !/^[^\s\u0000-\u001f]{1,60}$/.test(result.monasticNo)) || !result.dharmaNameKo || !result.acquiredDate) {
     return { ok: false, message: '승적번호·법명(한글)·승적 취득일은 필수입니다.' };
   }
   for (const date of [result.birthDate, result.acquiredDate, result.firstRegisteredDate, result.lastVerifiedDate]) {

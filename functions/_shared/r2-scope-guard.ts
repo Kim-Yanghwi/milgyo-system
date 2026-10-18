@@ -1,7 +1,7 @@
 export const ACCOUNTING_R2_PREFIX = 'accounting/';
 export const TAX_EXPORT_R2_PREFIX = 'tax-exports/';
 export const ACCOUNTING_R2_PREFIXES = [ACCOUNTING_R2_PREFIX,TAX_EXPORT_R2_PREFIX] as const;
-export const MAIN_R2_PREFIXES = ['documents/', 'registry/', 'registers/'] as const;
+export const MAIN_R2_PREFIXES = ['documents/', 'registry/', 'registers/', 'monastic-registry/'] as const;
 
 const normalizeKey = (value: unknown) => String(value ?? '').trim();
 

@@ -46,15 +46,19 @@ const collectMainFileKeys = async (env: ResetEnv) => {
     UNION ALL
     SELECT r2_key AS object_key FROM management_register_attachments
     WHERE storage_type='r2' AND r2_key IS NOT NULL AND r2_key<>''
+    UNION ALL
+    SELECT r2_key AS object_key FROM monastic_registry_attachments
+    WHERE storage_type='r2' AND r2_key IS NOT NULL AND r2_key<>''
   `).all<{ object_key: string }>();
   const metadataKeys = (metadataRows.results || []).map((row) => String(row.object_key || ''));
   if (!env.FILES) return { metadataKeys: unique(metadataKeys), bucketKeys: [] as string[] };
-  const [documentKeys, registryKeys, registerKeys] = await Promise.all([
+  const [documentKeys, registryKeys, registerKeys, monasticKeys] = await Promise.all([
     listBucketKeys(env.FILES, 'documents/'),
     listBucketKeys(env.FILES, 'registry/'),
     listBucketKeys(env.FILES, 'registers/'),
+    listBucketKeys(env.FILES, 'monastic-registry/'),
   ]);
-  return { metadataKeys: unique(metadataKeys), bucketKeys: unique([...documentKeys, ...registryKeys, ...registerKeys]) };
+  return { metadataKeys: unique(metadataKeys), bucketKeys: unique([...documentKeys, ...registryKeys, ...registerKeys, ...monasticKeys]) };
 };
 
 const collectAccountingFileKeys = async (env: ResetEnv) => {
@@ -101,6 +105,10 @@ export const getTestResetPreview = async (env: ResetEnv) => {
         (SELECT COUNT(*) FROM management_register_attachments) AS management_register_attachments,
         (SELECT COUNT(*) FROM employment_certificates) AS employment_certificates,
         (SELECT COUNT(*) FROM ordination_certificates) AS ordination_certificates,
+        (SELECT COUNT(*) FROM monastic_registry) AS monastic_registry,
+        (SELECT COUNT(*) FROM monastic_registry_changes) AS monastic_registry_changes,
+        (SELECT COUNT(*) FROM monastic_registry_attachments) AS monastic_registry_attachments,
+        (SELECT COUNT(*) FROM monastic_certificates) AS monastic_certificates,
         (SELECT COUNT(*) FROM foreign_application_forms) AS foreign_application_forms,
         (SELECT COUNT(*) FROM foreign_application_forms WHERE form_type='거주숙소제공확인서') AS foreign_residence_forms,
         (SELECT COUNT(*) FROM foreign_application_forms WHERE form_type='통합신청서신고서') AS foreign_integrated_forms,
@@ -195,6 +203,10 @@ export const getTestResetPreview = async (env: ResetEnv) => {
       registerAttachments: n(main.management_register_attachments),
       employmentCertificates: n(main.employment_certificates),
       ordinationCertificates: n(main.ordination_certificates),
+      monasticRegistry: n(main.monastic_registry),
+      monasticRegistryChanges: n(main.monastic_registry_changes),
+      monasticRegistryAttachments: n(main.monastic_registry_attachments),
+      monasticCertificates: n(main.monastic_certificates),
       foreignApplicationForms: n(main.foreign_application_forms),
       foreignResidenceForms: n(main.foreign_residence_forms),
       foreignIntegratedForms: n(main.foreign_integrated_forms),
@@ -277,6 +289,10 @@ const countPreviewRemainders = (preview: Awaited<ReturnType<typeof getTestResetP
 };
 
 export const resetAllTestData = async (env: ResetEnv, user: SessionUser) => {
+  // R2의 고아 파일까지 빠짐없이 확인하도록 두 버킷 연결을 필수로 확인합니다.
+  // 삭제 전 미리보기 쿼리로 현재 DB 스키마와 모든 관련 테이블 조회 가능 여부를 검증합니다.
+  if (!env.FILES || !env.ACCOUNTING_FILES) throw new Error('일괄 초기화는 메인·회계 R2 저장소(FILES, ACCOUNTING_FILES)가 모두 연결되어야 합니다.');
+  await getTestResetPreview(env);
   const [mainFiles, accountingFiles] = await Promise.all([
     collectMainFileKeys(env),
     collectAccountingFileKeys(env),
@@ -303,6 +319,11 @@ export const resetAllTestData = async (env: ResetEnv, user: SessionUser) => {
     env.DB.prepare('DELETE FROM management_registers'),
     env.DB.prepare('DELETE FROM employment_certificates'),
     env.DB.prepare('DELETE FROM ordination_certificates'),
+    // 참조관계 순서: 발급대장 및 첨부·정정이력을 지운 후 승적원부 삭제.
+    env.DB.prepare('DELETE FROM monastic_certificates'),
+    env.DB.prepare('DELETE FROM monastic_registry_attachments'),
+    env.DB.prepare('DELETE FROM monastic_registry_changes'),
+    env.DB.prepare('DELETE FROM monastic_registry'),
     env.DB.prepare('DELETE FROM foreign_application_forms'),
     env.DB.prepare('DELETE FROM employee_profiles'),
     env.DB.prepare('DELETE FROM management_audit_logs'),
@@ -397,7 +418,7 @@ export const resetAllTestData = async (env: ResetEnv, user: SessionUser) => {
     remainingRecords,
     verification,
     message: verified
-      ? '전자문서·재직증명서·수계증서·외국인 신청서와 회계·예산·결산, 자금·거래관리, 기부·자산·기관회계, 계약·조달·준법, 세무·신고 테스트자료 및 관련 로그·감사이력·번호 카운트·R2 파일을 모두 초기화하고 잔여 0건을 확인했습니다.'
+      ? '전자문서·재직증명서·수계증서·승적원부·승적증명서·외국인 신청서와 회계·예산·결산, 자금·거래관리, 기부·자산·기관회계, 계약·조달·준법, 세무·신고 테스트자료 및 관련 로그·감사이력·번호 카운트·R2 파일을 모두 초기화하고 잔여 0건을 확인했습니다.'
       : `초기화는 실행했으나 삭제 대상 ${remainingRecords.toLocaleString('ko-KR')}건이 남아 있습니다. 미리보기를 다시 실행해 잔여 항목을 확인해 주세요.`,
   };
 };

@@ -114,6 +114,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         .monastic-certificate-issuer-line{position:relative;z-index:2;display:block;white-space:nowrap;letter-spacing:0}
         .monastic-certificate-issuer-line + .monastic-certificate-issuer-line{margin-top:4px}
         .monastic-certificate-seal{position:absolute;z-index:1;right:-62px;top:2px;width:98px;height:98px;object-fit:contain;pointer-events:none;opacity:1;mix-blend-mode:normal;filter:none;background:transparent}
+        .monastic-certificate-seal--preview{opacity:.88}
         .monastic-certificate-contacts{font-size:13px;line-height:1.8;border-top:1px solid #c4cbd4;margin-top:8px;padding-top:16px}
         .monastic-certificate-disclaimer{display:grid;grid-template-columns:auto 1fr;column-gap:.25em;align-items:start;font-size:11px;color:#526073;line-height:1.6;margin-top:10px}
         .monastic-certificate-disclaimer-mark{display:block}
@@ -141,7 +142,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         <p class="monastic-certificate-statement${previewNotice?' monastic-certificate-statement--notice':''}">${previewNotice?'본 화면은 서식 확인을 위한 테스트 출력물로서 승적 등재 여부를 증명하지 않습니다.':'위 사람은 발급일 현재 본 종단의 승적원부에 재적 승려로 등재되어 있음을 확인하여 이에 증명합니다.'}</p>
         <p class="monastic-certificate-purpose">제출 용도 : ${esc(s.purpose||'-')}</p>
         <p class="monastic-certificate-date">${esc(koreanDate(s.issueDate))}</p>
-        <div class="monastic-certificate-issuer"><div class="monastic-certificate-issuer-block"><div class="monastic-certificate-issuer-line">대한불교밀교종</div><div class="monastic-certificate-issuer-line">${esc(s.signatoryTitle||'이사장')} ${esc(signatoryName(s.signatoryName||'-'))}${previewMode?' (미발급)':''}</div>${previewMode?'':'<img class="monastic-certificate-seal" src="/organization-seal.png" alt="대한불교밀교종 직인" />'}</div></div>
+        <div class="monastic-certificate-issuer"><div class="monastic-certificate-issuer-block"><div class="monastic-certificate-issuer-line">대한불교밀교종</div><div class="monastic-certificate-issuer-line">${esc(s.signatoryTitle||'이사장')} ${esc(signatoryName(s.signatoryName||'-'))}${previewMode?' (미발급)':''}</div><img class="monastic-certificate-seal${previewMode?' monastic-certificate-seal--preview':''}" src="/organization-seal.png" alt="대한불교밀교종 직인" /></div></div>
         <div class="monastic-certificate-contacts">연락처 : ${esc(s.contact||'-')}<div>문서 진위 확인 : 발급번호·발급일자·발급권자를 발급기관에 조회</div></div>
         <div class="monastic-certificate-disclaimer"><span class="monastic-certificate-disclaimer-mark">※</span><span class="monastic-certificate-disclaimer-text"><span class="monastic-certificate-disclaimer-line">본 증명서는 본 종단의 승적 등재 사실에 관한 자체 확인서로서, 타 종단 승적이나 국가 자격을 증명하지 않습니다. 수계·법계·소임은</span><span class="monastic-certificate-disclaimer-line">필요한 경우 별도 확인합니다.</span></span></div>
       </article></div>`;};

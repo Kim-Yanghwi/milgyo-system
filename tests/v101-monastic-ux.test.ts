@@ -18,7 +18,7 @@ const call = async (handler: any, db: any, token: string, data: object) => {
   return { status: response.status, body: await response.json() as any };
 };
 const example = (overrides: object = {}) => ({
-  monasticNo: 'V101-UX-TEST', dharmaNameKo: '테스트법명', dharmaNameHanja: '', layName: '테스트속명',
+  ordinationRound: '01', monasticNo: 'V101-UX-TEST', dharmaNameKo: '테스트법명', dharmaNameHanja: '', layName: '테스트속명',
   birthDate: '1996-02-18', status: '재적', temple: '시험사찰', acquiredDate: '2018-01-01',
   firstRegisteredDate: '2025-01-01', lastVerifiedDate: '2025-01-01',
   ordination: [{ kind: '사미·사미니계', date: '2018-01-01', place: '시험기관', teacher: '확인자', evidence: '자료' }],
@@ -63,7 +63,7 @@ test('서버는 날짜 범위·동의 선택값·보유기간을 검증하고 �
     assert.equal(created.body.row.prepared_by,'user:admin');
     const detail=await call(registryQuery,db,admin,{operation:'detail',id:created.body.row.id});
     assert.equal(detail.body.changes[0].changeType,'최초 취적');
-    const updated=await call(registryAction,db,admin,{operation:'update',id:created.body.row.id,version:created.body.row.version,changeType:'기타 정정',evidenceNote:'계정 선택 확인',content:example({retentionPeriod:'준영구'})});
+    const updated=await call(registryAction,db,admin,{operation:'update',id:created.body.row.id,version:created.body.row.version,changeType:'기타 정정',evidenceNote:'계정 선택 확인',content:example({monasticNo:created.body.row.monastic_no,retentionPeriod:'준영구'})});
     assert.equal(updated.status,200);
     assert.equal(updated.body.row.retention_period,'준영구');
   }finally{db.close()}
@@ -138,11 +138,11 @@ test('기존 Preview 원부의 자유입력 담당자 기록을 정정 시 손�
     await db.prepare("UPDATE monastic_registry SET prepared_by='기존 작성자',reviewed_by='기존 검토자',approved_by='기존 승인자' WHERE id=?")
       .bind(created.body.row.id).run();
     const legacy={preparedBy:'기존 작성자',reviewedBy:'기존 검토자',approvedBy:'기존 승인자'};
-    const changed=await call(registryAction,db,admin,{operation:'update',id:created.body.row.id,version:1,changeType:'기타 정정',evidenceNote:'기존 기록 보존 확인',content:example({temple:'수정된 사찰',...legacy})});
+    const changed=await call(registryAction,db,admin,{operation:'update',id:created.body.row.id,version:1,changeType:'기타 정정',evidenceNote:'기존 기록 보존 확인',content:example({monasticNo:created.body.row.monastic_no,temple:'수정된 사찰',...legacy})});
     assert.equal(changed.status,200);
     assert.equal(changed.body.row.prepared_by,'기존 작성자');
     assert.equal(changed.body.row.reviewed_by,'기존 검토자');
-    const invalid=await call(registryAction,db,admin,{operation:'update',id:created.body.row.id,version:2,changeType:'기타 정정',evidenceNote:'검증',content:example({...legacy,preparedBy:'임의 입력'})});
+    const invalid=await call(registryAction,db,admin,{operation:'update',id:created.body.row.id,version:2,changeType:'기타 정정',evidenceNote:'검증',content:example({monasticNo:created.body.row.monastic_no,...legacy,preparedBy:'임의 입력'})});
     assert.equal(invalid.status,400);
   }finally{db.close()}
 });

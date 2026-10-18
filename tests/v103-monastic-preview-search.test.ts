@@ -18,7 +18,7 @@ const call = async (handler: any, db: any, token: string, payload: object) => {
   return { status: response.status, body: await response.json() as any };
 };
 const sample = (monasticNo: string, dharmaNameKo: string, layName: string, temple: string, status = '재적') => ({
-  monasticNo, dharmaNameKo, layName, temple, status,
+  ordinationRound: '01', monasticNo, dharmaNameKo, layName, temple, status,
   acquiredDate: '2020-01-01', firstRegisteredDate: '2020-01-01', lastVerifiedDate: '2024-01-01',
   processingBasis: '동의', sensitiveBasis: '동의', retentionPeriod: '5년',
   preparedBy: 'user:chair', reviewedBy: 'user:chair', approvedBy: 'user:chair',
@@ -41,6 +41,7 @@ const setup = async () => {
 test('관리자만 대상자를 검색할 수 있고 이름·법명·사찰·승적번호 검색을 지원한다', async () => {
   const { db, admin, staff } = await setup();
   try {
+    const numbers: string[] = [];
     for (const row of [
       sample('M-103-A', '법광', '홍길동', '동해사'),
       sample('M-103-B', '청련', '김소영', '백련사'),
@@ -48,19 +49,20 @@ test('관리자만 대상자를 검색할 수 있고 이름·법명·사찰·승
     ]) {
       const result = await call(registryAction, db, admin, { operation: 'create', content: row });
       assert.equal(result.status, 200, result.body.message);
+      numbers.push(result.body.row.monastic_no);
     }
     const initial = await call(certificateQuery, db, admin, { operation: 'options' });
     assert.equal(initial.status, 200);
     assert.equal(initial.body.registry.length, 2, '재적 원부만 초기에 표시');
     for (const [query, expected] of [
-      ['길동', 'M-103-A'], ['법광', 'M-103-A'], ['백련사', 'M-103-B'], ['M-103-B', 'M-103-B'],
+      ['길동', numbers[0]], ['법광', numbers[0]], ['백련사', numbers[1]], [numbers[1], numbers[1]],
     ]) {
       const result = await call(certificateQuery, db, admin, { operation: 'search-registry', query });
       assert.equal(result.status, 200);
       assert.deepEqual(result.body.registry.map((r: any) => r.monastic_no), [expected]);
     }
     const temple = await call(certificateQuery, db, admin, { operation: 'search-registry', query: '동해사' });
-    assert.deepEqual(temple.body.registry.map((r: any) => r.monastic_no), ['M-103-A']);
+    assert.deepEqual(temple.body.registry.map((r: any) => r.monastic_no), [numbers[0]]);
     const wildcard = await call(certificateQuery, db, admin, { operation: 'search-registry', query: '%' });
     assert.equal(wildcard.body.registry.length, 0, 'LIKE 특수문자는 검색어 문자 그대로 처리');
     assert.equal((await call(certificateQuery, db, staff, { operation: 'search-registry', query: '법광' })).status, 403);
@@ -84,7 +86,7 @@ test('조직도 활성 계정은 미리보기용으로 표시하지만 실제 �
   } finally { db.close(); }
 });
 
-test('테스트 미리보기에는 좌측 상단 테스트용 표기가 있고 직인 이미지와 정식 발급번호가 없다', () => {
+test('테스트 미리보기에는 좌측 상단 테스트용 표기와 직인 위치 확인용 이미지가 있으며 정식 발급번호는 없다', () => {
   const source = readFileSync('src/pages/monastic-certificates.astro', 'utf8');
   const from = source.indexOf('      const printCss=`');
   const to = source.indexOf('      // 테스트 미리보기는', from);
@@ -99,7 +101,8 @@ test('테스트 미리보기에는 좌측 상단 테스트용 표기가 있고 �
   assert.match(testPrint, /monastic-certificate-test-watermark/);
   assert.match(testPrint, /테스트용/);
   assert.match(testPrint, /미리보기·미발급 · 효력 없음/);
-  assert.doesNotMatch(testPrint, /organization-seal\.png/);
+  assert.match(testPrint, /organization-seal\.png/);
+  assert.match(testPrint, /monastic-certificate-seal--preview/);
   assert.doesNotMatch(testPrint, /\(직인\)/);
   assert.match(testPrint, /승적 등재 여부를 증명하지 않습니다/);
   assert.doesNotMatch(testPrint, /대한불교밀교종 \| 서식 02 승적증명서/);
