@@ -50,11 +50,11 @@ test('dates: five-year minus one day; leap-day convention; irreversible invalidi
 });
 test('annual issue numbering is global across rounds, peeks do not reserve, 999 rolls to 1000',async()=>{
  const db=new SQLiteD1();try{
- assert.equal(await reserveCardNumber(db as any,'01','2026-01-01',true),'0126-001');assert.equal(await reserveCardNumber(db as any,'01','2026-01-01',true),'0126-001');
- assert.equal(await reserveCardNumber(db as any,'01','2026-01-01'),'0126-001');assert.equal(await reserveCardNumber(db as any,'02','2026-02-01'),'0226-002');
- await db.prepare('UPDATE monk_card_sequences SET last_seq=999 WHERE issue_year=2026').run();assert.equal(await reserveCardNumber(db as any,'30','2026-01-01'),'3026-1000');
- assert.equal(await reserveCardNumber(db as any,'01','2027-01-01'),'0127-001');
- const parallel=await Promise.all(Array.from({length:10},()=>reserveCardNumber(db as any,'01','2028-01-01')));assert.equal(new Set(parallel).size,10);
+ assert.equal(await reserveCardNumber(db as any,'2026-01-01',true),'2026-001');assert.equal(await reserveCardNumber(db as any,'2026-01-01',true),'2026-001');
+ assert.equal(await reserveCardNumber(db as any,'2026-01-01'),'2026-001');assert.equal(await reserveCardNumber(db as any,'2026-02-01'),'2026-002');
+ await db.prepare('UPDATE monk_card_sequences SET last_seq=999 WHERE issue_year=2026').run();assert.equal(await reserveCardNumber(db as any,'2026-01-01'),'2026-1000');
+ assert.equal(await reserveCardNumber(db as any,'2027-01-01'),'2027-001');
+ const parallel=await Promise.all(Array.from({length:10},()=>reserveCardNumber(db as any,'2028-01-01')));assert.equal(new Set(parallel).size,10);
  }finally{db.close();}
 });
 test('all ledger/file endpoints require authenticated admin, even direct object requests',async()=>{
@@ -73,7 +73,7 @@ test('missing migration returns explicit schema readiness error to an admin',asy
 test('creation assigns server number and validity, persists document number, is idempotent',async()=>{
  const s=await setup();try{
  const a=await create(s,{cardNo:'forged',validUntil:'2099-01-01',internalDocumentNo:'종이-2026-001'});assert.equal(a.status,200,a.body.message);
- assert.equal(a.body.row.card_no,'01'+cardToday().slice(2,4)+'-001');assert.equal(a.body.row.valid_until,cardExpiry(cardToday()));assert.equal(a.body.row.internal_document_no,'종이-2026-001');
+ assert.equal(a.body.row.card_no,cardToday().slice(0,4)+'-001');assert.equal(a.body.row.valid_until,cardExpiry(cardToday()));assert.equal(a.body.row.internal_document_no,'종이-2026-001');
  const b=await create(s);assert.equal(b.body.repeated,true);assert.equal(b.body.row.card_no,a.body.row.card_no);
  assert.equal(s.db.sqlite.prepare('SELECT COUNT(*) n FROM monk_card_numbers').get().n,1);
  const list=await call(cardQuery,s.db,s.admin,{operation:'list'});assert.equal(list.body.total,1);assert.equal(list.body.rows[0].validity,'유효');
@@ -83,7 +83,7 @@ test('creation assigns server number and validity, persists document number, is 
 });
 test('issuance rejects ineligible member, unconfirmed papers, non-consent, identity mismatch and bad dates',async()=>{
  const s=await setup();try{
- for(const v of [{eligibilityConfirmed:false},{documentsConfirmed:false},{generalConsent:'비동의'},{sensitiveConsent:'비동의'},{birthDate:'1980-01-03'},{temple:'다른사찰'},{issueDate:'2099-01-01'},{birthDate:'2026-02-30'},{round:'31'},{issueKind:'기타'}])assert.ok((await create(s,v)).status>=400,JSON.stringify(v));
+ for(const v of [{eligibilityConfirmed:false},{documentsConfirmed:false},{generalConsent:'비동의'},{sensitiveConsent:'비동의'},{birthDate:'1980-01-03'},{temple:'다른사찰'},{issueDate:'2099-01-01'},{birthDate:'2026-02-30'},{issueKind:'기타'}])assert.ok((await create(s,v)).status>=400,JSON.stringify(v));
  s.db.sqlite.prepare("UPDATE monastic_registry SET status='제적' WHERE id=?").run(s.registry.id);assert.equal((await create(s)).status,409);
  assert.equal(s.db.sqlite.prepare('SELECT COUNT(*) n FROM monk_cards').get().n,0);
  }finally{s.db.close();}

@@ -18,6 +18,7 @@ type UpdatePayload = {
   name?: string;
   position?: string;
   grade?: string;
+  personnelNo?: string;
   department?: string;
   role?: string;
   canApprove?: boolean;
@@ -53,7 +54,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     const name = clean(payload.name, 40);
     const position = normalizePositionValue(payload.position);
-    const grade = clean(payload.grade, 20);
+    const grade = payload.grade === undefined ? null : clean(payload.grade, 20);
+    const personnelNo = typeof payload.personnelNo === 'string' ? payload.personnelNo.trim() : '';
+    if (personnelNo && !/^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$/.test(personnelNo))
+      return json({ ok: false, message: '사번(승적번호)은 영문·숫자·하이픈·밑줄을 포함한 40자 이하로 입력해 주세요.' }, 400);
     const department = normalizeDepartmentValue(payload.department, position);
     const role = payload.role === 'admin' ? 'admin' : payload.role === 'audit' ? 'audit' : 'user';
     const canApprove = !!payload.canApprove || role === 'admin';
@@ -79,17 +83,26 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       }
     }
 
+    try { await env.DB.prepare('SELECT personnel_no FROM system_users LIMIT 1').all(); }
+    catch { return json({ ok: false, message: '계정 DB 0015 마이그레이션 적용 후 이용해 주세요.' }, 409); }
+    if (personnelNo) {
+      const exists=await env.DB.prepare('SELECT id FROM system_users WHERE personnel_no=? COLLATE NOCASE AND CAST(id AS TEXT)<>? LIMIT 1').bind(personnelNo,id).first();
+      if (exists) return json({ ok: false, message: '이미 등록된 사번(승적번호)입니다.' }, 409);
+    }
     const passwordHash = newPassword ? await hashPassword(newPassword) : null;
     const updateResult=await env.DB.prepare(`
-      UPDATE system_users SET name=?,position=?,grade=?,department=?,role=?,can_approve=?,can_accounting=?,active=?,password_hash=COALESCE(?,password_hash)
+      UPDATE system_users SET name=?,position=?,grade=CASE WHEN ?=1 THEN ? ELSE grade END,personnel_no=?,department=?,role=?,can_approve=?,can_accounting=?,active=?,password_hash=COALESCE(?,password_hash)
       WHERE CAST(id AS TEXT)=? AND NOT (role='admin' AND active=1 AND (?<>'admin' OR ?=0)
         AND NOT EXISTS(SELECT 1 FROM system_users other WHERE other.role='admin' AND other.active=1 AND CAST(other.id AS TEXT)<>CAST(system_users.id AS TEXT)))
-    `).bind(name,position||null,grade||null,department||null,role,canApprove?1:0,canAccounting?1:0,active?1:0,passwordHash,id,role,active?1:0).run();
+    `).bind(name,position||null,payload.grade===undefined?0:1,grade,personnelNo,department||null,role,canApprove?1:0,canAccounting?1:0,active?1:0,passwordHash,id,role,active?1:0).run();
     if(Number(updateResult.meta?.changes||0)!==1)return json({ok:false,message:'동시 변경으로 인해 마지막 활성 관리자 계정을 보호했습니다. 계정 목록을 새로고침해 주세요.'},409);
 
 
     return json({ ok: true, message: '계정 정보가 수정되었습니다.' });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/unique constraint failed: system_users\.personnel_no|idx_system_users_personnel_no/i.test(message))
+      return json({ ok: false, message: '이미 등록된 사번(승적번호)입니다.' }, 409);
     console.error('user update failed', error);
     return json({ ok: false, message: '계정 수정 중 오류가 발생했습니다.' }, 500);
   }

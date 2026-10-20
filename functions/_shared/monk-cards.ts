@@ -45,14 +45,13 @@ export async function cardHandler(request: Request, env: MonkCardEnv, fn: (p:Row
  try{return await fn(p,auth.user);}catch(error){if(error instanceof CardError)return json({ok:false,code:error.code,message:error.message},error.status);throw error;}
 }
 export const postOnly: PagesFunction = async()=>json({ok:false,message:'POST 요청만 지원합니다.'},405);
-export async function reserveCardNumber(db:D1Database,round:string,issued:string,peek=false):Promise<string>{
- must(/^(0[1-9]|[12][0-9]|30)$/.test(round),'계단 회차 01~30을 선택해 주세요.');
+export async function reserveCardNumber(db:D1Database,issued:string,peek=false):Promise<string>{
  cardDate(issued,'발급일');const year=Number(issued.slice(0,4));
  let n:number;
  if(peek){const r=await db.prepare('SELECT last_seq FROM monk_card_sequences WHERE issue_year=?').bind(year).first<{last_seq:number}>();n=Number(r?.last_seq||0)+1;}
  else {const r=await db.prepare('INSERT INTO monk_card_sequences(issue_year,last_seq) VALUES(?,1) ON CONFLICT(issue_year) DO UPDATE SET last_seq=last_seq+1 RETURNING last_seq').bind(year).first<{last_seq:number}>();n=Number(r?.last_seq);}
  must(Number.isSafeInteger(n)&&n>0&&n<=9999,'연간 9,999건을 초과했습니다. 추가 채번 기준을 확인해 주세요.',409);
- const number=`${round}${String(year).slice(-2)}-${String(n).padStart(3,'0')}`;
+ const number=`${year}-${String(n).padStart(3,'0')}`;
  if(!peek)await db.prepare('INSERT INTO monk_card_numbers(card_no,issue_year,serial_no,reserved_at) VALUES(?,?,?,?)').bind(number,year,n,new Date().toISOString()).run();
  return number;
 }
