@@ -98,7 +98,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let category = clean(payload.category, 100);
   const title = clean(payload.title, 200);
   const summary = clean(payload.summary, 400);
-  const body = clean(payload.body, 12000);
+  let body = clean(payload.body, 12000);
   const attachmentsNote = clean(payload.attachmentsNote, 800);
   const department = normalizeDepartmentValue(payload.department, auth.user.position || '');
   const recipient = clean(payload.recipient, 120);
@@ -239,6 +239,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     const id = documentId || await makeDocumentNumber(env.DB, now);
+    // The existing document number is the authoritative, unique receipt number.
+    // Never trust an editable form value or consume a second counter.
+    if (templateId === 'TPL-MONK-CARD-APPLICATION') {
+      formData.receiptNo = id;
+      body = body.replace(/(접수번호\s*:\s*)(?:[^\n\r]*)/, `$1${id}`);
+    }
     const statements: D1PreparedStatement[] = [];
     if (documentId) {
       statements.push(env.DB.prepare(`

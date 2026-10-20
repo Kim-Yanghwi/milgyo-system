@@ -189,6 +189,14 @@ export const getTestResetPreview = async (env: ResetEnv) => {
     collectAccountingFileKeys(env),
   ]);
 
+  // Show all V106 records, but never silently delete issued credentials or reset their numbers.
+  const cardTable = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='monk_cards'").first();
+  const cardCounts = cardTable ? await env.DB.prepare(`SELECT
+    (SELECT COUNT(*) FROM monk_cards) AS cards,
+    (SELECT COUNT(*) FROM monk_card_changes) AS changes,
+    (SELECT COUNT(*) FROM monk_card_attachments) AS attachments,
+    (SELECT COUNT(*) FROM monk_card_numbers) AS numbers,
+    (SELECT COUNT(*) FROM monk_card_sequences) AS sequences`).first<Record<string, number>>() : null;
   const main = mainCounts || {};
   const accounting = accountingCounts || {};
   const n = (value: unknown) => Number(value || 0);
@@ -207,6 +215,11 @@ export const getTestResetPreview = async (env: ResetEnv) => {
       monasticRegistryChanges: n(main.monastic_registry_changes),
       monasticRegistryAttachments: n(main.monastic_registry_attachments),
       monasticCertificates: n(main.monastic_certificates),
+      monkCards: n(cardCounts?.cards),
+      monkCardChanges: n(cardCounts?.changes),
+      monkCardAttachments: n(cardCounts?.attachments),
+      monkCardNumbers: n(cardCounts?.numbers),
+      monkCardSequences: n(cardCounts?.sequences),
       foreignApplicationForms: n(main.foreign_application_forms),
       foreignResidenceForms: n(main.foreign_residence_forms),
       foreignIntegratedForms: n(main.foreign_integrated_forms),
