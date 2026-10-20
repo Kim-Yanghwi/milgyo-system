@@ -1,3 +1,4 @@
+import { isMonkCardFields, validateMonkCardForm } from '../../_shared/monk-card-application';
 import {
   ALL_CATEGORIES,
   IMPORTANT_CATEGORIES,
@@ -97,7 +98,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let category = clean(payload.category, 100);
   const title = clean(payload.title, 200);
   const summary = clean(payload.summary, 400);
-  const body = clean(payload.body, 12000);
+  let body = clean(payload.body, 12000);
   const attachmentsNote = clean(payload.attachmentsNote, 800);
   const department = normalizeDepartmentValue(payload.department, auth.user.position || '');
   const recipient = clean(payload.recipient, 120);
@@ -112,7 +113,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const templateId = clean(payload.templateId, 60);
   let templateName = clean(payload.templateName, 100);
   const formData = sanitizeFormData(payload.formData);
-  const accessScope = VALID_ACCESS_SCOPES.includes(clean(payload.accessScope, 20)) ? clean(payload.accessScope, 20) : '전체';
+  let accessScope = VALID_ACCESS_SCOPES.includes(clean(payload.accessScope, 20)) ? clean(payload.accessScope, 20) : '전체';
 
   if (templateId) {
     const template = await env.DB.prepare(`SELECT name, doc_type, category, fields_json FROM document_templates WHERE id = ? AND active = 1`)
@@ -123,6 +124,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     category = template.category;
     try {
       const fields = JSON.parse(template.fields_json || '[]') as Array<{ id?: string; label?: string; required?: boolean }>;
+      // Source-specific form privacy applies to copies retaining these fields, too.
+      if (isMonkCardFields(fields)) {
+        accessScope = '관련자';
+        if (!saveAsDraft) {
+          const error = validateMonkCardForm(fields, formData);
+          if (error) return json({ ok: false, message: error }, 400);
+        }
+      }
       if (!saveAsDraft) {
         const missing = fields.filter((field) => field.required && !clean(formData[field.id || ''], 4000)).map((field) => field.label || field.id || '필수항목');
         if (missing.length) return json({ ok: false, message: `서식 필수항목을 입력해 주세요: ${missing.join(', ')}` }, 400);
@@ -230,6 +239,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     const id = documentId || await makeDocumentNumber(env.DB, now);
+    // The existing document number is the authoritative, unique receipt number.
+    // Never trust an editable form value or consume a second counter.
+    if (templateId === 'TPL-MONK-CARD-APPLICATION') {
+      formData.receiptNo = id;
+      body = body.replace(/(접수번호\s*:\s*)(?:[^\n\r]*)/, `$1${id}`);
+    }
     const statements: D1PreparedStatement[] = [];
     if (documentId) {
       statements.push(env.DB.prepare(`

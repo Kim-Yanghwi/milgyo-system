@@ -189,6 +189,14 @@ export const getTestResetPreview = async (env: ResetEnv) => {
     collectAccountingFileKeys(env),
   ]);
 
+  // Show all V106 records, but never silently delete issued credentials or reset their numbers.
+  const cardTable = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='monk_cards'").first();
+  const cardCounts = cardTable ? await env.DB.prepare(`SELECT
+    (SELECT COUNT(*) FROM monk_cards) AS cards,
+    (SELECT COUNT(*) FROM monk_card_changes) AS changes,
+    (SELECT COUNT(*) FROM monk_card_attachments) AS attachments,
+    (SELECT COUNT(*) FROM monk_card_numbers) AS numbers,
+    (SELECT COUNT(*) FROM monk_card_sequences) AS sequences`).first<Record<string, number>>() : null;
   const main = mainCounts || {};
   const accounting = accountingCounts || {};
   const n = (value: unknown) => Number(value || 0);
@@ -207,6 +215,11 @@ export const getTestResetPreview = async (env: ResetEnv) => {
       monasticRegistryChanges: n(main.monastic_registry_changes),
       monasticRegistryAttachments: n(main.monastic_registry_attachments),
       monasticCertificates: n(main.monastic_certificates),
+      monkCards: n(cardCounts?.cards),
+      monkCardChanges: n(cardCounts?.changes),
+      monkCardAttachments: n(cardCounts?.attachments),
+      monkCardNumbers: n(cardCounts?.numbers),
+      monkCardSequences: n(cardCounts?.sequences),
       foreignApplicationForms: n(main.foreign_application_forms),
       foreignResidenceForms: n(main.foreign_residence_forms),
       foreignIntegratedForms: n(main.foreign_integrated_forms),
@@ -292,6 +305,12 @@ export const resetAllTestData = async (env: ResetEnv, user: SessionUser) => {
   // R2의 고아 파일까지 빠짐없이 확인하도록 두 버킷 연결을 필수로 확인합니다.
   // 삭제 전 미리보기 쿼리로 현재 DB 스키마와 모든 관련 테이블 조회 가능 여부를 검증합니다.
   if (!env.FILES || !env.ACCOUNTING_FILES) throw new Error('일괄 초기화는 메인·회계 R2 저장소(FILES, ACCOUNTING_FILES)가 모두 연결되어야 합니다.');
+  // V106: do not cascade an older bulk-reset feature into a regulated card ledger.
+  const cardTable = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='monk_cards'").first();
+  if (cardTable) {
+    const cardCount = await env.DB.prepare('SELECT COUNT(*) AS count FROM monk_cards').first<{count:number}>();
+    if(Number(cardCount?.count||0)>0) throw new Error('승려증 발급대장이 존재하여 전체 초기화를 중단했습니다. 발급번호 재사용과 연계 문서 손실을 방지합니다.');
+  }
   await getTestResetPreview(env);
   const [mainFiles, accountingFiles] = await Promise.all([
     collectMainFileKeys(env),

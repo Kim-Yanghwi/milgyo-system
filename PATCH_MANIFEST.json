@@ -1,0 +1,88 @@
+{
+  "version": "V106",
+  "base_archive": "milgyo-system-main.zip",
+  "base_sha256": "9148c840336c6474629fdd769abecffef0a01e64a9f59b0ee65bd54aae2c9829",
+  "migration": "migrations/main/0014_v106_monk_card_ledger.sql",
+  "updated_files": [
+    {
+      "path": "functions/_shared/helpers.ts",
+      "before_sha256": "4e1b335b6801edb4fdf01be1ae5caa4ac0d834f0666aeb3c288ba51d2ec0d3da",
+      "after_sha256": "9f25d509df7448c0ebc78cb7b70bcb573244d9f4551337eca720b05e1e55a27b"
+    },
+    {
+      "path": "functions/_shared/test-data-reset.ts",
+      "before_sha256": "de227d204e51c850e1085b25b94a1cc16137229dca51f73e071deb564ae425b8",
+      "after_sha256": "ac325d6bf7ba20de03b4c68be8f3414a61cc18578f07fc6c7106dc6b07c51dc2"
+    },
+    {
+      "path": "functions/api/documents/create.ts",
+      "before_sha256": "ea70d1ee65771b2e3418f58cb915ddb36ea46d218815c2c10064d50629d42342",
+      "after_sha256": "5f982e5d6ae53e05782b04a4c1bf0b791814039457b64f1b1101c89bfa1dacea"
+    },
+    {
+      "path": "src/layouts/ManagementLayout.astro",
+      "before_sha256": "1abc80fe895b1e96d002b86d91e48e8fa4c4daf62eb9e4fd6bb01f61a9d31e64",
+      "after_sha256": "6f43ce157ec850301d485116be88e5e7dac5a17cfecaf3df54c5bdf2aaa699cc"
+    },
+    {
+      "path": "src/pages/index.astro",
+      "before_sha256": "b2683462d71b1b377e9288526e7e9172f3cfeaa9be13f54a3865af161cef2bcc",
+      "after_sha256": "5d38e5cf390e81edac7a1f10aa401fc6af5058ecb3781b0c7181ecdeba14f0cb"
+    }
+  ],
+  "new_files": [
+    {
+      "path": "APPLY_MONK_CARD_V106_KO.md",
+      "sha256": "94a0dccf9cec35053537ef537f071a71a7c72b48ee00576a70f9d08bb40a0539"
+    },
+    {
+      "path": "database/V106_MONK_CARD_CHECK.sql",
+      "sha256": "44b3ac0fa12e290f63df8148c0ecc68f870fd76abc306118bd48c7084a3368c7"
+    },
+    {
+      "path": "functions/_shared/monk-card-application.ts",
+      "sha256": "8726c4c0673e328fb3a6b24d64013dd099c1b14a920aa6c3fe7668ae43f0ce43"
+    },
+    {
+      "path": "functions/_shared/monk-card-templates.ts",
+      "sha256": "270da9156c54a0cf71aad9da2ffbdafd862bf38f548990e50591997bdd17f728"
+    },
+    {
+      "path": "functions/_shared/monk-cards.ts",
+      "sha256": "3c9bc6d7809cc0f8b988fe2058678f09d85f4b7b6ca099de37c47910629eb4e1"
+    },
+    {
+      "path": "functions/api/monk-cards/action.ts",
+      "sha256": "77bad7789e0e47287cbaa54344bfb1249b1c2d94a4464ee8c499a4126662ddd6"
+    },
+    {
+      "path": "functions/api/monk-cards/attachment-data.ts",
+      "sha256": "f397cb6597d68458e68e3529e431245aac76dcb2718ed6f800e73ce581a01532"
+    },
+    {
+      "path": "functions/api/monk-cards/delete-attachment.ts",
+      "sha256": "718c0512ed03623c1c3feeed8fc776afb0990ac285ed69903a3b426609c6a467"
+    },
+    {
+      "path": "functions/api/monk-cards/query.ts",
+      "sha256": "61b49f53ce89a0beee07d8bf3d40190c9f574b7072006c2e6bc1fc42e330a256"
+    },
+    {
+      "path": "functions/api/monk-cards/upload-attachment.ts",
+      "sha256": "ab4788059afd1598167aef58027e9abead2bfb7235da0a7c802d189f481225d3"
+    },
+    {
+      "path": "migrations/main/0014_v106_monk_card_ledger.sql",
+      "sha256": "d9634a72bf9029f63c7408818614cd8be60619a2ff25417d0fd6403bd54922cc"
+    },
+    {
+      "path": "src/pages/monk-card-register.astro",
+      "sha256": "cf15598d4efd4eb198ef7ecb2f05757fcb2230f25ee8887daf2389a94a653917"
+    },
+    {
+      "path": "tests/v106-monk-card-ledger.test.ts",
+      "sha256": "20c626e64f22848cb2420f507ec929fab45354291be2054dcff49fc3075fb010"
+    }
+  ],
+  "note": "Apply to the matching latest source. Preview and Production D1 migrations are separate. No cloud deployment performed."
+}
