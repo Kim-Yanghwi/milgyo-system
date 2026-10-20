@@ -22,8 +22,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!auth.ok) return json({ ok: false, code: auth.code, message: auth.message }, auth.status);
 
     const includeInactive = !!payload.includeInactive && auth.user.role === 'admin';
+    // Personnel numbers may be sensitive; do not return them to ordinary users.
+    const personnelColumn = auth.user.role === 'admin' ? 'personnel_no' : "'' AS personnel_no";
     const rows = await env.DB.prepare(`
-      SELECT CAST(id AS TEXT) AS id, name, username, position, grade, department, role, can_approve, can_accounting, active, created_at
+      SELECT CAST(id AS TEXT) AS id, name, username, position, grade, ${personnelColumn}, department, role, can_approve, can_accounting, active, created_at
       FROM system_users
       ${includeInactive ? '' : 'WHERE active = 1'}
       ORDER BY

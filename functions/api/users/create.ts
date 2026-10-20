@@ -22,6 +22,7 @@ type CreatePayload = {
   password?: string;
   position?: string;
   grade?: string;
+  personnelNo?: string;
   department?: string;
   role?: string;
   canApprove?: boolean;
@@ -36,6 +37,7 @@ const createAccount = async (
     passwordHash: string;
     position: string;
     grade: string;
+    personnelNo: string;
     department: string;
     role: 'admin' | 'audit' | 'user';
     canApprove: boolean;
@@ -47,6 +49,7 @@ const createAccount = async (
   passwordHash: input.passwordHash,
   position: input.position || null,
   grade: input.grade || null,
+  personnelNo: input.personnelNo,
   department: input.department || null,
   role: input.role,
   canApprove: input.canApprove,
@@ -76,6 +79,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (password.length > 200) return json({ ok: false, code: 'PASSWORD_TOO_LONG', message: '\ube44\ubc00\ubc88\ud638\ub294 200\uc790 \uc774\ud558\ub85c \uc785\ub825\ud574 \uc8fc\uc138\uc694.' }, 400);
     const position = normalizePositionValue(payload.position);
     const grade = clean(payload.grade, 20);
+    const personnelNo = typeof payload.personnelNo === 'string' ? payload.personnelNo.trim() : '';
+    if (personnelNo && !/^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$/.test(personnelNo))
+      return json({ ok: false, message: '사번(승적번호)은 영문·숫자·하이픈·밑줄을 포함한 40자 이하로 입력해 주세요.' }, 400);
     const department = normalizeDepartmentValue(payload.department, position);
     const role: 'admin' | 'audit' | 'user' = payload.role === 'admin' ? 'admin' : payload.role === 'audit' ? 'audit' : 'user';
     const canApprove = !!payload.canApprove || role === 'admin';
@@ -90,8 +96,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       .bind(username).first();
     if (existing) return json({ ok: false, message: '이미 사용 중인 아이디입니다.' }, 400);
 
+    // Fail closed until the additive 0015 migration has been applied to this D1.
+    try { await env.DB.prepare('SELECT personnel_no FROM system_users LIMIT 1').all(); }
+    catch { return json({ ok: false, message: '계정 DB 0015 마이그레이션 적용 후 이용해 주세요.' }, 409); }
+    if (personnelNo) {
+      const exists = await env.DB.prepare('SELECT id FROM system_users WHERE personnel_no=? COLLATE NOCASE LIMIT 1').bind(personnelNo).first();
+      if (exists) return json({ ok: false, message: '이미 등록된 사번(승적번호)입니다.' }, 409);
+    }
     const passwordHash = await hashPassword(password);
-    const input = { name, username, passwordHash, position, grade, department, role, canApprove, canAccounting };
+    const input = { name, username, passwordHash, position, grade, personnelNo, department, role, canApprove, canAccounting };
 
     const findCreatedAccount = async () => env.DB.prepare(`
       SELECT CAST(id AS TEXT) AS id, name FROM system_users WHERE username = ? COLLATE NOCASE LIMIT 1
@@ -129,6 +142,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('user create failed', error);
+    if (/unique constraint failed: system_users\.personnel_no|idx_system_users_personnel_no/i.test(message)) {
+      return json({ ok: false, message: '이미 등록된 사번(승적번호)입니다.' }, 409);
+    }
     if (/unique constraint failed: system_users\.username|idx_system_users_username/i.test(message)) {
       return json({ ok: false, message: '이미 사용 중인 아이디입니다.' }, 400);
     }

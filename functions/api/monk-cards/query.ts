@@ -4,7 +4,7 @@ export const onRequestPost: PagesFunction<MonkCardEnv> = async ({request,env})=>
  const op=clean(p.operation,40)||'list';
  if(op==='options')return json({ok:true,me:{id:user.id,name:user.name},today:cardToday(),issueTypes:CARD_TYPES,fileTypes:CARD_FILE_TYPES,labels:cardLabels,
   applicationTemplate:CARD_TEMPLATE_ID,consentTemplate:CARD_CONSENT_TEMPLATE_ID});
- if(op==='number-preview')return json({ok:true,estimated:true,number:await reserveCardNumber(env.DB,clean(p.round,2),clean(p.issueDate,10),true)});
+ if(op==='number-preview')return json({ok:true,estimated:true,number:await reserveCardNumber(env.DB,clean(p.issueDate,10),true)});
  if(op==='registry-detail'){
   const r=await env.DB.prepare(`SELECT ${cardPublicFields} FROM monastic_registry WHERE id=?`).bind(clean(p.id,80)).first<Row>();
   return r?json({ok:true,row:registryDefaults(r)}):json({ok:false,message:'승적원부를 찾을 수 없습니다.'},404);

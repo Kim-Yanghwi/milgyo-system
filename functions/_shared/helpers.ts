@@ -1460,6 +1460,7 @@ export type NewSystemUser = {
   passwordHash: string;
   position?: string | null;
   grade?: string | null;
+  personnelNo?: string | null;
   department?: string | null;
   role: 'admin' | 'audit' | 'user';
   canApprove: boolean;
@@ -1494,6 +1495,7 @@ export const insertSystemUser = async (db: D1Database, input: NewSystemUser) => 
     password_hash: input.passwordHash,
     position: input.position || null,
     grade: input.grade || null,
+    personnel_no: input.personnelNo || '',
     department: input.department || null,
     role: input.role,
     can_approve: input.canApprove ? 1 : 0,
@@ -1519,7 +1521,7 @@ export const insertSystemUser = async (db: D1Database, input: NewSystemUser) => 
   }
 
   const preferredColumns = [
-    'id', 'name', 'username', 'password_hash', 'position', 'grade', 'department', 'role',
+    'id', 'name', 'username', 'password_hash', 'position', 'grade', 'personnel_no', 'department', 'role',
     'can_approve', 'can_accounting', 'active', 'created_at', 'updated_at', 'is_admin', 'is_active', 'approval_enabled',
   ];
   const insertColumns = preferredColumns
