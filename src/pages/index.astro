@@ -129,6 +129,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           <p class="sidebar-group__title">대장관리기능</p>
           <a class="sidebar-link sidebar-external-link" href="/register-management">공고·관인·인영 대장</a>
           <a class="sidebar-link sidebar-external-link" href="/monastic-register">승적원부 대장</a>
+          <a class="sidebar-link sidebar-external-link" href="/monk-card-register">승려증 발급 관리대장</a>
           <a class="sidebar-link sidebar-external-link" href="/vehicle-register" data-accounting-access-link hidden>업무용 차량 관리대장</a>
         </div>
 
@@ -1369,10 +1370,17 @@ import GovLayout from '../layouts/GovLayout.astro';
         if (!activeTemplate || !bodyAuto) return;
         const values = getTemplateValues();
         $('#c-body').value = fillTemplate(activeTemplate.body_template || '', values).trim();
-        const subject = values.subject || values.businessName || values.meetingName || values.payee || '';
+        const subject = values.subject || values.businessName || values.meetingName || values.payee || values.dharmaNameKo || '';
         if (subject && titleAuto) $('#c-title').value = `${activeTemplate.title_prefix || ''}${subject}`.slice(0, 200);
       };
       const applyTemplate = (template, values = {}) => {
+        if(template?.fields?.some(f=>f.id==='cardPrivacyConsent')) {
+          const scope=composeForm.elements.accessScope; if(scope)scope.value='관련자';
+          const modeInput=composeForm.querySelector('input[name="approvalMode"][value="결재"]');
+          if(modeInput)modeInput.checked=true;
+          updateApprovalMode();
+        }
+
         activeTemplate = template || null; bodyAuto = true; titleAuto = true;
         $('[data-template-description]').textContent = template?.description || '서식을 선택하면 항목과 본문 구조가 자동으로 적용됩니다.';
         if (template) {
@@ -1949,7 +1957,11 @@ import GovLayout from '../layouts/GovLayout.astro';
               if (!allTemplates.length) await refreshTemplates();
               const template = findTemplate(templateId);
               if (template) {
-                const values = await vehicleTemplatePrefill(templateId, params.get('vehicleId'));
+                let values = await vehicleTemplatePrefill(templateId, params.get('vehicleId'));
+                if (templateId === 'TPL-MONK-CARD-APPLICATION' && params.get('monkRegistryId')) {
+                  const result = await callApi('/api/monk-cards/query', {operation:'registry-detail',id:params.get('monkRegistryId')});
+                  if(result.ok && result.row) values = { ...result.row, applicantName: result.row.dharmaNameKo };
+                }
                 applyTemplate(template, values);
                 statusEl.textContent = `${template.name} 서식을 적용했습니다.`;
               } else {
@@ -1958,6 +1970,7 @@ import GovLayout from '../layouts/GovLayout.astro';
             }
           } catch (error) { console.error('문서작성 바로가기 실행 실패', error); }
         }, 50);
+        if(params.get('document')) setTimeout(()=>openDetail(params.get('document')), 100);
         if (params.get('receivedCreate') === '1') setTimeout(() => $('[data-open-received]')?.click(), 50);
         if (params.get('templates') === '1') setTimeout(() => $('[data-open-templates]')?.click(), 50);
         if (params.get('users') === '1') setTimeout(() => $('[data-open-users]')?.click(), 50);

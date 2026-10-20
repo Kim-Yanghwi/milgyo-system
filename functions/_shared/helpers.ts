@@ -1,3 +1,4 @@
+import { MONK_CARD_TEMPLATES } from './monk-card-templates';
 import { authenticateSessionRecord, type SessionResult, type SessionUser } from './security/sessions';
 import { reserveAuthAttempt } from './security/rate-limit';
 export { createSession, destroySession, getSessionToken, sessionCookie, SESSION_TTL_MS } from './security/sessions';
@@ -246,6 +247,7 @@ export type TemplateField = {
 };
 
 const BUILT_IN_TEMPLATES = [
+  ...MONK_CARD_TEMPLATES,
   {
     id: 'TPL-GENERAL', name: '일반 기안서(내부결재)', description: '업무계획, 협조요청, 승인요청, 개선안 등 일반 내부기안',
     docType: '기안', category: ROUTINE_CATEGORY, titlePrefix: '[일반기안] ',
