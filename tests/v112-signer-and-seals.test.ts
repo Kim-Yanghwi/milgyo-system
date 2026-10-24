@@ -94,8 +94,8 @@ test('V112 both composer and persisted document use the same seal switching, and
   assert.match(page,/img\.dataset\.sealIntended === 'true' \|\| !img\.closest\('\[hidden\]'\)/);
   assert.match(page,/if \(img\.dataset\.sealIntended === 'true' && !img\.getAttribute\('src'\)\)/);
   assert.match(page,/images\.filter\(img => img\.dataset\.sealIntended === 'true'\)\.forEach/);
-  assert.match(page,/\.chongmuwonjang-seal\s*\{ right: -0\.55rem; \}/);
-  assert.match(page,/\.chongmuwonjang-seal\{right:-10px\}/);
+  assert.match(page,/\.chongmuwonjang-seal\s*\{ left: calc\(100% - 0\.5em\); right: auto; \}/);
+  assert.match(page,/\.chongmuwonjang-seal\{left:calc\(100% - 0\.5em\);right:auto\}/);
   assert.match(page,/data-preview-seal-warning hidden/);
   assert.match(page,/data-detail-preview-seal-warning hidden/);
   assert.match(page,/image\.dataset\.sealFailed = 'true'/);
@@ -118,4 +118,19 @@ test('V112 original official PNG bytes included, with private Pages function rou
   assert.ok(routes.include.includes('/*'));
   assert.ok(!routes.exclude.some((p:string)=>p.includes('chongmuwonjang')||p.includes('secretary_general')));
   assert.match(readFileSync('scripts/security/browser-harness.mjs','utf8'), /path === '\/chongmuwonjang_seal\.png'/);
+});
+
+test('V113 총무원장 직인 좌측 모서리는 마지막 글자 장의 중앙에서 시작하고 미리보기·인쇄에 일치한다', () => {
+  const screen = page.match(/\.chongmuwonjang-seal \{([^}]+)\}/)?.[1] || '';
+  const print = page.match(/\.chongmuwonjang-seal\{([^}]+)\}/)?.[1] || '';
+  for (const declaration of [screen, print]) {
+    assert.match(declaration, /left:\s*calc\(100% - 0\.5em\)/,
+      'The seal must start half a Hangul glyph before the title right edge');
+    assert.match(declaration, /right:\s*auto/,
+      'Reset the previous right-positioned seal so it cannot obscure earlier letters');
+  }
+  assert.match(page, /\.secretary-general-seal \{[\s\S]*?right:\s*-1\.38rem/,
+    'The unrelated 사무총장 seal should keep its original screen position');
+  assert.match(page, /\.secretary-general-seal\{[^}]*right:-28px/,
+    'The unrelated 사무총장 seal should keep its original print position');
 });
