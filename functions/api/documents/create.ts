@@ -31,6 +31,8 @@ type CreatePayload = {
   via?: string;
   approvalTrackChoice?: string;
   approvalMode?: string;
+  actingForUserId?: string;
+  actingReason?: string;
   reviewerUserId?: string;
   reviewerUserIds?: unknown;
   cooperatorUserIds?: unknown;
@@ -42,7 +44,7 @@ type CreatePayload = {
 };
 
 type ApprovalLineInput = {
-  lineType: '검토' | '협조' | '결재' | '전결';
+  lineType: '검토' | '협조' | '결재' | '전결' | '대결' | '전대결';
   userId: string;
   userName: string;
   userPosition: string | null;
@@ -52,7 +54,8 @@ type UserRow = { id: string; name: string; position: string | null; can_approve:
 
 const VALID_DOC_TYPES = ['기안', '발송'];
 const VALID_ACCESS_SCOPES = ['전체', '관련자'];
-const VALID_APPROVAL_MODES = ['결재', '전결'];
+const VALID_APPROVAL_MODES = ['결재', '전결', '대결', '전대결'];
+const isProxyMode = (mode: string) => mode === '대결' || mode === '전대결';
 const MAX_PEOPLE_PER_ROLE = 10;
 const isClientRequestUniqueError=(error:unknown)=>/UNIQUE constraint failed:\s*documents\.client_request_id|idx_documents_request_id/i.test(error instanceof Error?error.message:String(error));
 
@@ -77,7 +80,7 @@ const sanitizeIdList = (raw: unknown, fallback?: string) => {
 const statusForLineType = (lineType: ApprovalLineInput['lineType']) => {
   if (lineType === '검토') return '검토대기';
   if (lineType === '협조') return '협조대기';
-  if (lineType === '전결') return '전결대기';
+  if (lineType === '전결' || lineType === '전대결') return '전결대기';
   return '결재대기';
 };
 
@@ -110,6 +113,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ ok: false, message: `검토자와 협조자는 각각 최대 ${MAX_PEOPLE_PER_ROLE}명까지 지정할 수 있습니다.` }, 400);
   }
   let approverUserId = clean(payload.approverUserId, 60);
+  const actingForUserId = clean(payload.actingForUserId, 60);
+  const actingReason = clean(payload.actingReason, 400);
   const templateId = clean(payload.templateId, 60);
   let templateName = clean(payload.templateName, 100);
   const formData = sanitizeFormData(payload.formData);
@@ -179,28 +184,44 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const isImportant = (IMPORTANT_CATEGORIES as readonly string[]).includes(category);
   const requestedMode = clean(payload.approvalMode, 10);
-  const approvalMode = VALID_APPROVAL_MODES.includes(requestedMode) ? requestedMode : (isImportant ? '결재' : '전결');
-  const approvalTrack = approvalMode === '전결'
+  if (requestedMode && !VALID_APPROVAL_MODES.includes(requestedMode)) {
+    return json({ ok: false, message: '지원하지 않는 최종 처리방식입니다.' }, 400);
+  }
+  const approvalMode = requestedMode || (isImportant ? '결재' : '전결');
+  const isProxy = isProxyMode(approvalMode);
+  // '전대결'은 전결권자의 직무대리이지 신규 전결권을 뜻하지 않습니다.
+  const approvalTrack = ['전결','전대결'].includes(approvalMode)
     ? '전결'
     : isImportant ? resolveApprovalTrack(category, approvalTrackChoice) : '일반결재';
-
   if (approvalMode === '전결' && !approverUserId) approverUserId = me.id;
-
+  if (!saveAsDraft && isProxy) {
+    if (me.role !== 'admin') return json({ ok: false, message: '대결·전대결은 관리자가 직무대행 지정 근거를 확인한 뒤 상신할 수 있습니다.' }, 403);
+    if (isImportant) return json({ ok: false, message: '총회·이사회 등 중요 의결대상 문서는 대결·전대결로 처리할 수 없습니다.' }, 400);
+    if (!actingForUserId || !approverUserId || actingForUserId === approverUserId) {
+      return json({ ok: false, message: '원 결재권자와 별도의 대결자를 각각 지정해 주세요.' }, 400);
+    }
+    if (actingReason.length < 10) return json({ ok: false, message: '부재 사유 및 직무대행 지정 근거를 10자 이상 입력해 주세요.' }, 400);
+    if (reviewerUserIds.includes(actingForUserId) || cooperatorUserIds.includes(actingForUserId)) {
+      return json({ ok: false, message: '원 결재권자를 검토자·협조자로 지정할 수 없습니다.' }, 400);
+    }
+    if (approverUserId === me.id) return json({ ok: false, message: '대결 지정 관리자는 자신을 대결자로 지정하여 즉시 승인할 수 없습니다.' }, 400);
+  }
   const allSelectedIds = [...reviewerUserIds, ...cooperatorUserIds, ...(approverUserId ? [approverUserId] : [])];
   if (new Set(allSelectedIds).size !== allSelectedIds.length) {
     return json({ ok: false, message: '검토자·협조자·최종 처리자는 서로 다르게 지정해 주세요.' }, 400);
   }
+  const lookupIds = [...allSelectedIds, ...(isProxy && actingForUserId ? [actingForUserId] : [])].filter((id,index,list) => list.indexOf(id)===index);
   if (!saveAsDraft && reviewerUserIds.includes(me.id)) return json({ ok: false, message: '기안자 본인을 검토자로 지정할 수 없습니다.' }, 400);
   if (!saveAsDraft && cooperatorUserIds.includes(me.id)) return json({ ok: false, message: '기안자 본인을 협조자로 지정할 수 없습니다.' }, 400);
   if (!saveAsDraft && !approverUserId) return json({ ok: false, message: `${approvalMode}자를 지정해 주세요.` }, 400);
 
   const userMap = new Map<string, UserRow>();
-  if (allSelectedIds.length) {
-    const placeholders = allSelectedIds.map(() => '?').join(',');
+  if (lookupIds.length) {
+    const placeholders = lookupIds.map(() => '?').join(',');
     const users = await env.DB.prepare(`SELECT CAST(id AS TEXT) AS id, name, position, can_approve, active FROM system_users WHERE CAST(id AS TEXT) IN (${placeholders})`)
-      .bind(...allSelectedIds).all<UserRow>();
+      .bind(...lookupIds).all<UserRow>();
     for (const user of users.results ?? []) userMap.set(user.id, user);
-    const missing = allSelectedIds.filter((id) => !userMap.get(id)?.active);
+    const missing = lookupIds.filter((id) => !userMap.get(id)?.active);
     if (missing.length) return json({ ok: false, message: '선택한 검토자·협조자·처리자 중 사용 중지되었거나 찾을 수 없는 계정이 있습니다.' }, 400);
   }
 
@@ -208,6 +229,26 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (approverUserId && !finalApprover) return json({ ok: false, message: `지정한 ${approvalMode}자를 찾을 수 없습니다.` }, 400);
   if (!saveAsDraft && finalApprover && !finalApprover.can_approve && !(approvalMode === '전결' && finalApprover.id === me.id)) {
     return json({ ok: false, message: `${approvalMode}권이 없는 계정입니다. 계정관리에서 결재권을 부여해 주세요.` }, 400);
+  }
+  // Untrusted formData may contain purported delegation claims: never copy them to a signed record.
+  for (const key of ['_actingForUserId','_actingForName','_actingForPosition','_actingReason','_actingDesignatedBy','_actingDesignatedById']) delete formData[key];
+  if (isProxy) {
+    if (saveAsDraft) {
+      // A draft is not a valid designation; keep only editable inputs.
+      formData._actingForUserId = actingForUserId;
+      formData._actingReason = actingReason;
+    } else {
+      const origin = userMap.get(actingForUserId);
+      if (!origin?.active || !origin.can_approve) return json({ ok: false, message: '원 결재·전결권자는 활성 결재권 계정이어야 합니다.' }, 400);
+      formData._actingForUserId = origin.id;
+      formData._actingForName = origin.name;
+      formData._actingForPosition = origin.position || '';
+      formData._actingReason = actingReason;
+      formData._actingDesignatedBy = me.name;
+      formData._actingDesignatedById = me.id;
+      // The original authority and delegate designation basis are related-person material.
+      accessScope = '관련자';
+    }
   }
 
   const lines: ApprovalLineInput[] = [];
@@ -220,13 +261,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (user) lines.push({ lineType: '검토', userId: user.id, userName: user.name, userPosition: user.position });
   });
   if (finalApprover) lines.push({
-    lineType: approvalMode as '결재' | '전결',
+    lineType: approvalMode as '결재' | '전결' | '대결' | '전대결',
     userId: finalApprover.id,
     userName: finalApprover.name,
     userPosition: finalApprover.position,
   });
 
   const selfImmediateApproval = !saveAsDraft
+    && !isProxy
     && finalApprover?.id === me.id
     && reviewerUserIds.length === 0
     && cooperatorUserIds.length === 0;

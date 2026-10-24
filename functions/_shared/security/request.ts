@@ -79,7 +79,7 @@ export function isProtectedSealPath(path: string): boolean {
   let decoded: string;
   try { decoded = canonicalRequestPath(path); } catch { return true; }
   // Known assets only. No change to the original seal image or overlay styles.
-  return /^\/(?:organization-seal(?:-official)?\.png|secretary_general\.png|signature-seals(?:\/|$)|certificates\/ordination\/(?:organization-seal|top-seal)\.png)/i.test(decoded);
+  return /^\/(?:organization-seal(?:-official)?\.png|secretary_general\.png|chongmuwonjang_seal\.png|signature-seals(?:\/|$)|certificates\/ordination\/(?:organization-seal|top-seal)\.png)/i.test(decoded);
 }
 
 export function hardenResponse(response: Response, request: Request, requestId: string): Response {

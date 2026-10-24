@@ -27,6 +27,7 @@ const server = createServer(async (incoming, outgoing) => {
     const response = await onRequest({ ...context(req), next: async (forwarded = req) => {
       if (functions[path]) return functions[path](context(forwarded));
       if (path === '/secretary_general.png') return new Response(readFileSync('public/secretary_general.png'), { headers: { 'Content-Type':'image/png' } });
+      if (path === '/chongmuwonjang_seal.png') return new Response(readFileSync('public/chongmuwonjang_seal.png'), { headers: { 'Content-Type':'image/png' } });
       if (path === '/api/temporary-error') return Response.json({ ok:false, message:'temporary SQL failure' }, { status:503 });
       if (path === '/api/raw-401') return Response.json({ok:false, message:'upstream'}, {status:401});
       if (path === '/api/html-gateway') return new Response('<h1>Access login</h1>', {status:401, headers:{'Content-Type':'text/html'}});

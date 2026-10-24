@@ -83,6 +83,8 @@ export const normalizeDepartmentValue = (value: unknown, position = '') => {
 export const formatDepartmentDisplay = (value: unknown, position = '') => {
   const normalized = normalizeDepartmentValue(value, position);
   if (!normalized) return '-';
+  // UI-only shorthand. Keep the canonical '사무처 - 사무국' value and the original hierarchy.
+  if (normalized === '사무처 - 사무국') return '사무국';
   const parts = normalized.split(/\s+-\s+/).map((part) => part.trim()).filter(Boolean);
   return parts.length > 1 ? `${parts[0]}(${parts.slice(1).join(' - ')})` : parts[0];
 };
@@ -392,7 +394,7 @@ const BUILT_IN_TEMPLATES = [
     fields: [
       { id: 'subject', label: '결산 건명', type: 'text', required: true, width: 'full' },
       { id: 'submissionDate', label: '제출일', type: 'date', required: true, width: 'half' },
-      { id: 'organization', label: '제출기구', type: 'select', required: true, options: ['사무처', '사무처(사무국)', '총무원', '부원장', '총무부', '교무부', '재무부', '법무감사부', '문화복지부', '교육·포교원', '재정국', '준법윤리국', '국제교류국', '문화홍보국', '사회공헌국', '사찰운영위원회', '진향회(향천사)', '활동거점', '기타'], width: 'half' },
+      { id: 'organization', label: '제출기구', type: 'select', required: true, options: ['사무처', '사무국', '총무원', '부원장', '총무부', '교무부', '재무부', '법무감사부', '문화복지부', '교육·포교원', '재정국', '준법윤리국', '국제교류국', '문화홍보국', '사회공헌국', '사찰운영위원회', '진향회(향천사)', '활동거점', '기타'], width: 'half' },
       { id: 'submitter', label: '제출자', type: 'text', required: true, width: 'half' },
       { id: 'fiscalYear', label: '사업연도', type: 'number', required: true, defaultValue: '{{CURRENT_YEAR}}', width: 'half' },
       { id: 'businessName', label: '주요 사업명', type: 'text', required: true, width: 'full' },
@@ -826,7 +828,7 @@ const BUILT_IN_TEMPLATES = [
       { id: 'eventType', label: '구분', type: 'select', required: true, options: ['법회', '의례', '수행', '교육', '성지순례', '기타'], width: 'half' },
       { id: 'dateTime', label: '일시', type: 'text', required: true, width: 'half' },
       { id: 'place', label: '장소', type: 'text', required: true, width: 'half' },
-      { id: 'organization', label: '주관기구', type: 'select', required: true, options: ['총무원', '교육원', '포교원', '사무처', '사무처(사무국)', '기타'], width: 'half' },
+      { id: 'organization', label: '주관기구', type: 'select', required: true, options: ['총무원', '교육원', '포교원', '사무처', '사무국', '기타'], width: 'half' },
       { id: 'manager', label: '운영책임자', type: 'text', required: true, width: 'half' },
       { id: 'leader', label: '진행자 또는 수행지도자', type: 'text', required: true, width: 'half' },
       { id: 'target', label: '대상자', type: 'text', required: true, width: 'half' },

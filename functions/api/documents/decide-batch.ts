@@ -8,9 +8,9 @@ import {
 interface Env { DB: D1Database; ACCOUNTING_DB?: D1Database; }
 type DecideBatchPayload = { token?: string; ids?: unknown; action?: string; memo?: string };
 const MAX_BATCH = 50;
-type LineRow = { id:string; document_id:string; line_order:number; line_type:'검토'|'협조'|'결재'|'전결'; user_id:string; status:string };
-const statusForLineType = (lineType: LineRow['line_type']) => lineType === '검토' ? '검토대기' : lineType === '협조' ? '협조대기' : lineType === '전결' ? '전결대기' : '결재대기';
-const completedActionForLine = (lineType: LineRow['line_type']) => lineType === '검토' ? '검토완료' : lineType === '협조' ? '협조완료' : lineType === '전결' ? '전결' : '승인';
+type LineRow = { id:string; document_id:string; line_order:number; line_type:'검토'|'협조'|'결재'|'전결'|'대결'|'전대결'; user_id:string; status:string };
+const statusForLineType = (lineType: LineRow['line_type']) => lineType === '검토' ? '검토대기' : lineType === '협조' ? '협조대기' : (lineType === '전결' || lineType === '전대결') ? '전결대기' : '결재대기';
+const completedActionForLine = (lineType: LineRow['line_type']) => lineType === '검토' ? '검토완료' : lineType === '협조' ? '협조완료' : lineType === '전결' ? '전결' : lineType === '대결' ? '대결' : lineType === '전대결' ? '전대결' : '승인';
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.DB) return json({ ok:false, message:'DB가 연결되지 않았습니다.' },500);
@@ -49,7 +49,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const docLines=lineMap.get(String(row.id))||[],currentLine=docLines[0];
       let finalStatus='',recordedAction=action,role=me.position||'처리자';
       if(currentLine){
-        if(me.role!=='admin'&&currentLine.user_id!==me.id){skipped.push(row.id);continue}
+        if((['대결','전대결'].includes(currentLine.line_type)?(currentLine.user_id!==me.id||!me.can_approve):(me.role!=='admin'&&currentLine.user_id!==me.id))){skipped.push(row.id);continue}
         const expectedStatus=statusForLineType(currentLine.line_type);
         if(row.status!==expectedStatus){skipped.push(row.id);continue}
         role=`${currentLine.line_type}자`;
@@ -63,7 +63,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           statements.push(env.DB.prepare(`UPDATE document_approval_lines SET status='완료',acted_at=?,memo=? WHERE id=? AND status IN ('대기','예정')`).bind(now,memo||null,currentLine.id));
           if(nextLine)statements.push(env.DB.prepare(`UPDATE document_approval_lines SET status='대기' WHERE id=? AND status='예정'`).bind(nextLine.id));
         }
-      }else if(hasLines.has(String(row.id))){skipped.push(row.id);continue
+      }else if(hasLines.has(String(row.id))||['대결','전대결'].includes(row.approval_mode)){skipped.push(row.id);continue
       }else if(row.status==='검토대기'&&(me.role==='admin'||row.reviewer_user_id===me.id)){
         recordedAction=action==='승인'?'검토완료':'반려';finalStatus=recordedAction==='검토완료'?'결재대기':'반려';
       }else if(['결재대기','전결대기'].includes(row.status)&&(me.role==='admin'||row.approver_user_id===me.id)){

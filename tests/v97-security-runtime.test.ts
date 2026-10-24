@@ -174,7 +174,7 @@ test('invalid top-level JSON and invalid UTF8 fail before business handlers', ()
 
 test('encoded API aliases cannot bypass middleware, protected seal aliases identified', async () => {
   assert.equal(canonicalRequestPath('/%61pi/auth/login'), '/api/auth/login');
-  for (const path of ['/secretary_general.png', '/%73ecretary_general.png', '/signature-seals/test.png', '/certificates/ordination/top-seal.png']) assert.equal(isProtectedSealPath(path), true);
+  for (const path of ['/secretary_general.png', '/%73ecretary_general.png', '/chongmuwonjang_seal.png', '/%63hongmuwonjang_seal.png', '/signature-seals/test.png', '/certificates/ordination/top-seal.png']) assert.equal(isProtectedSealPath(path), true);
   for (const path of ['/logo.png', '/', '/system-session.js']) assert.equal(isProtectedSealPath(path), false);
   const r = await middleware({ ...ctx(null, request('/%61pi/auth/login')), next: () => { throw new Error('must not reach handler'); } } as any);
   assert.equal(r.status, 400); assert.equal((await r.json()).code, 'INVALID_API_PATH');
@@ -207,14 +207,17 @@ test('middleware forwards a bounded body and sanitizes server errors', async () 
 
 test('protected seal requires valid login; valid image response is private and original bytes unchanged', async () => {
   const db = new SQLiteD1(); try {
-    const req = new Request(base + '/secretary_general.png');
-    const denied = await middleware({ ...ctx(db, req), next: () => { throw new Error('not reached'); } } as any);
-    assert.equal(denied.status, 401);
     await user(db); const s = await createSession(db, 'u1');
     const bytes = new Uint8Array([137, 80, 78, 71]);
-    const response = await middleware({ ...ctx(db, new Request(req.url, { headers: { Cookie: credential(s.token) } })), next: async () => new Response(bytes, { headers: { 'Content-Type': 'image/png' } }) } as any);
-    assert.equal(response.status, 200); assert.equal(response.headers.get('Cache-Control'), 'private, no-store');
-    assert.deepEqual(new Uint8Array(await response.arrayBuffer()), bytes);
+    for (const asset of ['/secretary_general.png', '/chongmuwonjang_seal.png']) {
+      const req = new Request(base + asset);
+      const denied = await middleware({ ...ctx(db, req), next: () => { throw new Error('not reached'); } } as any);
+      assert.equal(denied.status, 401, `${asset} must require login`);
+      const response = await middleware({ ...ctx(db, new Request(req.url, { headers: { Cookie: credential(s.token) } })), next: async () => new Response(bytes, { headers: { 'Content-Type': 'image/png' } }) } as any);
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get('Cache-Control'), 'private, no-store');
+      assert.deepEqual(new Uint8Array(await response.arrayBuffer()), bytes);
+    }
   } finally { db.close(); }
 });
 
