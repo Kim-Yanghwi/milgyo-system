@@ -7,7 +7,9 @@ const read = (file: string) => readFileSync(file, 'utf8');
 test('사무총장 직인은 독립 자산으로만 추가되고 기존 종단 직인 코드는 유지된다', () => {
   const page = read('src/pages/index.astro');
   assert.equal(existsSync('public/secretary_general.png'), true);
-  assert.match(page, /src="\/secretary_general\.png" alt="사무총장 직인"/);
+  assert.match(page, /data-protected-seal-src="\/secretary_general\.png" alt="사무총장 직인"/);
+  assert.doesNotMatch(page, /data-preview-secretary-general-seal src=/);
+  assert.doesNotMatch(page, /data-detail-preview-secretary-general-seal src=/);
   assert.match(page, /const sealSource=orgSealImage\|\|'\/organization-seal-official\.png'/);
   assert.match(page, /\$\$\('\[data-stamp\]'\)/);
   assert.doesNotMatch(page, /data-preview-secretary-general-seal[^>]*data-stamp/);

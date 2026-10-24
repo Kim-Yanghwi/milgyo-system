@@ -404,7 +404,8 @@ import GovLayout from '../layouts/GovLayout.astro';
                   <span class="stamp-mark stamp-mark--image" data-stamp="preview"><img src="/organization-seal-official.png" alt="대한불교밀교종 직인" /></span>
                 </span>
                 <span class="official-doc__issuer-signer" data-preview-signer-wrap hidden><span data-preview-signer-position></span> <span data-preview-signer-name></span></span>
-                <span class="official-doc__issuer-department-title" data-preview-department-title hidden><span data-preview-department-title-text></span><img class="secretary-general-seal" data-preview-secretary-general-seal src="/secretary_general.png" alt="사무총장 직인" hidden /></span>
+                <span class="official-doc__issuer-department-title" data-preview-department-title hidden><span data-preview-department-title-text></span><img class="secretary-general-seal" data-preview-secretary-general-seal data-protected-seal-src="/secretary_general.png" alt="사무총장 직인" hidden /><img class="secretary-general-seal chongmuwonjang-seal" data-preview-chongmuwonjang-seal data-protected-seal-src="/chongmuwonjang_seal.png" alt="총무원장 직인" hidden /></span>
+                <span class="official-doc__seal-warning" data-preview-seal-warning hidden>직인을 불러오지 못했습니다. 새로고침하거나 로그인 상태를 확인해 주세요.</span>
               </div>
             </div>
             <p class="official-doc__footer">사단법인 대한불교밀교종 · milgyo.org</p>
@@ -659,7 +660,8 @@ import GovLayout from '../layouts/GovLayout.astro';
                   <span class="stamp-mark stamp-mark--image" data-detail-preview-stamp data-stamp="detail"><img src="/organization-seal-official.png" alt="대한불교밀교종 직인" /></span>
                 </span>
                 <span class="official-doc__issuer-signer" data-detail-preview-signer-wrap hidden><span data-detail-preview-signer-position></span> <span data-detail-preview-signer-name></span></span>
-                <span class="official-doc__issuer-department-title" data-detail-preview-department-title hidden><span data-detail-preview-department-title-text></span><img class="secretary-general-seal" data-detail-preview-secretary-general-seal src="/secretary_general.png" alt="사무총장 직인" hidden /></span>
+                <span class="official-doc__issuer-department-title" data-detail-preview-department-title hidden><span data-detail-preview-department-title-text></span><img class="secretary-general-seal" data-detail-preview-secretary-general-seal data-protected-seal-src="/secretary_general.png" alt="사무총장 직인" hidden /><img class="secretary-general-seal chongmuwonjang-seal" data-detail-preview-chongmuwonjang-seal data-protected-seal-src="/chongmuwonjang_seal.png" alt="총무원장 직인" hidden /></span>
+                <span class="official-doc__seal-warning" data-detail-preview-seal-warning hidden>직인을 불러오지 못했습니다. 새로고침하거나 로그인 상태를 확인해 주세요.</span>
               </div>
             </div>
             <p class="official-doc__footer">사단법인 대한불교밀교종 · milgyo.org</p>
@@ -854,6 +856,64 @@ import GovLayout from '../layouts/GovLayout.astro';
           && departmentHeadTitle === '사무총장'
           && path.primary === '사무처'
           && !path.secondary;
+      };
+      const shouldShowChongmuwonjangSeal = (issueDisplayMode, docType, department, departmentHeadTitle, position='') => {
+        const path = resolveDepartmentPath(department, position);
+        return issueDisplayMode === 'department-head'
+          && docType === '기안'
+          && departmentHeadTitle === '총무원장'
+          && path.primary === '총무원'
+          && !path.secondary;
+      };
+      // The protected files are only requested when the document requires the matching seal.
+      // Eager <img src> caused an anonymous 401 to leave a broken seal after login/department changes.
+      const updateProtectedSealWarning = (image) => {
+        const container = image.closest?.('[data-official-doc]');
+        const warning = container?.querySelector('[data-preview-seal-warning], [data-detail-preview-seal-warning]');
+        if (!warning) return;
+        const failed = Array.from(container.querySelectorAll('img[data-protected-seal-src]'))
+          .some((seal) => seal.dataset.sealIntended === 'true' && seal.dataset.sealFailed === 'true');
+        warning.hidden = !failed;
+      };
+      const syncProtectedSeal = (image, required) => {
+        if (!image) return;
+        image.dataset.sealIntended = required ? 'true' : 'false';
+        if (!required) {
+          image.hidden = true;
+          image.dataset.sealFailed = 'false';
+          image.removeAttribute('src');
+          updateProtectedSealWarning(image);
+          return;
+        }
+        const source = image.dataset.protectedSealSrc;
+        if (!source) return;
+        if (image.getAttribute('src') !== source) {
+          image.hidden = true;
+          image.dataset.sealFailed = 'false';
+          updateProtectedSealWarning(image);
+          image.onload = () => {
+            if (image.dataset.sealIntended === 'true' && image.getAttribute('src') === source) {
+              image.hidden = false;
+              image.dataset.sealFailed = 'false';
+              updateProtectedSealWarning(image);
+            }
+          };
+          image.onerror = () => {
+            if (image.dataset.sealIntended !== 'true') return;
+            image.hidden = true;
+            image.dataset.sealFailed = 'true';
+            updateProtectedSealWarning(image);
+          };
+          image.setAttribute('src', source);
+        } else if (image.complete && image.naturalWidth > 0) {
+          image.hidden = false;
+        }
+      };
+      const syncDocumentHeadSeals = (prefix, issueDisplayMode, docType, department, departmentHeadTitle, position='') => {
+        syncProtectedSeal($(`[data-${prefix}-secretary-general-seal]`),
+          shouldShowSecretaryGeneralSeal(issueDisplayMode, department, departmentHeadTitle, position));
+        syncProtectedSeal($(`[data-${prefix}-chongmuwonjang-seal]`),
+          shouldShowChongmuwonjangSeal(issueDisplayMode, docType, department, departmentHeadTitle, position));
       };
       const departmentParentLabel = (dep) => dep.name;
       const renderDepartmentOptions = (placeholder = '담당부서 선택(선택)') => `<option value="">${esc(placeholder)}</option>` + departmentTree.map((dep) => {
@@ -1489,7 +1549,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       const signerPositionSelect = $('[data-issue-signer-position-select]');
       const signerPositionCustom = $('[data-issue-signer-position-custom]');
       const signerPositionValue = composeForm.elements.issueSignerPosition;
-      const signerPositionOptions = Array.from($('#office-position-suggestions')?.options || []).map((option) => option.value).filter(Boolean);
+      const signerPositionOptions = ['이사장', '총무원장', '사무총장', '교육·포교원장'];
       signerPositionSelect.innerHTML = '<option value="">직함을 선택해 주세요</option>'
         + signerPositionOptions.map((position) => `<option value="${esc(position)}">${esc(position)}</option>`).join('')
         + '<option value="__custom__">직접입력</option>';
@@ -1560,7 +1620,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         $('[data-preview-signer-name]').textContent = signerEnabled ? String(composeForm.elements.issueSignerName?.value || '') : '';
         $('[data-preview-department-title]').hidden = issueDisplayMode !== 'department-head';
         $('[data-preview-department-title-text]').textContent = issueDisplayMode === 'department-head' ? (departmentHeadTitle || '담당부서장 직책 미지정') : '';
-        $('[data-preview-secretary-general-seal]').hidden = !shouldShowSecretaryGeneralSeal(issueDisplayMode, data.get('department'), departmentHeadTitle, me.position || '');
+        syncDocumentHeadSeals('preview', issueDisplayMode, String(data.get('docType') || ''), data.get('department'), departmentHeadTitle, me.position || '');
       };
       composeForm.addEventListener('input', updatePreview); composeForm.addEventListener('change', updatePreview);
 
@@ -1722,7 +1782,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         $('[data-detail-preview-signer-name]').textContent=signerEnabled?(doc.form_data?._issueSignerName||''):'';
         $('[data-detail-preview-department-title]').hidden=issueDisplayMode!=='department-head';
         $('[data-detail-preview-department-title-text]').textContent=issueDisplayMode==='department-head'?(departmentHeadTitle||'담당부서장 직책 미지정'):'';
-        $('[data-detail-preview-secretary-general-seal]').hidden=!shouldShowSecretaryGeneralSeal(issueDisplayMode,doc.department,departmentHeadTitle,doc.drafter_position||'');
+        syncDocumentHeadSeals('detail-preview', issueDisplayMode, doc.doc_type, doc.department, departmentHeadTitle, doc.drafter_position||'');
         $('[data-detail-preview-stamp]').style.opacity=['승인','발송완료'].includes(doc.status)?'1':'0.25';
         const currentLine=findCurrentApprovalLine(currentDetailApprovalLines);
         const activeStatus=['검토대기','협조대기','결재대기','전결대기'].includes(doc.status);
@@ -1784,18 +1844,23 @@ import GovLayout from '../layouts/GovLayout.astro';
         const w=window.open('','_blank','width=900,height=1000');
         if(!w)return;
         w.document.write(`<html><head><meta charset="utf-8"><base href="${location.origin}/"><title>${esc(currentDetailDoc?.title||'문서')}</title><style>
-          body{font-family:Batang,serif;padding:30px;color:#222}.official-doc{max-width:720px;margin:auto}.official-doc__masthead{display:flex;flex-direction:column;align-items:stretch;margin-bottom:2px;width:100%}.official-doc__brand{display:flex;align-items:center;align-self:center;justify-content:center;gap:6px;white-space:nowrap}.official-doc__number-row{display:flex;justify-content:flex-end;align-items:flex-end;width:100%;min-height:13px;padding-top:2px;margin-bottom:1px}.official-doc__number{white-space:nowrap;text-align:right;font-size:10px;color:#666;margin:0}.official-doc__issue,.official-doc__footer{text-align:center}.official-doc__emblem{width:38px;height:38px;flex:0 0 38px;background:transparent;overflow:visible}.official-doc__emblem img{display:block;width:100%;height:100%;object-fit:contain;background:transparent;border:0;border-radius:0}.official-doc__orgname{margin:0;font-size:21px;line-height:1.2;letter-spacing:.1em}.official-doc__meta{border-top:2px solid #222;border-bottom:1px solid #222}.official-doc__meta-row{display:flex;gap:12px;padding:7px 4px;line-height:1.45}.official-doc__meta-row>span{width:48px}.official-doc__body{min-height:300px;white-space:pre-wrap;padding:24px 0 26px;font-size:14px;line-height:1.65}.official-doc__approval-strip{display:flex;flex-wrap:wrap;justify-content:flex-start;width:620px;max-width:100%;margin:12px auto 0 0}.approval-person{display:grid;grid-template-columns:30px minmax(70px,1fr) 20px;flex:0 0 126px;border:1px solid #777;margin:-1px 0 0 -1px;min-height:36px;font-size:8.7px}.approval-person>*{display:flex;align-items:center;justify-content:center;padding:2px}.approval-person>span{background:#f4f0e6;border-right:1px solid #777}.approval-person>strong{flex-direction:column;line-height:1.15;overflow:hidden}.approval-person>em{font-style:normal;border-left:1px solid #777}.approval-person b,.approval-person i{display:block;max-width:100%;white-space:nowrap;font-style:normal;font-weight:400}.approval-person b{overflow:visible;text-overflow:clip;font-size:8px;letter-spacing:-.04em}.approval-person i{overflow:hidden;text-overflow:ellipsis;font-size:8.5px}.official-doc__approval-meta{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;width:620px;max-width:100%;margin:4px auto 0 0}.official-doc__issue-department,.official-doc__issue-track--under{margin:0;font-size:10px;color:#666;white-space:nowrap}.official-doc__issue-department{text-align:left}.official-doc__issue-track--under{text-align:right}.official-doc__issue{margin-top:9px;padding-top:16px;border-top:1px solid #ddd}.official-doc__issue-name{position:relative;display:inline-flex;flex-direction:column;align-items:flex-end;gap:1px;font-size:18px;font-weight:700}.official-doc__issuer-org{position:relative;display:inline-block;line-height:1.45;padding-right:17px}.official-doc__issuer-org[hidden],.official-doc__issuer-signer[hidden]{display:none!important}.official-doc__issuer-org-text{position:relative;z-index:2;white-space:nowrap}.official-doc__issuer-signer{display:block;margin-right:17px;line-height:1.35;white-space:nowrap;text-align:right}.official-doc__issuer-department-title{position:relative;display:block;line-height:1.45;white-space:nowrap;text-align:center;font-size:18px;letter-spacing:.04em}.official-doc__issuer-department-title[hidden]{display:none!important}.secretary-general-seal{position:absolute;z-index:3;width:46px;height:46px;right:-28px;top:50%;transform:translateY(-50%);object-fit:contain;opacity:.92;mix-blend-mode:multiply;pointer-events:none}.secretary-general-seal[hidden]{display:none!important}.stamp-mark{position:absolute;z-index:1;right:-8px;bottom:-9px;display:inline-flex;width:46px;height:46px;align-items:center;justify-content:center;border:2px solid #b22;border-radius:50%;color:#b22;font-size:9px;overflow:hidden;transform:none}.stamp-mark--image{border:0;border-radius:0;opacity:.9;overflow:visible;transform:none;mix-blend-mode:multiply}.stamp-mark img{display:block;width:100%;height:100%;object-fit:contain}.official-doc__footer{margin-top:18px;font-size:10px;color:#8a8578}
+          body{font-family:Batang,serif;padding:30px;color:#222}.official-doc{max-width:720px;margin:auto}.official-doc__masthead{display:flex;flex-direction:column;align-items:stretch;margin-bottom:2px;width:100%}.official-doc__brand{display:flex;align-items:center;align-self:center;justify-content:center;gap:6px;white-space:nowrap}.official-doc__number-row{display:flex;justify-content:flex-end;align-items:flex-end;width:100%;min-height:13px;padding-top:2px;margin-bottom:1px}.official-doc__number{white-space:nowrap;text-align:right;font-size:10px;color:#666;margin:0}.official-doc__issue,.official-doc__footer{text-align:center}.official-doc__emblem{width:38px;height:38px;flex:0 0 38px;background:transparent;overflow:visible}.official-doc__emblem img{display:block;width:100%;height:100%;object-fit:contain;background:transparent;border:0;border-radius:0}.official-doc__orgname{margin:0;font-size:21px;line-height:1.2;letter-spacing:.1em}.official-doc__meta{border-top:2px solid #222;border-bottom:1px solid #222}.official-doc__meta-row{display:flex;gap:12px;padding:7px 4px;line-height:1.45}.official-doc__meta-row>span{width:48px}.official-doc__body{min-height:300px;white-space:pre-wrap;padding:24px 0 26px;font-size:14px;line-height:1.65}.official-doc__approval-strip{display:flex;flex-wrap:wrap;justify-content:flex-start;width:620px;max-width:100%;margin:12px auto 0 0}.approval-person{display:grid;grid-template-columns:30px minmax(70px,1fr) 20px;flex:0 0 126px;border:1px solid #777;margin:-1px 0 0 -1px;min-height:36px;font-size:8.7px}.approval-person>*{display:flex;align-items:center;justify-content:center;padding:2px}.approval-person>span{background:#f4f0e6;border-right:1px solid #777}.approval-person>strong{flex-direction:column;line-height:1.15;overflow:hidden}.approval-person>em{font-style:normal;border-left:1px solid #777}.approval-person b,.approval-person i{display:block;max-width:100%;white-space:nowrap;font-style:normal;font-weight:400}.approval-person b{overflow:visible;text-overflow:clip;font-size:8px;letter-spacing:-.04em}.approval-person i{overflow:hidden;text-overflow:ellipsis;font-size:8.5px}.official-doc__approval-meta{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;width:620px;max-width:100%;margin:4px auto 0 0}.official-doc__issue-department,.official-doc__issue-track--under{margin:0;font-size:10px;color:#666;white-space:nowrap}.official-doc__issue-department{text-align:left}.official-doc__issue-track--under{text-align:right}.official-doc__issue{margin-top:9px;padding-top:16px;border-top:1px solid #ddd}.official-doc__issue-name{position:relative;display:inline-flex;flex-direction:column;align-items:flex-end;gap:1px;font-size:18px;font-weight:700}.official-doc__issuer-org{position:relative;display:inline-block;line-height:1.45;padding-right:17px}.official-doc__issuer-org[hidden],.official-doc__issuer-signer[hidden]{display:none!important}.official-doc__issuer-org-text{position:relative;z-index:2;white-space:nowrap}.official-doc__issuer-signer{display:block;margin-right:17px;line-height:1.35;white-space:nowrap;text-align:right}.official-doc__issuer-department-title{position:relative;display:block;line-height:1.45;white-space:nowrap;text-align:center;font-size:18px;letter-spacing:.04em}.official-doc__issuer-department-title[hidden]{display:none!important}.secretary-general-seal{position:absolute;z-index:3;width:46px;height:46px;right:-28px;top:50%;transform:translateY(-50%);object-fit:contain;opacity:.92;mix-blend-mode:multiply;pointer-events:none}.secretary-general-seal[hidden]{display:none!important}.chongmuwonjang-seal{right:-10px}.official-doc__seal-warning{display:block;color:#b42318;font-size:10px;letter-spacing:0;white-space:normal}.official-doc__seal-warning[hidden]{display:none!important}.stamp-mark{position:absolute;z-index:1;right:-8px;bottom:-9px;display:inline-flex;width:46px;height:46px;align-items:center;justify-content:center;border:2px solid #b22;border-radius:50%;color:#b22;font-size:9px;overflow:hidden;transform:none}.stamp-mark--image{border:0;border-radius:0;opacity:.9;overflow:visible;transform:none;mix-blend-mode:multiply}.stamp-mark img{display:block;width:100%;height:100%;object-fit:contain}.official-doc__footer{margin-top:18px;font-size:10px;color:#8a8578}
         
 </style></head><body>${node.outerHTML}</body></html>`);
         w.document.close();
-        // Protected seal images require an authenticated request. Never print before they finish loading.
+        // A department seal required by the record must finish loading before printing.
+        // A hidden image awaiting authentication is still required; never print an incomplete official stamp.
         try {
-          await Promise.all(Array.from(w.document.images).filter(img => !img.closest('[hidden]')).map(img => new Promise((resolve, reject) => {
+          const images = Array.from(w.document.images).filter(img =>
+            img.dataset.sealIntended === 'true' || !img.closest('[hidden]'));
+          await Promise.all(images.map(img => new Promise((resolve, reject) => {
+            if (img.dataset.sealIntended === 'true' && !img.getAttribute('src')) { reject(new Error('Required seal source missing')); return; }
             if (img.complete) { img.naturalWidth ? resolve(true) : reject(new Error('Image failed')); return; }
             const timer = setTimeout(() => reject(new Error('Image timed out')), 15000);
             img.addEventListener('load', () => { clearTimeout(timer); resolve(true); }, { once: true });
             img.addEventListener('error', () => { clearTimeout(timer); reject(new Error('Image failed')); }, { once: true });
           })));
+          images.filter(img => img.dataset.sealIntended === 'true').forEach(img => { img.hidden = false; });
           if (!w.closed) { w.focus(); w.print(); }
         } catch {
           alert('\uc778\uc1c4 \uc774\ubbf8\uc9c0\ub97c \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4. \ub85c\uadf8\uc778 \uc0c1\ud0dc\uc640 \uc5f0\uacb0\uc744 \ud655\uc778\ud55c \ub4a4 \ub2e4\uc2dc \uc778\uc1c4\ud574 \uc8fc\uc138\uc694.');
@@ -2869,6 +2934,9 @@ import GovLayout from '../layouts/GovLayout.astro';
       transform: translateY(-50%); object-fit: contain; opacity: 0.92; mix-blend-mode: multiply; pointer-events: none;
     }
     .secretary-general-seal[hidden] { display: none !important; }
+    .chongmuwonjang-seal { right: -0.55rem; }
+    .official-doc__seal-warning { display: block; color: #b42318; font-size: 0.68rem; letter-spacing: 0; white-space: normal; }
+    .official-doc__seal-warning[hidden] { display: none !important; }
     .stamp-mark {
       position: absolute; z-index: 1; right: -0.45rem; bottom: -0.55rem;
       display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px;
