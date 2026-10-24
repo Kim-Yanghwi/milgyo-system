@@ -318,8 +318,14 @@ import GovLayout from '../layouts/GovLayout.astro';
                 <option value="department-head">담당부서장 직책만 표시</option>
               </select>
               <div class="signer-option-fields" data-issue-signer-fields hidden>
-                <input name="issueSignerPosition" type="text" maxlength="40" list="office-position-suggestions" placeholder="직함(예: 이사장, 사무국장)" />
-                <input name="issueSignerName" type="text" maxlength="40" placeholder="성명" />
+                <div class="signer-position-control">
+                  <select data-issue-signer-position-select aria-label="발신자 직함 선택">
+                    <option value="">직함을 선택해 주세요</option>
+                  </select>
+                  <input data-issue-signer-position-custom type="text" maxlength="40" placeholder="직함을 직접 입력해 주세요" aria-label="발신자 직함 직접입력" autocomplete="off" hidden disabled />
+                  <input type="hidden" name="issueSignerPosition" value="" />
+                </div>
+                <input name="issueSignerName" type="text" maxlength="40" placeholder="성명" aria-label="발신자 성명" />
               </div>
               <p class="signer-department-title-help" data-issue-department-title-help hidden>표시 직책: <strong data-issue-department-title-label>-</strong></p>
             </div>
@@ -1300,14 +1306,17 @@ import GovLayout from '../layouts/GovLayout.astro';
         if (doc?.approval_mode !== '전대결' || !doc?.form_data?._actingForUserId) return lines;
         const display = lines.map((line) => line.line_type === '전대결' ? { ...line, line_type: '대결' } : line);
         const index = lines.findIndex((line) => line.line_type === '전대결');
-        if (index >= 0) display.splice(index, 0, {
-          line_order: Number(lines[index]?.line_order || 1)-0.5,
+        if (index >= 0) display.splice(index + 1, 0, {
+          line_order: Number(lines[index]?.line_order || 1)+0.5,
           line_type: '전결', user_id: doc.form_data._actingForUserId,
           user_name: doc.form_data._actingForName || '-', user_position: doc.form_data._actingForPosition || '-',
           status: '전결표시',
         });
         return display;
       };
+      const previewFinalApprovalLines = (mode, originalAuthority, actualApprover) => mode === '전대결'
+        ? [{ type: '대결', user: actualApprover }, { type: '전결', user: originalAuthority }]
+        : [{ type: mode, user: actualApprover }];
       const renderApprovalStrip = (container, drafter, lines, detailed = false) => {
         const current = findCurrentApprovalLine(lines);
         const items = [{ type: '기안', user: drafter, status: '완료', seal: '○' }, ...lines.map((line) => {
@@ -1477,16 +1486,44 @@ import GovLayout from '../layouts/GovLayout.astro';
       const issueDisplayModeInput = $('[data-issue-display-mode]');
       const signerFields = $('[data-issue-signer-fields]');
       const departmentTitleHelp = $('[data-issue-department-title-help]');
+      const signerPositionSelect = $('[data-issue-signer-position-select]');
+      const signerPositionCustom = $('[data-issue-signer-position-custom]');
+      const signerPositionValue = composeForm.elements.issueSignerPosition;
+      const signerPositionOptions = Array.from($('#office-position-suggestions')?.options || []).map((option) => option.value).filter(Boolean);
+      signerPositionSelect.innerHTML = '<option value="">직함을 선택해 주세요</option>'
+        + signerPositionOptions.map((position) => `<option value="${esc(position)}">${esc(position)}</option>`).join('')
+        + '<option value="__custom__">직접입력</option>';
+      const signerPositionChoice = (savedPosition) => {
+        const position = String(savedPosition || '');
+        return signerPositionOptions.includes(position) ? position : (position ? '__custom__' : '');
+      };
       const syncIssueDisplayFields = () => {
         const mode = String(issueDisplayModeInput?.value || 'organization');
         const signerMode = mode === 'signer';
         signerFields.hidden = !signerMode;
-        composeForm.elements.issueSignerPosition.disabled = !signerMode;
+        signerPositionSelect.disabled = !signerMode;
+        signerPositionCustom.hidden = signerPositionSelect.value !== '__custom__';
+        signerPositionCustom.disabled = !signerMode || signerPositionCustom.hidden;
+        signerPositionValue.disabled = !signerMode;
         composeForm.elements.issueSignerName.disabled = !signerMode;
         const title = resolveDepartmentHeadTitle(composeForm.elements.department?.value || '', getMe()?.position || '');
         departmentTitleHelp.hidden = mode !== 'department-head';
         $('[data-issue-department-title-label]').textContent = title || '하위 담당부서를 선택해 주세요';
       };
+      const restoreSignerPositionChoice = () => {
+        const savedPosition = String(signerPositionValue.value || '');
+        signerPositionSelect.value = signerPositionChoice(savedPosition);
+        signerPositionCustom.value = signerPositionSelect.value === '__custom__' ? savedPosition : '';
+        syncIssueDisplayFields();
+      };
+      signerPositionSelect.addEventListener('change', () => {
+        signerPositionValue.value = signerPositionSelect.value === '__custom__' ? signerPositionCustom.value : signerPositionSelect.value;
+        syncIssueDisplayFields();
+        if (signerPositionSelect.value === '__custom__') signerPositionCustom.focus();
+      });
+      signerPositionCustom.addEventListener('input', () => {
+        signerPositionValue.value = signerPositionCustom.value;
+      });
       issueDisplayModeInput.addEventListener('change', () => { syncIssueDisplayFields(); updatePreview(); });
       composeForm.elements.department.addEventListener('change', () => { syncIssueDisplayFields(); updatePreview(); });
 
@@ -1507,8 +1544,11 @@ import GovLayout from '../layouts/GovLayout.astro';
         const previewLines = [
           ...selectedCooperatorIds.map((id) => ({ type: '협조', user: findUser(id) })),
           ...selectedReviewerIds.map((id) => ({ type: '검토', user: findUser(id) })),
-          ...(mode === '전대결' ? [{ type: '전결', user: findUser(data.get('actingForUserId')) }] : []),
-          { type: ['대결','전대결'].includes(mode) ? '대결' : mode, user: findUser(data.get('approverUserId')) || (mode === '전결' ? me : null) },
+          ...previewFinalApprovalLines(
+            mode,
+            findUser(data.get('actingForUserId')),
+            findUser(data.get('approverUserId')) || (mode === '전결' ? me : null),
+          ),
         ];
         renderApprovalStrip($('[data-preview-approval-strip]'), { name: me.name || '-', position: me.position || '-' }, previewLines, false);
         const issueDisplayMode = String(composeForm.elements.issueDisplayMode?.value || 'organization');
@@ -1552,7 +1592,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         composeForm.reset(); $('[data-compose-document-id]').value=''; $('[data-compose-request-id]').value=randomRequestId();
         pendingAttachmentFiles=[]; renderPendingAttachments(); templateSelect.value=''; renderTemplateFields(null); bodyAuto=true; titleAuto=true;
         selectedReviewerIds=[]; selectedCooperatorIds=[]; renderApprovalPickers();
-        recipientField.hidden=true; issueDisplayModeInput.value='organization'; syncIssueDisplayFields();
+        recipientField.hidden=true; issueDisplayModeInput.value='organization'; restoreSignerPositionChoice();
         const defaultMode = importantCategories.includes(categorySelect.value) ? '결재' : '전결';
         const modeInput = composeForm.querySelector(`input[name="approvalMode"][value="${defaultMode}"]`); if (modeInput) modeInput.checked = true;
         updateApprovalMode(); updateTrackHint(); updatePreview();
@@ -1734,7 +1774,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         const legacySignerEnabled=String(doc.form_data?._issueSignerEnabled||'false')==='true';
         composeForm.elements.issueDisplayMode.value=doc.form_data?._issueDisplayMode||(legacySignerEnabled?'signer':'organization');
         composeForm.elements.issueSignerPosition.value=doc.form_data?._issueSignerPosition||'';composeForm.elements.issueSignerName.value=doc.form_data?._issueSignerName||'';
-        syncIssueDisplayFields();renderApprovalPickers();updateTrackHint();updatePreview();detailModal.hidden=true;composeModal.hidden=false;
+        restoreSignerPositionChoice();renderApprovalPickers();updateTrackHint();updatePreview();detailModal.hidden=true;composeModal.hidden=false;
       };
       $('[data-copy-document]').addEventListener('click',()=>loadDocumentIntoCompose(currentDetailDoc,true));
       $('[data-recall-document]').addEventListener('click',async()=>{if(!currentDetailId||!confirm('진행 중인 문서를 회수하여 임시저장함으로 이동하시겠습니까?'))return;const result=await callApi('/api/documents/recall',{token:getToken(),id:currentDetailId});if(!result.ok){statusEl.textContent=result.message;return;}detailModal.hidden=true;statusEl.textContent=result.message;invalidateDashboard();await activateDocumentsView('임시저장', true);});
@@ -2613,7 +2653,9 @@ import GovLayout from '../layouts/GovLayout.astro';
     .account-permission-row, .signer-option-row { display: flex; align-items: center; gap: 0.8rem 1.4rem; flex-wrap: wrap; }
     .account-permission-row { min-height: 42px; }
     .signer-option-mode { flex: 0 1 310px; min-width: 230px; }
-    .signer-option-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; flex: 1 1 320px; }
+    .signer-option-fields { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 0.6rem; flex: 1 1 320px; align-items: start; }
+    .signer-position-control { display: grid; gap: 0.4rem; min-width: 0; }
+    .signer-position-control select, .signer-position-control input { min-width: 0; width: 100%; }
     .signer-department-title-help { margin: 0; font-size: 0.82rem; color: var(--gov-muted); flex: 1 1 260px; }
     .signer-department-title-help strong { color: var(--gov-text); font-size: 0.88rem; }
     .hint { font-size: 0.8rem; color: var(--gov-muted); margin: -0.1rem 0 0; }
