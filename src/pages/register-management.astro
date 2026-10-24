@@ -185,7 +185,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         let primary = parts[0] || '';
         let secondary = parts.slice(1).join(' - ');
         const map = (name) => name === '재정·회계' ? '재정국' : name === '준법·윤리' ? '준법윤리국' : name === '대외협력·사회공헌' ? '국제교류국' : name === '문화·홍보' ? '문화홍보국' : name;
-        if (primary === '사무국') primary = '사무처';
+        if (primary === '사무국') { primary = '사무처'; if (!secondary) secondary = '사무국'; }
         if (secondary) secondary = map(secondary);
         if (!secondary && ['재정국','준법윤리국','국제교류국','문화홍보국','사회공헌국'].includes(map(primary))) { secondary = map(primary); primary = '사무처'; }
         return secondary ? `${primary}(${secondary})` : primary;

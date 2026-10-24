@@ -77,7 +77,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       passwordHash,
       position: normalizedPosition,
       grade: null,
-      department: topLevelDepartments.has(normalizedPosition) ? normalizedPosition : null,
+      department: normalizedPosition === '사무국장' ? '사무처 - 사무국' : (topLevelDepartments.has(normalizedPosition) ? normalizedPosition : null),
       role: 'admin' as const,
       canApprove: true,
       canAccounting: true,

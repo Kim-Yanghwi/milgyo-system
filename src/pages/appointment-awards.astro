@@ -32,7 +32,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         <div class="award-field-row award-field-row--three">
           <div class="form-field">
             <label for="award-header-position">상단 직위명</label>
-            <input id="award-header-position" name="headerPosition" maxlength="80" placeholder="예: 총무원장" />
+            <input id="award-header-position" name="headerPosition" maxlength="80" list="award-position-suggestions" placeholder="예: 총무원장, 사무국장" />
           </div>
           <div class="form-field">
             <label for="award-recipient-name">성명</label>
@@ -52,7 +52,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
         </div>
         <div class="form-field" data-appointment-only>
           <label for="award-appointment-position">임명 직위명</label>
-          <input id="award-appointment-position" name="appointmentPosition" maxlength="80" placeholder="예: 총무원장" />
+          <input id="award-appointment-position" name="appointmentPosition" maxlength="80" list="award-position-suggestions" placeholder="예: 총무원장, 사무국장" />
         </div>
         <div class="form-field form-field--full appointment-body-preview" data-appointment-only>
           <span class="field-label">임명장 본문 자동구성</span>
@@ -101,6 +101,7 @@ import ManagementLayout from '../layouts/ManagementLayout.astro';
           </div>
         </div>
       </div>
+      <datalist id="award-position-suggestions"><option value="사무국장"></option><option value="사무총장"></option><option value="총무원장"></option><option value="재정국장"></option></datalist>
       <div class="status-message" data-award-status aria-live="polite"></div>
       <div class="form-actions award-actions">
         <button type="button" class="btn btn-outline" data-load-recent>최근 작성값 불러오기</button>

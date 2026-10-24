@@ -48,7 +48,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           <label for="bs-password">비밀번호(8자 이상)</label>
           <input id="bs-password" name="password" type="password" minlength="8" required />
           <label for="bs-position">직책(선택)</label>
-          <input id="bs-position" name="position" type="text" maxlength="40" placeholder="예: 이사장" />
+          <input id="bs-position" name="position" type="text" maxlength="40" list="office-position-suggestions" placeholder="예: 이사장, 사무국장" />
           <button type="submit" class="btn btn-primary btn-block">관리자 계정 만들기</button>
           <p class="login-card__error" data-bootstrap-error hidden></p>
           <p class="login-card__error login-card__error--ok" data-bootstrap-ok hidden></p>
@@ -309,7 +309,7 @@ import GovLayout from '../layouts/GovLayout.astro';
                 <option value="department-head">담당부서장 직책만 표시</option>
               </select>
               <div class="signer-option-fields" data-issue-signer-fields hidden>
-                <input name="issueSignerPosition" type="text" maxlength="40" placeholder="직함(예: 이사장)" />
+                <input name="issueSignerPosition" type="text" maxlength="40" list="office-position-suggestions" placeholder="직함(예: 이사장, 사무국장)" />
                 <input name="issueSignerName" type="text" maxlength="40" placeholder="성명" />
               </div>
               <p class="signer-department-title-help" data-issue-department-title-help hidden>표시 직책: <strong data-issue-department-title-label>-</strong></p>
@@ -492,7 +492,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           <label for="u-password" data-user-password-label>비밀번호(8자 이상)</label>
           <input id="u-password" name="password" type="password" minlength="8" />
           <label for="u-position">직책</label>
-          <input id="u-position" name="position" type="text" maxlength="40" placeholder="예: OO국장" />
+          <input id="u-position" name="position" type="text" maxlength="40" list="office-position-suggestions" placeholder="예: 사무국장" />
           <label for="u-personnel-no">사번(승적번호) (선택)</label>
           <input id="u-personnel-no" name="personnelNo" type="text" maxlength="40" autocomplete="off" placeholder="예: 0191-112 / STAFF-001" />
           <small class="hint">계정별 고유번호입니다. 로그인 아이디와 기존 직급은 변경되지 않습니다.</small>
@@ -545,6 +545,13 @@ import GovLayout from '../layouts/GovLayout.astro';
       </form>
     </div>
   </div>
+
+      <datalist id="office-position-suggestions">
+        <option value="이사장"></option><option value="사무총장"></option><option value="사무국장"></option>
+        <option value="재정국장"></option><option value="준법윤리국장"></option>
+        <option value="국제교류국장"></option><option value="문화홍보국장"></option><option value="사회공헌국장"></option>
+        <option value="총무원장"></option><option value="총무부장"></option><option value="교무부장"></option>
+      </datalist>
 
   <!-- 조직도 -->
   <div class="modal-overlay" data-orgchart-modal hidden>
@@ -757,12 +764,12 @@ import GovLayout from '../layouts/GovLayout.astro';
 
       const departmentTree = [
         { name: '이사장' }, { name: '이사회' }, { name: '감사' }, { name: '종정' },
-        { name: '사무처', children: ['재정국', '준법윤리국', '국제교류국', '문화홍보국', '사회공헌국'] },
+        { name: '사무처', children: ['사무국', '재정국', '준법윤리국', '국제교류국', '문화홍보국', '사회공헌국'] },
         { name: '총무원', children: ['부원장', '총무부', '교무부', '재무부', '법무감사부', '문화복지부'] }, { name: '교육·포교원' },
         { name: '소속기관·교구', children: ['람림불교교육원', '서울·인천·경기교구', '강원교구', '대전·세종·충남교구', '충북교구', '전남광주·전북교구', '대구·경북교구', '부산·울산·경남교구', '제주교구'] },
         { name: '위원회·신도단체', children: ['사찰운영위원회', '진향회(향천사)'] },
       ];
-      const officeDepartments = new Set(['재정국','준법윤리국','국제교류국','문화홍보국','사회공헌국']);
+      const officeDepartments = new Set(['사무국','재정국','준법윤리국','국제교류국','문화홍보국','사회공헌국']);
       const associationDepartment = '진향회(향천사)';
       const associationToken = '진향회[향천사]';
       const protectAssociation = (value) => String(value || '').replaceAll(associationDepartment, associationToken);
@@ -789,7 +796,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         const parts = text.split(/\s+-\s+/).map((part) => part.trim()).filter(Boolean);
         let primary = legacyDepartmentName(parts[0] || '', position);
         let secondary = legacyDepartmentName(parts.slice(1).join(' - '), position);
-        if (primary === '사무국') primary = '사무처';
+        if (primary === '사무국') { primary = '사무처'; if (!secondary) secondary = '사무국'; }
         if (!secondary) {
           const mapped = legacyDepartmentName(primary, position);
           if (mapped !== primary || officeDepartments.has(mapped)) { primary = '사무처'; secondary = mapped; }
@@ -811,7 +818,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       };
       const departmentHeadTitleMap = {
         '이사장': '이사장', '이사회': '이사장', '감사': '감사', '종정': '종정',
-        '사무처': '사무총장', '재정국': '재정국장', '준법윤리국': '준법윤리국장',
+        '사무처': '사무총장', '사무국': '사무국장', '재정국': '재정국장', '준법윤리국': '준법윤리국장',
         '국제교류국': '국제교류국장', '문화홍보국': '문화홍보국장', '사회공헌국': '사회공헌국장',
         '총무원': '총무원장', '부원장': '부원장', '총무부': '총무부장', '교무부': '교무부장',
         '재무부': '재무부장', '법무감사부': '법무감사부장', '문화복지부': '문화복지부장',
@@ -835,11 +842,11 @@ import GovLayout from '../layouts/GovLayout.astro';
       const departmentParentLabel = (dep) => dep.name;
       const renderDepartmentOptions = (placeholder = '담당부서 선택(선택)') => `<option value="">${esc(placeholder)}</option>` + departmentTree.map((dep) => {
         if (!dep.children) return `<option value="${esc(dep.name)}">${esc(dep.name)}</option>`;
-        return `<optgroup label="${esc(dep.name)}"><option value="${esc(dep.name)}">${esc(departmentParentLabel(dep))}</option>${dep.children.map((child) => `<option value="${esc(dep.name)} - ${esc(child)}">　${esc(child)}</option>`).join('')}</optgroup>`;
+        return `<optgroup label="${esc(dep.name)}"><option value="${esc(dep.name)}">${esc(departmentParentLabel(dep))}</option>${dep.children.map((child) => `<option value="${esc(dep.name)} - ${esc(child)}">　${esc(child === '사무국' ? `${dep.name}(${child})` : child)}</option>`).join('')}</optgroup>`;
       }).join('');
       const renderDepartmentFilterOptions = () => '<option value="">전체 부서</option>' + departmentTree.map((dep) => {
         if (!dep.children) return `<option value="${esc(dep.name)}">${esc(dep.name)}</option>`;
-        return `<optgroup label="${esc(dep.name)}"><option value="${esc(dep.name)}">${esc(dep.name)}</option>${dep.children.map((child) => `<option value="${esc(dep.name)} - ${esc(child)}">　${esc(child)}</option>`).join('')}</optgroup>`;
+        return `<optgroup label="${esc(dep.name)}"><option value="${esc(dep.name)}">${esc(dep.name)}</option>${dep.children.map((child) => `<option value="${esc(dep.name)} - ${esc(child)}">　${esc(child === '사무국' ? `${dep.name}(${child})` : child)}</option>`).join('')}</optgroup>`;
       }).join('');
 
       const loginScreen = $('[data-login-screen]');
@@ -1828,6 +1835,12 @@ import GovLayout from '../layouts/GovLayout.astro';
       const setUserSubmitLabel=(isEditing)=>{$('[data-user-form-submit]').innerHTML=isEditing?'<span>수정</span><span>저장</span>':'<span>계정</span><span>추가</span>';};
       const resetUserForm=()=>{userForm.reset();userForm.elements.id.value='';$('[data-user-form-title]').textContent='계정 추가';$('[data-user-password-label]').textContent='비밀번호(8자 이상)';userForm.elements.password.required=true;$('[data-user-active-row]').hidden=true;setUserSubmitLabel(false);$('[data-user-form-status]').textContent='';userForm.elements.username.disabled=false;deleteUserButton.hidden=true;};
       $('[data-user-form-reset]').addEventListener('click',resetUserForm);
+      userForm.elements.position.addEventListener('change', () => {
+        if (userForm.elements.position.value.trim() === '사무국장'
+            && !userForm.elements.department.value) {
+          userForm.elements.department.value = '사무처 - 사무국';
+        }
+      });
       const renderDepartmentCell=(value,position='')=>{
         const path=resolveDepartmentPath(value,position);
         return `<span class="department-stack"><span class="department-stack__primary">${esc(path.primary)}</span>${path.secondary?`<span class="department-stack__secondary">(${esc(path.secondary)})</span>`:''}</span>`;

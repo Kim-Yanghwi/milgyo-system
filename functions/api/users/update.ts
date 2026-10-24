@@ -58,7 +58,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const personnelNo = typeof payload.personnelNo === 'string' ? payload.personnelNo.trim() : '';
     if (personnelNo && !/^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$/.test(personnelNo))
       return json({ ok: false, message: '사번(승적번호)은 영문·숫자·하이픈·밑줄을 포함한 40자 이하로 입력해 주세요.' }, 400);
-    const department = normalizeDepartmentValue(payload.department, position);
+    const department = normalizeDepartmentValue(payload.department, position) || (position === '사무국장' ? '사무처 - 사무국' : '');
     const role = payload.role === 'admin' ? 'admin' : payload.role === 'audit' ? 'audit' : 'user';
     const canApprove = !!payload.canApprove || role === 'admin';
     const canAccounting = !!payload.canAccounting || role === 'admin';

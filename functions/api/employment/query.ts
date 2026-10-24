@@ -1,4 +1,4 @@
-import { authenticateSession, getSessionToken, clean, ensureTables, json } from '../../_shared/helpers';
+import { authenticateSession, getSessionToken, clean, ensureTables, json, normalizeDepartmentValue, normalizePositionValue } from '../../_shared/helpers';
 interface Env { DB:D1Database; }
 type Payload={token?:string;operation?:string;query?:string;status?:string;page?:number;pageSize?:number;employeeUserId?:string;id?:string};
 const maskIdentity=(value:unknown)=>{const raw=String(value||'');if(!raw)return '';if(raw.length<=6)return raw.slice(0,2)+'***';return raw.slice(0,6)+'-'+raw.slice(6).replace(/./g,'*');};
@@ -13,7 +13,7 @@ export const onRequestPost:PagesFunction<Env>=async({request,env})=>{
     const result=all
       ? await env.DB.prepare(`SELECT CAST(u.id AS TEXT) AS id,u.name,u.position,u.grade,u.department,u.role,u.active,p.name_hanja,p.birth_or_registration,p.address,p.employment_start_date,p.contact FROM system_users u LEFT JOIN employee_profiles p ON p.user_id=CAST(u.id AS TEXT) WHERE u.active=1 ORDER BY CASE WHEN u.name='조화연' THEN 0 WHEN u.name='김양휘' THEN 1 ELSE 2 END,u.name`).all()
       : await env.DB.prepare(`SELECT CAST(u.id AS TEXT) AS id,u.name,u.position,u.grade,u.department,u.role,u.active,p.name_hanja,p.birth_or_registration,p.address,p.employment_start_date,p.contact FROM system_users u LEFT JOIN employee_profiles p ON p.user_id=CAST(u.id AS TEXT) WHERE u.active=1 AND CAST(u.id AS TEXT)=? ORDER BY CASE WHEN u.name='조화연' THEN 0 WHEN u.name='김양휘' THEN 1 ELSE 2 END,u.name`).bind(auth.user.id).all();
-    return json({ok:true,users:result.results||[],me:auth.user,canManage:auth.user.role==='admin',canIssue:auth.user.role==='admin'});
+    const users=(result.results||[]).map((user:any)=>{const position=normalizePositionValue(user.position);return {...user,position,department:normalizeDepartmentValue(user.department,position)};});return json({ok:true,users,me:auth.user,canManage:auth.user.role==='admin',canIssue:auth.user.role==='admin'});
   }
   if(op==='detail'){
     const id=clean(p.id,80);const row=await env.DB.prepare('SELECT * FROM employment_certificates WHERE id=?').bind(id).first<any>();if(!row)return json({ok:false,message:'재직증명서 발급내역을 찾을 수 없습니다.'},404);if(auth.user.role!=='admin'&&auth.user.role!=='audit'&&String(row.employee_user_id)!==auth.user.id)return json({ok:false,message:'열람 권한이 없습니다.'},403);return json({ok:true,row,me:auth.user,canManage:auth.user.role==='admin'});

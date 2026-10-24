@@ -34,7 +34,7 @@ export const normalizePositionValue = (value: unknown) => {
 };
 
 
-const OFFICE_DEPARTMENTS = new Set(['재정국', '준법윤리국', '국제교류국', '문화홍보국', '사회공헌국']);
+const OFFICE_DEPARTMENTS = new Set(['사무국', '재정국', '준법윤리국', '국제교류국', '문화홍보국', '사회공헌국']);
 const ASSOCIATION_DEPARTMENT = '진향회(향천사)';
 const ASSOCIATION_TOKEN = '진향회[향천사]';
 const protectAssociationDepartment = (value: string) => value.replaceAll(ASSOCIATION_DEPARTMENT, ASSOCIATION_TOKEN);
@@ -67,7 +67,7 @@ export const normalizeDepartmentValue = (value: unknown, position = '') => {
   let parts = text.split(/\s+-\s+/).map((part) => part.trim()).filter(Boolean);
   let primary = legacyDepartmentName(parts[0] || '', position);
   let secondary = legacyDepartmentName(parts.slice(1).join(' - '), position);
-  if (primary === '사무국') primary = '사무처';
+  if (primary === '사무국') { primary = '사무처'; if (!secondary) secondary = '사무국'; }
 
   if (!secondary) {
     const mapped = legacyDepartmentName(primary, position);
@@ -93,6 +93,7 @@ const DEPARTMENT_HEAD_TITLES: Record<string, string> = {
   '감사': '감사',
   '종정': '종정',
   '사무처': '사무총장',
+  '사무국': '사무국장',
   '재정국': '재정국장',
   '준법윤리국': '준법윤리국장',
   '국제교류국': '국제교류국장',
@@ -391,7 +392,7 @@ const BUILT_IN_TEMPLATES = [
     fields: [
       { id: 'subject', label: '결산 건명', type: 'text', required: true, width: 'full' },
       { id: 'submissionDate', label: '제출일', type: 'date', required: true, width: 'half' },
-      { id: 'organization', label: '제출기구', type: 'select', required: true, options: ['사무처', '총무원', '부원장', '총무부', '교무부', '재무부', '법무감사부', '문화복지부', '교육·포교원', '재정국', '준법윤리국', '국제교류국', '문화홍보국', '사회공헌국', '사찰운영위원회', '진향회(향천사)', '활동거점', '기타'], width: 'half' },
+      { id: 'organization', label: '제출기구', type: 'select', required: true, options: ['사무처', '사무처(사무국)', '총무원', '부원장', '총무부', '교무부', '재무부', '법무감사부', '문화복지부', '교육·포교원', '재정국', '준법윤리국', '국제교류국', '문화홍보국', '사회공헌국', '사찰운영위원회', '진향회(향천사)', '활동거점', '기타'], width: 'half' },
       { id: 'submitter', label: '제출자', type: 'text', required: true, width: 'half' },
       { id: 'fiscalYear', label: '사업연도', type: 'number', required: true, defaultValue: '{{CURRENT_YEAR}}', width: 'half' },
       { id: 'businessName', label: '주요 사업명', type: 'text', required: true, width: 'full' },
@@ -825,7 +826,7 @@ const BUILT_IN_TEMPLATES = [
       { id: 'eventType', label: '구분', type: 'select', required: true, options: ['법회', '의례', '수행', '교육', '성지순례', '기타'], width: 'half' },
       { id: 'dateTime', label: '일시', type: 'text', required: true, width: 'half' },
       { id: 'place', label: '장소', type: 'text', required: true, width: 'half' },
-      { id: 'organization', label: '주관기구', type: 'select', required: true, options: ['총무원', '교육원', '포교원', '사무처', '기타'], width: 'half' },
+      { id: 'organization', label: '주관기구', type: 'select', required: true, options: ['총무원', '교육원', '포교원', '사무처', '사무처(사무국)', '기타'], width: 'half' },
       { id: 'manager', label: '운영책임자', type: 'text', required: true, width: 'half' },
       { id: 'leader', label: '진행자 또는 수행지도자', type: 'text', required: true, width: 'half' },
       { id: 'target', label: '대상자', type: 'text', required: true, width: 'half' },
@@ -1268,13 +1269,15 @@ const runSchemaMigration = async (db: D1Database) => {
     UPDATE __TABLE__
     SET ${column} = CASE
       WHEN ${column} IS NULL OR TRIM(${column}) = '' THEN ${column}
-      WHEN TRIM(${column}) IN ('사무국','사무처') THEN '사무처'
+      WHEN TRIM(${column}) IN ('사무국','사무처 - 사무국','사무처(사무국)') THEN '사무처 - 사무국'
+      WHEN TRIM(${column}) = '사무처' THEN '사무처'
       WHEN TRIM(${column}) IN ('재정국','준법윤리국','국제교류국','문화홍보국','사회공헌국') THEN '사무처 - ' || TRIM(${column})
       WHEN TRIM(${column}) IN ('재정·회계','사무국 - 재정·회계','사무처 - 재정·회계','사무국(재정·회계)','사무처(재정·회계)') THEN '사무처 - 재정국'
       WHEN TRIM(${column}) IN ('준법·윤리','사무국 - 준법·윤리','사무처 - 준법·윤리','사무국(준법·윤리)','사무처(준법·윤리)') THEN '사무처 - 준법윤리국'
       WHEN TRIM(${column}) IN ('문화·홍보','사무국 - 문화·홍보','사무처 - 문화·홍보','사무국(문화·홍보)','사무처(문화·홍보)') THEN '사무처 - 문화홍보국'
       WHEN TRIM(${column}) IN ('대외협력·사회공헌','사무국 - 대외협력·사회공헌','사무처 - 대외협력·사회공헌','사무국(대외협력·사회공헌)','사무처(대외협력·사회공헌)') THEN ${positionColumn ? `CASE WHEN COALESCE(${positionColumn}, '') LIKE '%사회공헌%' THEN '사무처 - 사회공헌국' ELSE '사무처 - 국제교류국' END` : "'사무처 - 국제교류국'"}
-      ELSE REPLACE(${column}, '사무국', '사무처')
+      WHEN TRIM(${column}) LIKE '사무국 - %' THEN '사무처 - ' || SUBSTR(TRIM(${column}), LENGTH('사무국 - ')+1)
+      ELSE ${column}
     END
     WHERE ${column} LIKE '%사무국%' OR ${column} IN ('재정·회계','준법·윤리','대외협력·사회공헌','문화·홍보','재정국','준법윤리국','국제교류국','문화홍보국','사회공헌국')
   `;

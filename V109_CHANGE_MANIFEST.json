@@ -1,0 +1,139 @@
+{
+  "version": "v109",
+  "date": "2026-10-23",
+  "requested": "사무처 -> 사무국 (사무국장)",
+  "internal_value": "사무처 - 사무국",
+  "display_value": "사무처(사무국)",
+  "database_migration_required": false,
+  "tests": {
+    "static_coverage": "PASS",
+    "syntax": "PASS (42 parsed TS/JS regions, 0 parse errors)",
+    "sqlite_compatibility": "PASS (10 cases x 2 rounds x 2 tables)",
+    "npm_ci_build": "NOT VERIFIED (network/cache limitation)",
+    "production_DB_and_UI": "NOT VERIFIED (no production access)"
+  },
+  "changed_existing_files": 16,
+  "new_files": 4,
+  "files": [
+    {
+      "path": "database/V109_SAMUGUK_READONLY_CHECK.sql",
+      "status": "new",
+      "before_sha256": null,
+      "after_sha256": "73a64fd4e125a02e9fb26649188dbe90f25f7d8413b119d482ed0c462d903516"
+    },
+    {
+      "path": "functions/_shared/helpers.ts",
+      "status": "modified",
+      "before_sha256": "82719558194e070bb19069036c29a80b6f519eae3a0f44bb95386e46b8b8e626",
+      "after_sha256": "4345dc3aa83901fe6458a28e524ad5354609b6a066519e10455f429abf3c8c64"
+    },
+    {
+      "path": "functions/api/accounting-compliance/query.ts",
+      "status": "modified",
+      "before_sha256": "c5c24320ce624d9cab375298efb8dd4c227afc483a5d5f5cb3546c6351d9f2ad",
+      "after_sha256": "e77c3a75fc0ff86e308fec21666a0b91ab3cfa16cae57c6a5d45592b69c8abb7"
+    },
+    {
+      "path": "functions/api/auth/bootstrap.ts",
+      "status": "modified",
+      "before_sha256": "b0a5a23f3ef9a8a130aa376a66b391e7557756a6b1887d98a1e26a5e0971c1b3",
+      "after_sha256": "234bc980200879e2a319c57a1aeb554b406d3c7d4e6c23ea4e3c853748128e3f"
+    },
+    {
+      "path": "functions/api/employment/query.ts",
+      "status": "modified",
+      "before_sha256": "3b85fd2282c485249d9c586387bfc774c528842de3119a54c2820aee2121465e",
+      "after_sha256": "be03ef039262fdf8c2511d990083005bee68b737e3c189931f64a153f14c7c35"
+    },
+    {
+      "path": "functions/api/users/create.ts",
+      "status": "modified",
+      "before_sha256": "4457632342a83eeef12a7b8a62bd3a1a2df221bd0c63c10736f569102d3a49d5",
+      "after_sha256": "b33bdf266829b5a7712ec21c50c9c11d2c0e1f76044a93bcc608312dcd5eca26"
+    },
+    {
+      "path": "functions/api/users/update.ts",
+      "status": "modified",
+      "before_sha256": "ba5815df23edfb123b7da0b3d9d3a911379b29d5c018934a3c9e02d18a257bb3",
+      "after_sha256": "cb70e83584ba9eefe59388f9e1694ce9a608616b33b4d5cf91925ad7f900890e"
+    },
+    {
+      "path": "package.json",
+      "status": "modified",
+      "before_sha256": "0e44873efcd98db3078085fba69c03dece3ac7c2201a46c0247efb3c93e5f68d",
+      "after_sha256": "bab43ec635d325515d9e248c4b8369fe24314394d08ae4c5225883e3f78068b6"
+    },
+    {
+      "path": "scripts/check-v109-secretariat.mjs",
+      "status": "new",
+      "before_sha256": null,
+      "after_sha256": "16617494420190770f4d6c40d5a3ebc796bbf1e26b5c3e42b09f2f737767ff55"
+    },
+    {
+      "path": "src/layouts/ManagementLayout.astro",
+      "status": "modified",
+      "before_sha256": "6f43ce157ec850301d485116be88e5e7dac5a17cfecaf3df54c5bdf2aaa699cc",
+      "after_sha256": "dd53e1d17b7b74fddf5a4d3a795578c1765263f6dafef4b0df2e6de8cb420805"
+    },
+    {
+      "path": "src/pages/accounting-operations.astro",
+      "status": "modified",
+      "before_sha256": "4a68789a455f7e44ae013a541d8e0daa31e26c791140d5ab71c652d55581243c",
+      "after_sha256": "df8331135a0540f60c00213260fc0dbde8361800a8b7500e0bdf4598ca966685"
+    },
+    {
+      "path": "src/pages/accounting-special.astro",
+      "status": "modified",
+      "before_sha256": "6592a1be87a5740b9d12c0491afb73dd639cd376cef67eaf9d99d4e55a89acea",
+      "after_sha256": "12c6acc2f3e09fd36d47cb61e57a93f8e221e40a44929efc8e4eb3e78b85edea"
+    },
+    {
+      "path": "src/pages/accounting-tax.astro",
+      "status": "modified",
+      "before_sha256": "53cf10799718e44e316125b35817637ef2cccb550a4cb77866c87c41ec239496",
+      "after_sha256": "9046adc0cf57484ccb1f28d87f56b64c81f51f783176726e4b9e575bf470e71b"
+    },
+    {
+      "path": "src/pages/accounting.astro",
+      "status": "modified",
+      "before_sha256": "972a53009624cc106040b450defe6391ae2ebb1ed05082c91d6693c46ed044b6",
+      "after_sha256": "0e2772735dcb91e83b10e6defd592674a8a36b84eb6ac2e3afd59a841a1452cb"
+    },
+    {
+      "path": "src/pages/appointment-awards.astro",
+      "status": "modified",
+      "before_sha256": "2ba9a2a2abf8e5b338fb057d2846c8f110504368b45178e4aac06a9f45e569fa",
+      "after_sha256": "b30bb40354703627be576bb3b2e5a2dc8974754a598471287eff764c8c46e613"
+    },
+    {
+      "path": "src/pages/employee-certificates.astro",
+      "status": "modified",
+      "before_sha256": "15be6f1f6739e7457859097d5a2305bc59540c3ea8a79c5507d5c9096fb341ae",
+      "after_sha256": "06e30651406bf26e0e6aef7beaa14d1cdc20c098ddf59f306dbc8dc1b7b1ddb0"
+    },
+    {
+      "path": "src/pages/index.astro",
+      "status": "modified",
+      "before_sha256": "1a15952d63ad5712689c3900afc213efc4996abb94f75595a566a5e78b277fcc",
+      "after_sha256": "84b4ef21f64f7f9e3a6a2bcabbd07a235fcd65b47837255bd7620dcdc55fea0a"
+    },
+    {
+      "path": "src/pages/register-management.astro",
+      "status": "modified",
+      "before_sha256": "02b2eafb073737ca4e53cd377ffd2f8d2042513c2f7b2a27fd635be4cbc46b5a",
+      "after_sha256": "be73c7c56f7b3598455901cc80a0a7b58185ada4af14593474a9ee7256df50df"
+    },
+    {
+      "path": "tests/v109-secretariat-department.test.ts",
+      "status": "new",
+      "before_sha256": null,
+      "after_sha256": "1e76e992e7d2547c6d56c8bceaffca967e95ab2dc0b4f35fa46a021437e6afe5"
+    },
+    {
+      "path": "사무국_신설_적용_및_검증_안내_V109.md",
+      "status": "new",
+      "before_sha256": null,
+      "after_sha256": "40493975aabcbf519e66b1d85dcce9c840b62eee253fee2115790948935caf02"
+    }
+  ]
+}
