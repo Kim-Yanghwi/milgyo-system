@@ -35,7 +35,7 @@ must('functions/_shared/helpers.ts', [
 ]);
 for (const file of ['functions/api/users/create.ts', 'functions/api/users/update.ts'])
   must(file, [['사무국장 계정의 기본 소속 처리 누락', /position === '사무국장' \? '사무처 - 사무국'/]]);
-must('src/pages/employee-certificates.astro', [['재직증명서 소속에 사무처(사무국) 선택 제안 누락', /<option value="사무처\(사무국\)"><\/option>/]]);
+must('src/pages/employee-certificates.astro', [['재직증명서 소속에 사무국 표시 누락', /<option value="사무국"><\/option>/]]);
 must('src/pages/index.astro', [
   ['공문 담당부서장 명칭 누락', /'사무국': '사무국장'/],
   ['사무국장 직책입력 제안 누락', /<option value="사무국장"><\/option>/],
@@ -49,7 +49,7 @@ must('src/pages/appointment-awards.astro', [
   ['사무국장 직위명 누락', /<option value="사무국장"><\/option>/],
 ]);
 for (const f of ['src/pages/accounting.astro','src/pages/accounting-special.astro','src/pages/accounting-operations.astro'])
-  must(f, [['사무국 소속 선택지의 정확한 표시명 누락', /child===['"]사무국['"]\?`\$\{dep.name\}\(\$\{child\}\)`/]]);
+  must(f, [['사무국 표시명 단축 누락', /if\(n===['"]사무처 - 사무국['"]\)return ['"]사무국['"]/]]);
 
 if (errors.length) {
   for (const error of errors) console.error('[v109-check] FAIL', error);

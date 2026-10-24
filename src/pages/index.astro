@@ -289,6 +289,15 @@ import GovLayout from '../layouts/GovLayout.astro';
               <div class="radio-row approval-mode-row">
                 <label><input type="radio" name="approvalMode" value="결재" checked /> 결재</label>
                 <label><input type="radio" name="approvalMode" value="전결" /> 전결</label>
+                <label><input type="radio" name="approvalMode" value="대결" /> 대결</label>
+                <label><input type="radio" name="approvalMode" value="전대결" /> 전대결</label>
+              </div>
+              <div data-proxy-fields hidden>
+                <p class="hint">대결은 원 결재권자의 부재 시, 전대결은 원 전결권자의 부재 시 지정된 직무대행자가 처리합니다. 관리자만 대행 지정 근거를 확인하고 상신할 수 있습니다.</p>
+                <label for="c-acting-for">원 결재·전결권자(필수)</label>
+                <select id="c-acting-for" name="actingForUserId" data-acting-for-select disabled></select>
+                <label for="c-acting-reason">직무대행 지정 근거 및 부재 사유(필수 · 10자 이상)</label>
+                <input id="c-acting-reason" name="actingReason" type="text" maxlength="400" placeholder="예: 이사장 지정 공문번호, 지정 기간, 출장·휴가 사유" disabled />
               </div>
 
               <label for="c-approver" data-approver-label>결재자 · 제13조②</label>
@@ -814,6 +823,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       const formatDepartmentLabel = (value, position='') => {
         const path = resolveDepartmentPath(value, position);
         if (path.primary === '-') return '-';
+        if (path.primary === '사무처' && path.secondary === '사무국') return '사무국';
         return path.secondary ? `${path.primary}(${path.secondary})` : path.primary;
       };
       const departmentHeadTitleMap = {
@@ -842,11 +852,11 @@ import GovLayout from '../layouts/GovLayout.astro';
       const departmentParentLabel = (dep) => dep.name;
       const renderDepartmentOptions = (placeholder = '담당부서 선택(선택)') => `<option value="">${esc(placeholder)}</option>` + departmentTree.map((dep) => {
         if (!dep.children) return `<option value="${esc(dep.name)}">${esc(dep.name)}</option>`;
-        return `<optgroup label="${esc(dep.name)}"><option value="${esc(dep.name)}">${esc(departmentParentLabel(dep))}</option>${dep.children.map((child) => `<option value="${esc(dep.name)} - ${esc(child)}">　${esc(child === '사무국' ? `${dep.name}(${child})` : child)}</option>`).join('')}</optgroup>`;
+        return `<optgroup label="${esc(dep.name)}"><option value="${esc(dep.name)}">${esc(departmentParentLabel(dep))}</option>${dep.children.map((child) => `<option value="${esc(dep.name)} - ${esc(child)}">　${esc(child)}</option>`).join('')}</optgroup>`;
       }).join('');
       const renderDepartmentFilterOptions = () => '<option value="">전체 부서</option>' + departmentTree.map((dep) => {
         if (!dep.children) return `<option value="${esc(dep.name)}">${esc(dep.name)}</option>`;
-        return `<optgroup label="${esc(dep.name)}"><option value="${esc(dep.name)}">${esc(dep.name)}</option>${dep.children.map((child) => `<option value="${esc(dep.name)} - ${esc(child)}">　${esc(child === '사무국' ? `${dep.name}(${child})` : child)}</option>`).join('')}</optgroup>`;
+        return `<optgroup label="${esc(dep.name)}"><option value="${esc(dep.name)}">${esc(dep.name)}</option>${dep.children.map((child) => `<option value="${esc(dep.name)} - ${esc(child)}">　${esc(child)}</option>`).join('')}</optgroup>`;
       }).join('');
 
       const loginScreen = $('[data-login-screen]');
@@ -1026,6 +1036,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       const canSelectRow = (row) => {
         if (currentView !== '결재대기' || !['검토대기', '협조대기', '결재대기', '전결대기'].includes(row.status)) return false;
         const me = getMe() || {};
+        if (['대결','전대결'].includes(row.approval_mode)) return row.current_actor_user_id === me.id && !!me.can_approve;
         if (me.role === 'admin') return true;
         if (row.current_actor_user_id) return row.current_actor_user_id === me.id;
         return row.status === '검토대기' ? row.reviewer_user_id === me.id : row.approver_user_id === me.id;
@@ -1051,7 +1062,7 @@ import GovLayout from '../layouts/GovLayout.astro';
           </tr>`).join('');
         const colspan = queueMode ? 11 : 10;
         const docCols = `${queueMode ? '<col class="col-check" />' : ''}<col class="col-number" /><col class="col-type" /><col class="col-date" /><col class="col-title" /><col class="col-department" /><col class="col-person" /><col class="col-person" /><col class="col-person" /><col class="col-person" /><col class="col-status" />`;
-        docTable.innerHTML = `<table class="doc-table__frame doc-table__frame--documents"><colgroup>${docCols}</colgroup><thead><tr>${queueMode ? '<th class="doc-table__select" aria-label="선택"></th>' : ''}<th>문서번호</th><th>구분</th><th>등록일</th><th>제목</th><th>담당부서</th><th>기안자</th><th>검토자</th><th>협조자</th><th>결재·전결자</th><th>상태</th></tr></thead><tbody>${body || `<tr class="doc-table__empty-row"><td colspan="${colspan}" class="empty"><strong>조건에 맞는 문서가 없습니다.</strong><span>검색조건을 변경하거나 새 문서를 작성해 주세요.</span></td></tr>`}</tbody></table>`;
+        docTable.innerHTML = `<table class="doc-table__frame doc-table__frame--documents"><colgroup>${docCols}</colgroup><thead><tr>${queueMode ? '<th class="doc-table__select" aria-label="선택"></th>' : ''}<th>문서번호</th><th>구분</th><th>등록일</th><th>제목</th><th>담당부서</th><th>기안자</th><th>검토자</th><th>협조자</th><th>최종 처리자</th><th>상태</th></tr></thead><tbody>${body || `<tr class="doc-table__empty-row"><td colspan="${colspan}" class="empty"><strong>조건에 맞는 문서가 없습니다.</strong><span>검색조건을 변경하거나 새 문서를 작성해 주세요.</span></td></tr>`}</tbody></table>`;
         $$('tr[data-doc-id]', docTable).forEach((tr) => tr.addEventListener('click', (event) => { if (!event.target.closest('[data-no-open]')) openDetail(tr.dataset.docId); }));
         $$('[data-row-select]', docTable).forEach((box) => box.addEventListener('change', () => { box.checked ? selectedIds.add(box.value) : selectedIds.delete(box.value); updateSelection(); }));
         updateSelection();
@@ -1262,17 +1273,40 @@ import GovLayout from '../layouts/GovLayout.astro';
         const mode = getApprovalMode();
         const previous = approverSelect.value;
         const me = getMe() || {};
+        const isProxy = mode === '대결' || mode === '전대결';
         const candidates = allUsers.filter((user) => user.can_approve || (mode === '전결' && user.id === me.id));
-        approverSelect.innerHTML = `<option value="">${mode}자를 선택해 주세요</option>` + candidates.map((user) => `<option value="${esc(user.id)}">${esc(userOptionLabel(user))}</option>`).join('');
+        approverSelect.innerHTML = `<option value="">${mode === '전대결' ? '전결 대결' : mode}자를 선택해 주세요</option>` + candidates.map((user) => `<option value="${esc(user.id)}">${esc(userOptionLabel(user))}</option>`).join('');
         if (candidates.some((user) => user.id === previous)) approverSelect.value = previous;
         else if (mode === '전결' && candidates.some((user) => user.id === me.id)) approverSelect.value = me.id;
-        $('[data-approver-label]').textContent = `${mode}자 *`;
+        const actingFields = $('[data-proxy-fields]');
+        const original = $('[data-acting-for-select]');
+        const oldOriginal = original.value;
+        actingFields.hidden = !isProxy;
+        original.disabled = !isProxy;
+        composeForm.elements.actingReason.disabled = !isProxy;
+        composeForm.elements.actingReason.required = isProxy;
+        original.required = isProxy;
+        original.innerHTML = '<option value="">원 결재·전결권자를 선택해 주세요</option>' + allUsers.filter((user) => user.can_approve).map((user) => `<option value="${esc(user.id)}">${esc(userOptionLabel(user))}</option>`).join('');
+        if (allUsers.some((user) => user.id === oldOriginal && user.can_approve)) original.value = oldOriginal;
+        $('[data-approver-label]').textContent = isProxy ? '실제 대결자(직무대행자) *' : `${mode}자 *`;
         updateTrackHint();
       };
       const approvalPersonHtml = ({ type, user, seal = '　', status = '' }) => `<div class="approval-person ${status ? `approval-person--${esc(status)}` : ''}"><span>${esc(type)}</span><strong><b>${esc(user?.position || '-')}</b><i>${esc(user?.name || '-')}</i></strong><em>${seal}</em></div>`;
       const findCurrentApprovalLine = (lines = []) => {
         const ordered = [...lines].sort((a, b) => Number(a.line_order || 0) - Number(b.line_order || 0));
-        return ordered.find((line, index) => ['대기','예정'].includes(line.status) && ordered.slice(0, index).every((previous) => previous.status === '완료')) || null;
+        return ordered.find((line, index) => ['대기','예정'].includes(line.status) && ordered.slice(0, index).every((previous) => ['완료','전결표시'].includes(previous.status))) || null;
+      };
+      const visibleApprovalLines = (doc, lines) => {
+        if (doc?.approval_mode !== '전대결' || !doc?.form_data?._actingForUserId) return lines;
+        const display = lines.map((line) => line.line_type === '전대결' ? { ...line, line_type: '대결' } : line);
+        const index = lines.findIndex((line) => line.line_type === '전대결');
+        if (index >= 0) display.splice(index, 0, {
+          line_order: Number(lines[index]?.line_order || 1)-0.5,
+          line_type: '전결', user_id: doc.form_data._actingForUserId,
+          user_name: doc.form_data._actingForName || '-', user_position: doc.form_data._actingForPosition || '-',
+          status: '전결표시',
+        });
+        return display;
       };
       const renderApprovalStrip = (container, drafter, lines, detailed = false) => {
         const current = findCurrentApprovalLine(lines);
@@ -1425,9 +1459,12 @@ import GovLayout from '../layouts/GovLayout.astro';
       const updateTrackHint = () => {
         const important = importantCategories.includes(categorySelect.value);
         const mode = getApprovalMode();
+        const proxy = ['대결','전대결'].includes(mode);
         trackChoice.hidden = !(important && mode === '결재');
-        const route = mode === '전결' ? '전결자' : '최종 결재자';
-        trackHint.textContent = `협조자 또는 검토자(선택사항 · 복수 가능) → ${route} 순으로 처리됩니다. 둘 다 지정한 경우 협조 후 검토합니다.`;
+        const route = mode === '전결' ? '전결자' : mode === '대결' ? '대결자' : mode === '전대결' ? '전결권자 지정 → 대결자' : '최종 결재자';
+        trackHint.textContent = proxy && important
+          ? '총회·이사회 등 중요 의결사항에는 대결·전대결을 사용할 수 없습니다.'
+          : `협조자 또는 검토자(선택사항 · 복수 가능) → ${route} 순으로 처리됩니다. 대결 방식은 관리자가 지정 근거를 확인해야 합니다.`;
       };
       categorySelect.innerHTML = allCategories.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
       categorySelect.addEventListener('change', () => {
@@ -1458,7 +1495,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         $('[data-preview-number]').textContent = `문서번호 : 밀교종-${currentKstYear()}-000`;
         const mode = getApprovalMode();
         const important = importantCategories.includes(String(data.get('category')));
-        const track = mode === '전결' ? '전결' : important ? (data.get('approvalTrackChoice') || '이사장결재') : '일반결재';
+        const track = ['전결','전대결'].includes(mode) ? '전결' : important ? (data.get('approvalTrackChoice') || '이사장결재') : '일반결재';
         $('[data-preview-recipient]').textContent = data.get('docType') === '발송' ? (data.get('recipient') || '(수신처 미입력)') : '(내부결재)';
         const via = String(data.get('via') || ''); $('[data-preview-via-row]').hidden = !via; $('[data-preview-via]').textContent = via || '-';
         $('[data-preview-title]').textContent = data.get('title') || '제목을 입력해 주세요';
@@ -1470,7 +1507,8 @@ import GovLayout from '../layouts/GovLayout.astro';
         const previewLines = [
           ...selectedCooperatorIds.map((id) => ({ type: '협조', user: findUser(id) })),
           ...selectedReviewerIds.map((id) => ({ type: '검토', user: findUser(id) })),
-          { type: mode, user: findUser(data.get('approverUserId')) || (mode === '전결' ? me : null) },
+          ...(mode === '전대결' ? [{ type: '전결', user: findUser(data.get('actingForUserId')) }] : []),
+          { type: ['대결','전대결'].includes(mode) ? '대결' : mode, user: findUser(data.get('approverUserId')) || (mode === '전결' ? me : null) },
         ];
         renderApprovalStrip($('[data-preview-approval-strip]'), { name: me.name || '-', position: me.position || '-' }, previewLines, false);
         const issueDisplayMode = String(composeForm.elements.issueDisplayMode?.value || 'organization');
@@ -1541,6 +1579,10 @@ import GovLayout from '../layouts/GovLayout.astro';
             composeForm.elements.department.focus();
             return;
           }
+          if (!saveAsDraft && ['대결','전대결'].includes(payload.approvalMode) && getMe()?.role !== 'admin') {
+            statusEl.textContent='대결·전대결 문서는 관리자가 지정 근거를 확인한 뒤 상신해야 합니다.';
+            return;
+          }
           payload.reviewerUserIds=[...selectedReviewerIds]; payload.cooperatorUserIds=[...selectedCooperatorIds];
           payload.templateName=activeTemplate?.name || ''; payload.clientRequestId=$('[data-compose-request-id]').value || randomRequestId();
           const me=getMe()||{};
@@ -1596,7 +1638,7 @@ import GovLayout from '../layouts/GovLayout.astro';
       };
       const legacyApprovalLines = (doc, approvals = []) => {
         const completedActions = new Set(approvals.map((item) => item.action));
-        const finalType = doc.approval_mode === '전결' || doc.approval_track === '전결' ? '전결' : '결재';
+        const finalType = ['대결','전대결','전결'].includes(doc.approval_mode) ? doc.approval_mode : doc.approval_track === '전결' ? '전결' : '결재';
         const lines = [];
         if (doc.reviewer_user_id || doc.reviewer_name) {
           let status = '예정';
@@ -1619,7 +1661,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         currentDetailId=id;currentDetailDoc=data.document;const doc=data.document,me=getMe()||{};
         currentDetailApprovalLines=(data.approvalLines||[]).length ? data.approvalLines : legacyApprovalLines(doc,data.approvals||[]);
         const modeLabel=doc.approval_mode||((doc.approval_track==='전결')?'전결':'결재');
-        $('[data-detail-title]').textContent=doc.title;$('[data-detail-meta]').textContent=`${doc.id} · ${doc.doc_type} · ${doc.category} · ${modeLabel} · ${doc.approval_track} · 기안자 ${doc.drafter} · ${doc.status} · 열람 ${doc.access_scope||'전체'}`;
+        $('[data-detail-title]').textContent=doc.title;$('[data-detail-meta]').textContent=`${doc.id} · ${doc.doc_type} · ${doc.category} · ${modeLabel} · ${doc.approval_track} · 기안자 ${doc.drafter} · ${doc.status} · 열람 ${doc.access_scope||'전체'}` + (['대결','전대결'].includes(modeLabel) ? ` · 원권자 ${doc.form_data?._actingForPosition||''} ${doc.form_data?._actingForName||'-'} · 지정근거 ${doc.form_data?._actingReason||'확인 필요'}` : '');
         renderDetailFormData(doc);
         $('[data-detail-history]').innerHTML=(data.approvals||[]).map((a)=>`<div class="doc-approval-history__item">${esc(formatDateTime(a.created_at))} · ${esc(a.approver_role||'')} ${esc(a.approver_name)} · <strong>${esc(a.action)}</strong>${a.memo?' · '+esc(a.memo):''}</div>`).join('')||'<p class="muted">결재 이력이 없습니다.</p>';
         const attachments=$('[data-detail-attachments]');attachments.innerHTML=(data.attachments||[]).map((a)=>`<li class="attachment-list__item"><span>${esc(a.file_name)} <span class="muted">(${Math.max(1,Math.round((a.size_bytes||0)/1024))}KB)</span></span><button type="button" class="btn btn-outline" data-download-attachment="${esc(a.id)}">다운로드</button></li>`).join('')||'<li class="muted">등록된 첨부파일이 없습니다.</li>';
@@ -1629,7 +1671,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         const detailTrackLabel=doc.approval_track==='이사장결재'?'이사장 결재':doc.approval_track==='이사회의결'?'이사회 의결':doc.approval_track;
         $('[data-detail-preview-department]').textContent=`담당부서: ${formatDepartmentLabel(doc.department, doc.drafter_position||'')}`;
         $('[data-detail-preview-track]').textContent=`${modeLabel}: ${detailTrackLabel}`;
-        renderApprovalStrip($('[data-detail-preview-approval-strip]'),{name:doc.drafter||'-',position:doc.drafter_position||'-'},currentDetailApprovalLines,true);
+        renderApprovalStrip($('[data-detail-preview-approval-strip]'),{name:doc.drafter||'-',position:doc.drafter_position||'-'},visibleApprovalLines(doc,currentDetailApprovalLines),true);
         const legacySignerEnabled=String(doc.form_data?._issueSignerEnabled||'false')==='true';
         const issueDisplayMode=String(doc.form_data?._issueDisplayMode||(legacySignerEnabled?'signer':'organization'));
         const signerEnabled=issueDisplayMode==='signer';
@@ -1644,8 +1686,9 @@ import GovLayout from '../layouts/GovLayout.astro';
         $('[data-detail-preview-stamp]').style.opacity=['승인','발송완료'].includes(doc.status)?'1':'0.25';
         const currentLine=findCurrentApprovalLine(currentDetailApprovalLines);
         const activeStatus=['검토대기','협조대기','결재대기','전결대기'].includes(doc.status);
-        const canHandle=!!currentLine&&(me.role==='admin'||String(currentLine.user_id||'')===String(me.id||''));
-        const legacyCanHandle=!currentLine&&activeStatus&&(me.role==='admin'||String(doc.status==='검토대기'?doc.reviewer_user_id:doc.approver_user_id)===String(me.id||''));
+        const isProxyLine=['대결','전대결'].includes(currentLine?.line_type);
+        const canHandle=!!currentLine&&(isProxyLine?(String(currentLine.user_id||'')===String(me.id||'')&&!!me.can_approve):(me.role==='admin'||String(currentLine.user_id||'')===String(me.id||'')));
+        const legacyCanHandle=!currentLine&&activeStatus&&!['대결','전대결'].includes(doc.approval_mode)&&(me.role==='admin'||String(doc.status==='검토대기'?doc.reviewer_user_id:doc.approver_user_id)===String(me.id||''));
         decideForm.hidden=!(canHandle||legacyCanHandle);
         const blocked=$('[data-decide-blocked]');
         blocked.hidden=!activeStatus||canHandle||legacyCanHandle;
@@ -1653,7 +1696,7 @@ import GovLayout from '../layouts/GovLayout.astro';
         if(!decideForm.hidden){
           const positive=$('[data-action="승인"]',decideForm);
           const stage=currentLine?.line_type||(doc.status==='검토대기'?'검토':doc.status==='협조대기'?'협조':doc.status==='전결대기'?'전결':'결재');
-          positive.textContent=stage==='검토'?'검토완료':stage==='협조'?'협조완료':stage==='전결'?'전결':'승인';
+          positive.textContent=stage==='검토'?'검토완료':stage==='협조'?'협조완료':['전결','대결','전대결'].includes(stage)?stage:'승인';
           positive.dataset.action='승인';
         }
         const canManageDocument=me.role==='admin'||doc.drafter_user_id===me.id;
@@ -1677,11 +1720,13 @@ import GovLayout from '../layouts/GovLayout.astro';
         composeForm.elements.department.value=normalizeDepartmentValue(doc.department);composeForm.elements.recipient.value=doc.recipient||'';composeForm.elements.via.value=doc.via||'';
         selectedReviewerIds=sourceLines.filter((line)=>line.line_type==='검토').map((line)=>line.user_id).filter(Boolean);
         selectedCooperatorIds=sourceLines.filter((line)=>line.line_type==='협조').map((line)=>line.user_id).filter(Boolean);
-        const finalLine=sourceLines.find((line)=>['결재','전결'].includes(line.line_type));
+        const finalLine=sourceLines.find((line)=>['결재','전결','대결','전대결'].includes(line.line_type));
         const mode=doc.approval_mode||(finalLine?.line_type==='전결'||doc.approval_track==='전결'?'전결':'결재');
         const modeInput=composeForm.querySelector(`input[name="approvalMode"][value="${mode}"]`);if(modeInput)modeInput.checked=true;
         updateApprovalMode();
         approverSelect.value=finalLine?.user_id||doc.approver_user_id||'';
+        composeForm.elements.actingForUserId.value=doc.form_data?._actingForUserId||'';
+        composeForm.elements.actingReason.value=doc.form_data?._actingReason||'';
         composeForm.elements.accessScope.value=doc.access_scope||'전체';
         if(doc.approval_track==='이사회의결')composeForm.elements.approvalTrackChoice.value='이사회의결';
         const tpl=findTemplate(doc.template_id);templateSelect.value=doc.template_id||'';renderTemplateFields(tpl,doc.form_data||{});activeTemplate=tpl||null;
@@ -2634,7 +2679,17 @@ import GovLayout from '../layouts/GovLayout.astro';
     .icon-button:hover:not(:disabled) { background: #edf3fb; border-color: #9db2ce; }
     .icon-button:disabled { opacity: 0.35; cursor: default; }
     .icon-button--danger { color: #a12626; }
-    .approval-mode-row { min-height: 40px; }
+    .approval-mode-row { min-height: 40px; flex-wrap: wrap; gap: 0.55rem 1.1rem; }
+    [data-reviewer-approver-fields] > [data-proxy-fields] {
+      grid-column: 1 / -1; display: grid; grid-template-columns: 145px minmax(0, 1fr);
+      gap: 0.65rem 1rem; align-items: center; padding: 0.75rem 0.85rem;
+      background: #f0f5fc; border: 1px solid #cfdaeb; border-radius: 8px;
+    }
+    [data-reviewer-approver-fields] > [data-proxy-fields][hidden] { display: none !important; }
+    [data-proxy-fields] > .hint { grid-column: 1 / -1; margin: 0 0 0.25rem; }
+    @media (max-width: 760px) {
+      [data-reviewer-approver-fields] > [data-proxy-fields] { grid-template-columns: 1fr; }
+    }
     .file-drop-label { align-self: start; padding-top: 0.1rem; }
 
     .branding-preview {

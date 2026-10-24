@@ -9,7 +9,7 @@ const officePath = '사무처 - 사무국';
 test('사무국의 내부 저장값과 표시값이 일치하며 기존 사무처는 보존된다', () => {
   for (const value of ['사무국', officePath, '사무처(사무국)', ' 사무처 – 사무국 ']) {
     assert.equal(normalizeDepartmentValue(value), officePath, value);
-    assert.equal(formatDepartmentDisplay(value), '사무처(사무국)', value);
+    assert.equal(formatDepartmentDisplay(value), '사무국', value);
   }
   assert.equal(normalizeDepartmentValue('사무처'), '사무처');
   assert.equal(formatDepartmentDisplay('사무처'), '사무처');
@@ -73,8 +73,8 @@ test('자동 스키마 정비는 새 경로를 훼손하지 않으며 과거 이
 
 test('서식 제출·주관기구 목록도 사무처(사무국)을 선택할 수 있다', () => {
   const source = read('functions/_shared/helpers.ts');
-  assert.ok(source.includes("'사무처(사무국)'"));
-  assert.ok((source.match(/'사무처\(사무국\)'/g) || []).length >= 2);
+  assert.ok(source.includes("'사무국'"));
+  assert.ok((source.match(/'사무국'/g) || []).length >= 2);
 });
 
 
@@ -85,9 +85,9 @@ test('임명장·표창장 직위 및 회계 화면의 사무국 소속 표시�
   assert.match(award, /id="award-appointment-position"[^>]*list="award-position-suggestions"/);
   assert.match(award, /<option value="사무국장"><\/option>/);
   for (const page of ['accounting', 'accounting-operations', 'accounting-special']) {
-    assert.match(read(`src/pages/${page}.astro`), /child==='사무국'/, page);
+    assert.match(read(`src/pages/${page}.astro`), /if\(n==='사무처 - 사무국'\)return '사무국'/, page);
   }
-  assert.match(read('src/pages/employee-certificates.astro'), /<option value="사무처\(사무국\)"><\/option>/);
+  assert.match(read('src/pages/employee-certificates.astro'), /<option value="사무국"><\/option>/);
   const employment = read('functions/api/employment/query.ts');
   assert.match(employment, /normalizeDepartmentValue\(user.department,position\)/);
 });
