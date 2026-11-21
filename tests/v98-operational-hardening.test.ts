@@ -56,12 +56,16 @@ test('health readiness requires both D1 and both R2 bindings', () => {
   assert.match(source, /env\.ACCOUNTING_FILES/);
 });
 
-test('release targets current reviewed Astro and Sharp maintenance versions', () => {
+test('release targets current reviewed Astro, Vite, Undici and Sharp maintenance versions', () => {
   const release = fs.readFileSync('scripts/security/check-release.mjs', 'utf8');
   const upgrade = fs.readFileSync('scripts/security/upgrade-dependencies.mjs', 'utf8');
-  assert.match(release, /7\.3\.5/);
+  assert.match(release, /7\.4\.13/);
   assert.match(release, /0\.35\.5/);
-  assert.match(upgrade, /dependencies\.astro=7\.3\.5/);
+  assert.match(upgrade, /dependencies\.astro=7\.4\.13/);
+  assert.match(release, /8\.3\.8/);
+  assert.match(release, /8\.12\.4/);
+  assert.match(upgrade, /overrides\.vite=8\.3\.8/);
+  assert.match(upgrade, /overrides\.undici=8\.12\.4/);
   assert.match(upgrade, /overrides\.sharp=0\.35\.5/);
 });
 
